@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@import "@astro/tokens/tokens.css";
+
+@theme {
+  --color-night: #0B0B14;
+  --color-ink: #14142A;
+  --color-nebula: #2A2350;
+  --color-gold: #D8B46A;
+  --color-moon: #EDE6D6;
+  --color-muted: #8C88A6;
+  --color-haze: #B9B4CF;
+  --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
+  --ease-astro-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-astro-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+html { background: var(--astro-night); color: var(--astro-moon); color-scheme: dark; }
+body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--astro-gold); }
+:focus-visible { outline: 2px solid var(--astro-gold); outline-offset: 3px; border-radius: 4px; }
+
+.skip-link {
+  position: absolute; left: 16px; top: -100px; z-index: 50;
+  padding: 12px 18px; border-radius: 999px; background: var(--astro-gold); color: var(--astro-night);
+  font-weight: 600; text-decoration: none;
+}
+.skip-link:focus { top: 16px; }

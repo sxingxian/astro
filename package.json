@@ -18,5 +18,12 @@
     "eslint": "^10.15.0",
     "turbo": "^2.11.13",
     "typescript": "~6.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "sharp"
+    ]
   }
 }
