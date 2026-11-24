@@ -10,7 +10,7 @@ export function Header() {
         </a>
         <div className="flex items-center gap-3">
           <a href={links.signIn} className="flex min-h-11 items-center px-2 text-sm text-haze no-underline hover:text-moon">Sign in</a>
-          <a href={links.today} className="btn-gold min-h-11 px-5 text-sm">Draw today&apos;s card</a>
+          <a href={links.today} className="btn-gold hidden min-h-11 px-5 text-sm sm:inline-flex">Draw today&apos;s card</a>
         </div>
       </nav>
     </header>

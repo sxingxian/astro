@@ -15,10 +15,16 @@
   --ease-astro-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
+/* Unlayered CSS beats Tailwind's @layer utilities, so base and component
+   rules live in layers and utility classes can still override them. */
+@layer base {
 html { background: var(--astro-night); color: var(--astro-moon); color-scheme: dark; }
 body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 a { color: var(--astro-gold); }
 :focus-visible { outline: 2px solid var(--astro-gold); outline-offset: 3px; border-radius: 4px; }
+}
+
+@layer components {
 
 .skip-link {
   position: absolute; left: 16px; top: -100px; z-index: 50;
@@ -88,10 +94,11 @@ a { color: var(--astro-gold); }
 .pairs-stage { display: flex; justify-content: center; overflow: clip; }
 .pairs-grid { display: grid; grid-template-columns: repeat(3, 150px); gap: 20px; }
 @media (max-width: 559px) {
-  .pairs-grid { scale: 0.62; transform-origin: 50% 0; margin-bottom: -120px; gap: 12px; }
+  .pairs-grid { scale: 0.62; transform-origin: 50% 0; margin-bottom: -148px; gap: 12px; }
 }
 
 .orbit svg { display: block; }
+}
 
 /* Lenis smooth scroll */
 html.lenis, html.lenis body { height: auto; }

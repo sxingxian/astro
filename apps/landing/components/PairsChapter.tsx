@@ -12,7 +12,7 @@ export function PairsChapter() {
             {pairs.items.map((p) => (
               <div key={p.position} className="flex flex-col items-center gap-3.5">
                 <span className="text-xs uppercase tracking-[0.18em] text-muted">{p.position}</span>
-                <div className="relative h-[300px] w-[150px]">
+                <div className="relative h-[360px] w-[150px]">
                   <div className="absolute left-0 top-0" data-anim="pair-major">
                     <CardFace id={p.major} size="md" />
                   </div>
