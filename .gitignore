@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+.wrangler/
+.open-next/
+*.log
+.DS_Store
+
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
