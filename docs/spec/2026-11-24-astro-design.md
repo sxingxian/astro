@@ -19,7 +19,7 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 3. The user taps a position. The server reveals the card at that position.
 4. The 3-card spread is picked in two stages: first 3 cards from a fan of the 22 Majors, then 3 from a fan of the 56 Minors. These are separate shuffles.
 5. The shuffle is verifiable:
-   - Fingerprint = first 16 hex characters of `SHA-256(order.join(",") + ":" + salt)`.
+   - Fingerprint = first 16 hex characters of `SHA-256(order.join(",") + "|" + orientations.join(",") + ":" + salt)`. Orientations are part of the commitment so no card can be flipped after the fingerprint is shown.
    - The salt is 16 random bytes, written as hex.
    - The fingerprint is shown before the pick. The order and salt are revealed only after the reading is complete.
 
