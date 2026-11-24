@@ -42,6 +42,8 @@ export function DeckChapter() {
               <CardBack
                 key={card.index}
                 className="deck-card"
+                anim="deck-card"
+                data={{ angle: card.angle, riffle: card.riffle, index: card.index }}
                 style={{ transform: `rotate(${card.angle}deg)` }}
               />
             )

@@ -7,10 +7,11 @@ import { Hero } from "@/components/Hero";
 import { PairsChapter } from "@/components/PairsChapter";
 import { PromiseChapter } from "@/components/PromiseChapter";
 import { ThreadChapter } from "@/components/ThreadChapter";
+import { MotionProvider } from "@/components/motion/MotionProvider";
 
 export default function Page() {
   return (
-    <>
+    <MotionProvider>
       <div className="progress" data-anim="progress" aria-hidden="true" />
       <Header />
       <Hero />
@@ -21,6 +22,6 @@ export default function Page() {
       <DeeperChapter />
       <FinalCta />
       <Footer />
-    </>
+    </MotionProvider>
   );
 }
