@@ -7,6 +7,7 @@ import { Hero } from "@/components/Hero";
 import { PairsChapter } from "@/components/PairsChapter";
 import { PromiseChapter } from "@/components/PromiseChapter";
 import { ThreadChapter } from "@/components/ThreadChapter";
+import { LazyStarfield } from "@/components/three/LazyStarfield";
 import { MotionProvider } from "@/components/motion/MotionProvider";
 
 export default function Page() {
@@ -14,7 +15,7 @@ export default function Page() {
     <MotionProvider>
       <div className="progress" data-anim="progress" aria-hidden="true" />
       <Header />
-      <Hero />
+      <Hero sky={<LazyStarfield />} />
       <DeckChapter />
       <PairsChapter />
       <ThreadChapter />

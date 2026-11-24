@@ -5,7 +5,13 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: "http://127.0.0.1:4310", ...devices["Desktop Chrome"], channel: "chrome" },
+  use: {
+    baseURL: "http://127.0.0.1:4310",
+    ...devices["Desktop Chrome"],
+    channel: "chrome",
+    // Software WebGL so the starfield renders in headless CI.
+    launchOptions: { args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader"] }
+  },
   webServer: {
     command: "npx serve out -l 4310 --no-port-switching",
     url: "http://127.0.0.1:4310",
