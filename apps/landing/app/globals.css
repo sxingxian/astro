@@ -26,3 +26,69 @@ a { color: var(--astro-gold); }
   font-weight: 600; text-decoration: none;
 }
 .skip-link:focus { top: 16px; }
+
+/* ---------- Components ---------- */
+.chapter { font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--astro-gold); font-weight: 600; }
+.h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: clamp(2.75rem, 6vw, 4.5rem); line-height: 1; letter-spacing: -0.01em; }
+.lede { margin: 0; max-width: 560px; font-size: clamp(1.0625rem, 1.6vw, 1.1875rem); line-height: 1.6; color: #B9B4CF; }
+
+.btn-gold, .btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 26px;
+  border-radius: 999px; font-weight: 600; font-size: 16px; text-decoration: none;
+  transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease;
+}
+.btn-gold { background: var(--astro-gold); color: var(--astro-night); }
+.btn-gold:hover { background: #E6C88A; color: var(--astro-night); }
+.btn-ghost { border: 1px solid rgba(216, 180, 106, 0.45); color: var(--astro-moon); font-weight: 500; }
+.btn-gold:active, .btn-ghost:active { transform: scale(0.97); }
+
+.panel { background: var(--astro-ink); border: 1px solid rgba(216, 180, 106, 0.2); border-radius: 20px; }
+@media (hover: hover) and (pointer: fine) {
+  .btn-ghost:hover { border-color: var(--astro-gold); }
+  .lift { transition: transform var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease; }
+  .lift:hover { transform: translateY(-6px); border-color: var(--astro-gold); }
+}
+
+.card-back {
+  box-sizing: border-box; border: 1px solid var(--astro-gold); border-radius: 12px; background-color: #1C1838;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(216, 180, 106, 0.16) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(-45deg, rgba(216, 180, 106, 0.16) 0 1px, transparent 1px 14px);
+}
+.card-face {
+  position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  text-align: center; background: var(--astro-ink); border: 1px solid var(--astro-gold); border-radius: 12px; color: var(--astro-moon);
+}
+.card-face::after { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(216, 180, 106, 0.32); border-radius: 8px; pointer-events: none; }
+
+.line { display: block; overflow: hidden; padding-bottom: 0.06em; }
+.line-in { display: inline-block; }
+
+.progress { position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 40; background: var(--astro-gold); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* Deck: 22 cards fanned around a point 900px below. */
+.deck-stage { position: relative; margin: 40px auto 0; max-width: 1280px; height: 460px; overflow: clip; }
+.deck { position: absolute; inset: 0; }
+.deck-card { position: absolute; left: 50%; bottom: 0; width: 104px; height: 176px; margin-left: -52px; transform-origin: 50% 900px; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5); }
+.deck-card--chosen { z-index: 5; perspective: 800px; box-shadow: none; }
+.deck-flipper { position: absolute; inset: 0; transform-style: preserve-3d; }
+.deck-side { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 0 0 2px var(--astro-gold), 0 24px 60px rgba(0, 0, 0, 0.55); }
+.deck-side--face { transform: rotateY(180deg); }
+.deck-glow { position: absolute; inset: -18px; border-radius: 24px; background: radial-gradient(closest-side, rgba(216, 180, 106, 0.45), rgba(216, 180, 106, 0)); opacity: 0; }
+@media (max-width: 767px) {
+  .deck-stage { height: 300px; }
+  .deck { scale: 0.6; transform-origin: 50% 100%; }
+}
+
+.steps { margin: 28px auto 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 40px; font-size: 14px; color: var(--astro-moon); }
+.step { display: flex; align-items: center; gap: 10px; }
+.step b { font-family: var(--font-display); font-size: 22px; font-weight: 500; color: var(--astro-gold); }
+
+/* Pairs scale down on phones so three columns always fit. */
+.pairs-stage { display: flex; justify-content: center; overflow: clip; }
+.pairs-grid { display: grid; grid-template-columns: repeat(3, 150px); gap: 20px; }
+@media (max-width: 559px) {
+  .pairs-grid { scale: 0.62; transform-origin: 50% 0; margin-bottom: -120px; gap: 12px; }
+}
+
+.orbit svg { display: block; }
