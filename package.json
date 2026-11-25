@@ -14,7 +14,9 @@
     "test": "turbo run test",
     "e2e": "turbo run e2e",
     "cf:build:landing": "turbo run lint typecheck test build --filter=@astro/landing...",
-    "cf:deploy:landing": "pnpm --filter @astro/landing run deploy"
+    "cf:deploy:landing": "pnpm --filter @astro/landing run deploy",
+    "db:migrate": "pnpm --filter @astro/db run migrate",
+    "db:test": "turbo run test:db"
   },
   "devDependencies": {
     "eslint": "^10.15.0",

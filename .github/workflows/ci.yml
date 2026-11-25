@@ -17,7 +17,20 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    # A throwaway Postgres for integration tests. These credentials exist only inside this job.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: migrator
+          POSTGRES_PASSWORD: migrator
+          POSTGRES_DB: astro_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U migrator" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgres://migrator:migrator@127.0.0.1:5432/astro_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,6 +42,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Create the runtime role used by grants
+        run: psql "$DATABASE_URL_TEST" -c "create role astro_web login password 'astro_web'"
+      - name: Database integration tests
+        run: pnpm db:test
       - run: pnpm build
       - name: End-to-end tests
         run: pnpm e2e
