@@ -18,3 +18,18 @@ test("a member's reading lands in the journal with its note", async ({ page }) =
   await expect(row).toBeVisible();
   await expect(row).toContainText("Note: Felt calmer after the walk.");
 });
+
+test("Patterns waits for a few readings before drawing conclusions", async ({ page }) => {
+  await signUpVerified(page, uniqueEmail("patterns"));
+  await page.goto("/draw/one");
+  await page.getByRole("button", { name: "Card 7 of 78" }).click();
+  await page.getByRole("button", { name: "Turn the card" }).click();
+  await expect(page).toHaveURL(/\/reading\//);
+  await page.goto("/journal");
+  await page.getByRole("link", { name: "Patterns" }).click();
+  await expect(page).toHaveURL(/\/journal\/patterns/);
+  await expect(page.getByRole("heading", { name: "Patterns appear after a few readings" }).first()).toBeVisible();
+  await expect(page.getByText("1 reading", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "All time" }).click();
+  await expect(page).toHaveURL(/range=all/);
+});
