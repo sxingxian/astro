@@ -16,6 +16,7 @@
   "dependencies": {
     "@astro/cards": "workspace:*",
     "@astro/tokens": "workspace:*",
+    "@astro/ui": "workspace:*",
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@gsap/react": "^2.1.2",
