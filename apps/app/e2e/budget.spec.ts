@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 /** Every app route's first-load JavaScript must stay under 200 KB gzipped (spec: performance budget). */
 export const BUDGET_KB = 200;
-const ROUTES = ["/today"];
+const ROUTES = ["/today", "/sign-up", "/sign-in"];
 
 for (const route of ROUTES) {
   test(`first-load JS on ${route} is under ${BUDGET_KB} KB gzipped`, async ({ page }) => {
