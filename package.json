@@ -12,7 +12,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "e2e": "turbo run e2e"
+    "e2e": "turbo run e2e",
+    "cf:build:landing": "turbo run lint typecheck test build --filter=@astro/landing...",
+    "cf:deploy:landing": "pnpm --filter @astro/landing run deploy"
   },
   "devDependencies": {
     "eslint": "^10.15.0",

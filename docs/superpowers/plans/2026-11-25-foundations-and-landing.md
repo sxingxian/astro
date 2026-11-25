@@ -293,6 +293,8 @@
 
 ### Task 9: Cloudflare deploy for the landing page
 
+> **Superseded (2026-11-25):** the owner moved deploys and migrations to Cloudflare Workers Builds. `deploy-landing.yml` was removed; see `docs/deploy.md`.
+
 **Files:**
 - Create: `.github/workflows/deploy-landing.yml`, `docs/deploy.md`
 - Modify: `apps/landing/package.json` (add the scripts `deploy: "wrangler deploy"` and `preview: "wrangler dev"`)

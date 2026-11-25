@@ -43,10 +43,13 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 - **Payments:** Stripe Checkout, with prices set per currency.
 - **AI:** the provider is chosen in admin (Claude, OpenAI or Gemini) and called through Cloudflare AI Gateway, not Workers AI. API keys exist only as Worker secrets.
 - **Bot protection:** Turnstile on every form and on guest draws, plus Bot Fight Mode, the WAF, and Cloudflare Access on /admin*.
-- **CI/CD:**
-  - Pull requests: GitHub Actions runs lint, typecheck and tests, then migrates a Neon branch and deploys a preview.
-  - `main`: migrate production, then `wrangler deploy`.
-  - A failed migration blocks the deploy.
+- **CI/CD:** Cloudflare runs every deploy and every database migration; GitHub Actions never deploys and never holds Cloudflare or database credentials.
+  - Each Worker (landing, app, admin) is connected to the GitHub repo through **Cloudflare Workers Builds**, with build watch paths so only affected Workers rebuild.
+  - Push to `main`: Workers Builds installs, runs lint, typecheck, unit tests and the build, then runs the deploy command. For Workers that own the database the deploy command is `migrate && wrangler deploy`, so a failed migration blocks the deploy.
+  - The migrator connection string is a Workers Builds **build secret** (never a runtime secret); runtime Workers connect through Hyperdrive with the `astro_web` / `astro_admin` roles.
+  - Migrations are expand-then-contract: the previous Worker version keeps serving while a migration runs, so every migration must work with both the old and the new code.
+  - Pull requests: GitHub Actions runs lint, typecheck, unit tests, build and Playwright e2e as a required check. Branch protection on `main` requires it to pass before merge.
+  - Non-production branch builds stay off for Workers whose build has the migrator secret.
 
 ## Design
 - **Colours:** Night #0B0B14, Ink #14142A, Nebula #2A2350, Gold #D8B46A, Moon #EDE6D6, Muted #8C88A6, Error #E26D6D.
@@ -68,7 +71,7 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 
 ## Security baseline
 - Security headers on every host: a strict CSP, HSTS, `frame-ancestors 'none'`, Referrer-Policy and Permissions-Policy.
-- No secrets in the repo. Secrets live in Worker secrets and GitHub Actions secrets.
+- No secrets in the repo. Secrets live in Worker runtime secrets and Workers Builds build secrets; GitHub holds none.
 - Zod validates every input.
 - Draws, limits, prices and entitlements are decided on the server only.
 - Least-privilege database roles: `astro_web`, `astro_admin` and `migrator`.

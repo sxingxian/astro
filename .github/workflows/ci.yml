@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  workflow_call:
   pull_request:
   push:
     branches: [main]
@@ -9,10 +8,10 @@ on:
 permissions:
   contents: read
 
+# Tests only. Deploys and database migrations run in Cloudflare Workers Builds
+# (see docs/deploy.md); this workflow never holds Cloudflare or database secrets.
 concurrency:
-  # github.workflow is the caller's name when deploy-landing reuses this file,
-  # so the deploy gate and the ordinary CI run never cancel each other.
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
