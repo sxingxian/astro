@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 # Tests only. Deploys and database migrations run in Cloudflare Workers Builds
-# (see docs/deploy.md); this workflow never holds Cloudflare or database secrets.
+# (see docs/DEPLOYMENT.md); this workflow never holds Cloudflare or database secrets.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

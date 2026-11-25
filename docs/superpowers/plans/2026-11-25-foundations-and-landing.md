@@ -293,7 +293,7 @@
 
 ### Task 9: Cloudflare deploy for the landing page
 
-> **Superseded (2026-11-25):** the owner moved deploys and migrations to Cloudflare Workers Builds. `deploy-landing.yml` was removed; see `docs/deploy.md`.
+> **Superseded (2026-11-25):** the owner moved deploys and migrations to Cloudflare Workers Builds. `deploy-landing.yml` was removed; see `docs/DEPLOYMENT.md`.
 
 **Files:**
 - Create: `.github/workflows/deploy-landing.yml`, `docs/deploy.md`
