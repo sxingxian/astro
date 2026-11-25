@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { TabBar } from "@/components/TabBar";
 import { getDb } from "@/lib/db";
 import { viewer } from "@/lib/draw/actor";
+import { dueCheckIns } from "@/lib/check-ins";
 import { findToday, type StartResult } from "@/lib/draw/service";
 
 export const metadata = { title: "Today" };
@@ -35,6 +36,7 @@ export default async function TodayPage() {
   const db = getDb();
   const one = actor ? await findToday(db, actor, "one") : null;
   const three = user && actor ? await findToday(db, actor, "three") : null;
+  const due = user ? await dueCheckIns(db, user.id) : [];
 
   return (
     <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8">
@@ -49,6 +51,12 @@ export default async function TodayPage() {
         <p className="eyebrow">Today</p>
         <h1 className="m-0 font-display text-4xl font-medium leading-tight">What would you like to ask the cards today?</h1>
       </div>
+      {due[0] ? (
+        <a href={`/check-in/${due[0].sessionId}`} className="panel flex min-h-14 items-center justify-between gap-3 px-5 py-3 text-moon no-underline">
+          <span>{due.length === 1 ? "1 check-in waiting" : `${due.length} check-ins waiting`}<span className="block text-sm text-muted">How did a past reading turn out?</span></span>
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="#D8B46A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </a>
+      ) : null}
       <SpreadCard title="Today's card" sub="One card from all 78" today={one} start={{ href: "/draw/one", label: "Draw today's card" }} />
       <SpreadCard
         title="Three pairs"
