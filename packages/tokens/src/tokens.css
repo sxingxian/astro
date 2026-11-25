@@ -1,0 +1,17 @@
+:root {
+  --astro-night: #0B0B14;
+  --astro-ink: #14142A;
+  --astro-nebula: #2A2350;
+  --astro-gold: #D8B46A;
+  --astro-moon: #EDE6D6;
+  --astro-muted: #8C88A6;
+  --astro-error: #E26D6D;
+  --astro-paper: #F4EEE2;
+  --astro-ink-day: #1B1830;
+  --astro-gold-deep: #7A5A1E;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --duration-press: 140ms;
+  --duration-hover: 200ms;
+  --duration-ui: 240ms;
+}
