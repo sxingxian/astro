@@ -11,6 +11,9 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
   - Paid, AI insight: instant, labelled as AI.
   - Paid, human reader: delivered within the SLA, 48 h by default, set in admin.
 - **Reversals:** on by default, at a 30% reversal rate (configurable in admin).
+- **Card meanings:** original text written for Astro (not copied from books or sites): for each of the 78 cards an upright and a reversed meaning (a one-line summary plus an elaborated body), a line for the card as a 3-card theme (Majors) or clarifier (Minors), and a line for each position (Past, Present, Future). Editable later in admin.
+- **Patterns (free account):** a view in the Journal showing cards that keep returning, the balance of elements (Minor suits), the Major share, reversals and check-in outcomes over 30 days, 90 days or all time. Deterministic text, no AI. Readings marked private are left out. Mockup: canvas artboard "7b · Patterns".
+- **7-day check-in (free account):** 7 to 30 days after a reading, the app asks "How did it turn out?" (It fit / Partly / Not really, plus an optional note). Private; feeds Patterns only; can be turned off in Account. Mockup: canvas artboard "7c · 7-day check-in".
 - **Daily limit:** one reading per spread per calendar day, in the user's own timezone. There is no "shuffle again".
 
 ## Draw rules
@@ -19,7 +22,7 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 3. The user taps a position. The server reveals the card at that position.
 4. The 3-card spread is picked in two stages: first 3 cards from a fan of the 22 Majors, then 3 from a fan of the 56 Minors. These are separate shuffles.
 5. The shuffle is verifiable:
-   - Fingerprint = first 16 hex characters of `SHA-256(order.join(",") + "|" + orientations.join(",") + ":" + salt)`. Orientations are part of the commitment so no card can be flipped after the fingerprint is shown.
+   - Fingerprint = first 32 hex characters (128 bits) of `SHA-256(order.join(",") + "|" + orientations.join(",") + ":" + salt)`, shown as 8 groups of 4. Orientations are part of the commitment so no card can be flipped after the fingerprint is shown. (Owner decision 2026-11-26: lengthened from 16 hex so two orders cannot practically share a fingerprint.)
    - The salt is 16 random bytes, written as hex.
    - The fingerprint is shown before the pick. The order and salt are revealed only after the reading is complete.
 
@@ -39,6 +42,7 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 - **Accounts:** Better Auth, stored in Neon.
   - Sign-in is email and password only. There is no Google sign-in.
   - TOTP 2-factor sign-in is optional for users and required for staff.
+- **Email:** Resend (sign-up confirmation, password reset). Sending domain set in DEPLOYMENT.md.
 - **Card art storage:** R2.
 - **Payments:** Stripe Checkout, with prices set per currency.
 - **AI:** the provider is chosen in admin (Claude, OpenAI or Gemini) and called through Cloudflare AI Gateway, not Workers AI. API keys exist only as Worker secrets.
