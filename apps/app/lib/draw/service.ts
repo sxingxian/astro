@@ -26,12 +26,12 @@ export interface StartResult {
   sessionId: string;
   spread: Spread;
   status: "picking" | "complete";
+  timeZone: string;
   decks: DeckView[];
 }
 
 export interface Reading extends StartResult {
   localDay: string;
-  timeZone: string;
   private: boolean;
   createdAt: string;
   completedAt: string | null;
@@ -77,7 +77,7 @@ async function decksFor(db: Db, sessionId: string): Promise<DeckRow[]> {
 }
 
 function startResult(s: SessionRow, decks: DeckRow[]): StartResult {
-  return { sessionId: s.id, spread: s.spread, status: s.status, decks: decks.map(deckView) };
+  return { sessionId: s.id, spread: s.spread, status: s.status, timeZone: s.timeZone, decks: decks.map(deckView) };
 }
 
 /** The person's reading for this spread that still counts as "today" in the reading's own timezone, if any. */
@@ -219,7 +219,6 @@ export async function getReading(db: Db, actor: Actor, sessionId: string, _now: 
   const base: Reading = {
     ...startResult(s, decks),
     localDay: s.localDay,
-    timeZone: s.timeZone,
     private: s.private,
     createdAt: s.createdAt.toISOString(),
     completedAt: s.completedAt ? s.completedAt.toISOString() : null

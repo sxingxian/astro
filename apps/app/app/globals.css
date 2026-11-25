@@ -50,3 +50,39 @@
     .btn-ghost:hover { border-color: var(--astro-gold); }
   }
 }
+
+/* ---------- Draw: the fan of face-down cards ---------- */
+@layer components {
+  .fan { display: flex; overflow-x: auto; overscroll-behavior-x: contain; padding: 28px 20px 12px; scrollbar-width: thin; }
+  .fan-card {
+    flex: none; width: 56px; height: 92px; margin-left: -26px; padding: 0; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+    transition: transform var(--duration-hover) var(--ease-out);
+  }
+  .fan-card:first-child { margin-left: 0; }
+  .fan-card .card-back { width: 100%; height: 100%; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45); }
+  .fan-card[aria-pressed="true"] { transform: translateY(-16px); }
+  .fan-card[aria-pressed="true"] .card-back { box-shadow: 0 0 0 2px var(--astro-gold), 0 12px 30px rgba(216, 180, 106, 0.35); }
+  .fan-card:disabled { cursor: default; }
+  .fan-card:focus-visible { outline: 2px solid var(--astro-moon); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) {
+    .fan-card:not(:disabled):hover { transform: translateY(-8px); }
+    .fan-card[aria-pressed="true"]:hover { transform: translateY(-16px); }
+  }
+
+  /* The flip on reveal: 600 ms is a deliberate ritual moment (the spec's one exception to the 300 ms rule). */
+  .flip { perspective: 900px; }
+  .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 600ms var(--ease-in-out); }
+  .flip.is-flipped .flip-inner { transform: rotateY(180deg); }
+  .flip-side { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .flip-face { transform: rotateY(180deg); }
+  .flip-side > * { width: 100%; height: 100%; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fan-card, .fan-card[aria-pressed="true"], .fan-card:hover { transition: none; transform: none; }
+    .flip-inner, .flip.is-flipped .flip-inner { transition: none; transform: none; }
+    .flip-face { transform: none; opacity: 0; transition: opacity 200ms ease; }
+    .flip-back { transition: opacity 200ms ease; }
+    .flip.is-flipped .flip-face { opacity: 1; }
+    .flip.is-flipped .flip-back { opacity: 0; }
+  }
+}

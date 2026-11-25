@@ -1,11 +1,21 @@
-import { getSessionUser } from "../auth";
+import { getSessionUser, type SessionUser } from "../auth";
 import { existingGuestHash } from "./guest";
 import type { Actor } from "./service";
 
-/** The person behind a read or pick: a signed-in member, or a guest with an existing cookie. */
+export interface Viewer {
+  actor: Actor | null;
+  user: SessionUser | null;
+}
+
+/** Who is looking: a signed-in member, a guest with an existing cookie, or nobody yet. */
+export async function viewer(headers: Headers): Promise<Viewer> {
+  const user = await getSessionUser(headers);
+  if (user) return { user, actor: { kind: "user", userId: user.id, timeZone: user.timeZone } };
+  const guestHash = await existingGuestHash(headers);
+  return { user: null, actor: guestHash ? { kind: "guest", guestHash, ipHash: "", timeZone: "UTC" } : null };
+}
+
+/** The person behind a read or pick request. */
 export async function readerActor(request: Request): Promise<Actor | null> {
-  const user = await getSessionUser(request.headers);
-  if (user) return { kind: "user", userId: user.id, timeZone: user.timeZone };
-  const guestHash = await existingGuestHash(request);
-  return guestHash ? { kind: "guest", guestHash, ipHash: "", timeZone: "UTC" } : null;
+  return (await viewer(request.headers)).actor;
 }

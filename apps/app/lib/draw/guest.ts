@@ -9,8 +9,9 @@ async function hmac(secret: string, message: string): Promise<string> {
   return hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message)));
 }
 
-function readCookie(request: Request, name: string): string | null {
-  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+function readCookie(source: Request | Headers, name: string): string | null {
+  const headers = source instanceof Request ? source.headers : source;
+  for (const part of (headers.get("cookie") ?? "").split(";")) {
     const [k, ...v] = part.trim().split("=");
     if (k === name) return v.join("=");
   }
@@ -42,8 +43,8 @@ export async function guestIdentity(request: Request, secret: string, now: Date 
 }
 
 /** Only the hash of an existing cookie, for reads and picks (never mints a new guest). */
-export async function existingGuestHash(request: Request): Promise<string | null> {
-  const raw = readCookie(request, GUEST_COOKIE);
+export async function existingGuestHash(source: Request | Headers): Promise<string | null> {
+  const raw = readCookie(source, GUEST_COOKIE);
   return raw && /^[0-9a-f]{32}$/.test(raw) ? sha256(`guest:${raw}`) : null;
 }
 
