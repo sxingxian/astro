@@ -9,7 +9,8 @@
         "out/**",
         "dist/**",
         ".next/**",
-        "!.next/cache/**"
+        "!.next/cache/**",
+        ".open-next/**"
       ]
     },
     "lint": {},

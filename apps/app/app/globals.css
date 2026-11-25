@@ -1,0 +1,52 @@
+@import "tailwindcss";
+@import "@astro/tokens/tokens.css";
+@import "@astro/ui/card.css";
+@source "../../../packages/ui/src";
+
+@theme {
+  --color-night: #0B0B14;
+  --color-ink: #14142A;
+  --color-nebula: #2A2350;
+  --color-gold: #D8B46A;
+  --color-moon: #EDE6D6;
+  --color-muted: #8C88A6;
+  --color-haze: #B9B4CF;
+  --color-error: #E26D6D;
+  --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  html { background: var(--astro-night); color: var(--astro-moon); color-scheme: dark; }
+  body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--astro-gold); }
+  :focus-visible { outline: 2px solid var(--astro-gold); outline-offset: 3px; border-radius: 4px; }
+}
+
+@layer components {
+  .skip-link { position: absolute; left: 16px; top: -100px; z-index: 50; padding: 12px 18px; border-radius: 999px; background: var(--astro-gold); color: var(--astro-night); font-weight: 600; text-decoration: none; }
+  .skip-link:focus { top: 16px; }
+  .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--astro-gold); font-weight: 600; }
+  .panel { background: var(--astro-ink); border: 1px solid rgba(216, 180, 106, 0.16); border-radius: 20px; }
+  .btn-gold, .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 24px;
+    border-radius: 999px; font-weight: 600; font-size: 16px; text-decoration: none; border: 0; cursor: pointer; font-family: inherit;
+    transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease;
+  }
+  .btn-gold { background: var(--astro-gold); color: var(--astro-night); }
+  .btn-ghost { background: transparent; border: 1px solid rgba(216, 180, 106, 0.45); color: var(--astro-moon); font-weight: 500; }
+  .btn-gold:active, .btn-ghost:active { transform: scale(0.97); }
+  .btn-gold:disabled { opacity: 0.6; cursor: not-allowed; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label { font-size: 14px; color: var(--astro-haze); }
+  .input {
+    box-sizing: border-box; width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(216, 180, 106, 0.25);
+    background: var(--astro-ink); color: var(--astro-moon); font: 16px/1.4 var(--font-sans);
+  }
+  .input:focus-visible { border-color: var(--astro-gold); }
+  .error-text { color: #E26D6D; font-size: 14px; }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-gold:hover { background: #E6C88A; }
+    .btn-ghost:hover { border-color: var(--astro-gold); }
+  }
+}
