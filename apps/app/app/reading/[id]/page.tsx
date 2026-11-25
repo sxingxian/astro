@@ -2,12 +2,14 @@ import { CardFace } from "@astro/ui";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { FlipCard } from "@/components/draw/FlipCard";
+import { ReadingNotes } from "@/components/journal/ReadingNotes";
 import { TabBar } from "@/components/TabBar";
 import { getDb } from "@/lib/db";
 import { viewer } from "@/lib/draw/actor";
 import { describe } from "@/lib/draw/describe";
 import { DrawError } from "@/lib/draw/errors";
 import { getReading, type Reading } from "@/lib/draw/service";
+import { getNote } from "@/lib/journal";
 
 export const metadata = { title: "Your reading" };
 
@@ -32,11 +34,15 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const { reading, user } = await load(id);
   if (reading.status !== "complete") redirect(reading.spread === "one" ? "/draw/one" : "/draw/three");
+  const note = user ? await getNote(getDb(), user.id, reading.sessionId) : null;
 
   const footer = (
     <div className="flex flex-col gap-4">
       {user ? (
-        <p className="m-0 text-sm text-muted">Saved to your journal.</p>
+        <>
+          <ReadingNotes sessionId={reading.sessionId} note={note} isPrivate={reading.private} />
+          <p className="m-0 text-sm text-muted">Saved to your journal.</p>
+        </>
       ) : (
         <div className="panel flex flex-col gap-3 p-5">
           <p className="m-0 font-display text-2xl">Keep this reading</p>
