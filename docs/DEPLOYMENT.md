@@ -6,13 +6,13 @@ Every step below is done on a website, in your browser: **Cloudflare**, **GitHub
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
 | `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | **Built (plan 2)** |
-| `astro.midnightpoetry.studio/admin` | Admin portal: pricing, contacts, AI provider, readers | `astro-admin` | Plan 4 |
+| `astro.midnightpoetry.studio/admin` | Admin portal: team, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3, part A)** |
 
 Sections marked *(plan N)* are for parts that aren't built yet. They're here so the whole setup is planned in one place.
 
 ## Before you start
 
-**Accounts:** Cloudflare (with `midnightpoetry.studio`), GitHub (owner of `sxingxian/astro`), Neon, Resend.
+**Accounts:** Cloudflare (with `midnightpoetry.studio`), GitHub (owner of `sxingxian/astro`), Neon, Resend, and an account at each AI company you'll use (step 12).
 
 **A password manager with a password generator** (Bitwarden, 1Password, Apple Passwords or similar). You'll create several secret values. For each one:
 
@@ -30,9 +30,13 @@ Sections marked *(plan N)* are for parts that aren't built yet. They're here so 
 | Turnstile site key (not secret) | Cloudflare (step 6) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
 | Turnstile secret key | Cloudflare (step 6) | `astro-app` secret `TURNSTILE_SECRET_KEY` |
 | Resend API key | Resend (step 7) | `astro-app` secret `RESEND_API_KEY` |
-| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-app` secret `BETTER_AUTH_SECRET` |
+| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-app` **and** `astro-admin` secret `BETTER_AUTH_SECRET` (the same value in both) |
+| `astro_admin` database password and address | Neon (step 4, item 6) | Cloudflare → Hyperdrive `astro-admin` (step 5) |
+| Admin Hyperdrive ID (not secret) | Cloudflare (step 5) | GitHub file `apps/admin/wrangler.jsonc` (step 8) |
+| AI key encryption key | Your password manager (64 characters, **numbers only**) | `astro-admin` secret `AI_KEY_ENCRYPTION_KEY` (step 14) |
+| AI company API keys | Each AI company's website (step 12) | Admin portal → **AI settings**. Never a Cloudflare secret. |
 
-The two values that aren't secret (Hyperdrive ID and Turnstile site key) can instead be sent to Claude, who will put them into the code for you.
+The values that aren't secret (the Hyperdrive IDs and the Turnstile site key) can instead be sent to Claude, who will put them into the code for you.
 
 ## How a release goes out
 
@@ -160,6 +164,29 @@ At **console.neon.tech**:
    **d. Where each one goes.**
    - **migrator address:** Cloudflare → `astro-app` → build secret `DATABASE_URL_MIGRATOR` (step 9).
    - **astro_web address:** Cloudflare → Hyperdrive `astro-web` (step 5).
+6. **The admin portal's user, `astro_admin`** *(plan 3)*. The portal gets its own database user with fewer permissions than the app: it can manage staff, settings and AI services, read the audit log and count readings, but it can never read journal or check-in notes, or change the database structure.
+
+   > **Do this before the admin portal's pull request is merged.** Merging deploys the app, and the app's database update gives `astro_admin` its permissions only if the user already exists. If it doesn't exist yet, the portal will later fail with `permission denied`.
+
+   1. Generate a third password in your password manager ("Astro · Neon astro_admin password", letters and numbers, 40+ characters).
+   2. In **SQL Editor** (database `neondb`), paste this with the password between the quotes, press **Run**, then clear the editor:
+
+      ```sql
+      CREATE ROLE astro_admin LOGIN PASSWORD 'paste-astro-admin-password-here';
+      ```
+   3. Check it (should return `f`, meaning it has no administrator powers):
+
+      ```sql
+      select rolsuper from pg_roles where rolname = 'astro_admin';
+      ```
+   4. Make its address in the password manager the same way as in item 5: a new entry "Astro · Neon astro_admin address", Neon's address with `astro_admin:` and this password in place of `neondb_owner:` and Neon's password. It goes into Hyperdrive `astro-admin` (step 5).
+   5. **After the merge** (when the `astro-app` build log shows `migrations: … applied`), check the permissions arrived. This should return `t`:
+
+      ```sql
+      select has_table_privilege('astro_admin', 'staff_role', 'SELECT');
+      ```
+
+      If it returns `f`, tell Claude: the permissions need a small database update, because the user was created after the app's update ran.
 
 ## 5. Cloudflare: Hyperdrive (the app's link to the database)
 
@@ -193,7 +220,12 @@ Hyperdrive keeps the app's connections to Neon fast and keeps the database passw
 
 **Turn caching off.** Open `astro-web` → **Settings**. If there's a **Caching** section, switch caching **off** and **Save**. This matters for security: with caching on, a session that was just signed out or revoked can keep working for up to about a minute. Cloudflare's own docs only describe this switch for the command line. If your Settings page has no caching option, send Claude a screenshot of it before the app's first deploy, and Claude will handle it another way.
 
-*(plan 4)* Later you'll make a second configuration, `astro-admin`, for the admin portal in the same way.
+**The admin portal's configuration** *(plan 3)*. Make a second configuration the same way:
+
+- **Name:** `astro-admin`
+- **Connection:** the **astro_admin** address from step 4, item 6 (user `astro_admin`).
+- After it's created, turn **caching off** in its **Settings**, for the same reason as above.
+- Copy its **ID**. It isn't secret; it goes into `apps/admin/wrangler.jsonc` (step 8).
 
 ## 6. Cloudflare: Turnstile (bot check on forms)
 
@@ -226,6 +258,8 @@ Emails come from `astro-noreply@app.midnightpoetry.studio` (set in step 8). Rese
 - sending address `Astro <astro-noreply@app.midnightpoetry.studio>`.
 
 None of these is secret. You only need this step again if you recreate the Hyperdrive configuration or the Turnstile widget, or change the sending address.
+
+**Admin portal** *(plan 3)*: `apps/admin/wrangler.jsonc` still has a placeholder Hyperdrive ID (`00000000000000000000000000000000`). Send Claude the `astro-admin` Hyperdrive ID from step 5, or replace the placeholder yourself as below. The portal's Turnstile site key and sending address are already set to the same values as the app's.
 
 To change them later, send the new values to Claude, or edit the file on github.com:
 
@@ -263,8 +297,9 @@ Then **Settings → Variables and Secrets → Add**, choosing type **Secret** fo
 | `BETTER_AUTH_SECRET` | a new 64-character value from your password manager, letters and numbers |
 | `TURNSTILE_SECRET_KEY` | Turnstile secret key (step 6) |
 | `RESEND_API_KEY` | Resend API key (step 7) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 3)* |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | from step 12, only the providers you use *(plan 3)* |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 4)* |
+
+AI company keys are **not** Cloudflare secrets. You add them in the admin portal (step 12), where they're encrypted before they're stored.
 
 **What `BETTER_AUTH_SECRET` is for.** Hashing passwords in the database (Workers Free) didn't remove the need for it, because it does other jobs:
 
@@ -283,7 +318,7 @@ If the first build ran before the settings were in place, it may have failed or 
 
 The app's other settings (address, sending email, Turnstile on, leaked-password check on) live in `apps/app/wrangler.jsonc`, because each deploy replaces settings typed into the dashboard with the file's. Only secrets go in the dashboard.
 
-**Never put the migrator address, Stripe keys or AI keys anywhere except the Cloudflare secret fields above.**
+**Never put the migrator address or Stripe keys anywhere except the Cloudflare secret fields above, and AI keys anywhere except the admin portal's AI settings.**
 
 ## 10. Database updates (nothing to do)
 
@@ -292,9 +327,9 @@ Cloudflare updates the database structure on every `astro-app` deploy (`pnpm db:
 - If an update fails, the deploy stops and the current version keeps serving.
 - Every update is written so the current version and the new one both work during the switch.
 - Before a big change, Claude will say so. Make a restore point first: Neon → **Branches → Create branch** from `main`.
-- *(plan 4)* The admin Worker never changes the database structure.
+- The admin Worker (`astro-admin`) never changes the database structure. Only `astro-app` does, so deploy order matters once: see step 14.
 
-## 11. Stripe *(plan 3)*
+## 11. Stripe *(plan 4)*
 
 At **dashboard.stripe.com**:
 
@@ -308,26 +343,69 @@ At **dashboard.stripe.com**:
 4. Prices per currency are set in Astro, not typed into Stripe by hand.
 5. Rehearse in **Test mode** first, paying with card `4242 4242 4242 4242`.
 
-## 12. AI readings: AI Gateway *(plan 3)*
+## 12. AI services: AI Gateway and keys *(plan 3; AI readings themselves arrive in plan 4)*
 
-1. At **dash.cloudflare.com** → **AI → AI Gateway → Create gateway** → name `astro`. Turn on **logging** and **rate limiting**.
-2. At each AI provider you want (Anthropic, OpenAI, Google), create an API key and set a monthly spending limit there. Add each key as an `astro-app` secret (step 9).
-3. Choose the provider and model in Astro's admin portal *(plan 4)*. The app always calls the provider through the gateway.
+1. At **dash.cloudflare.com** → **AI → AI Gateway → Create gateway** → name `astro` (exactly this; the address in `apps/admin/wrangler.jsonc` ends in `/astro`). Turn on **rate limiting**. Leave **Authenticated gateway** off for now.
+2. At each AI company you want, create an API key and set a **monthly spending limit** on their website. Each reading uses three different companies, so plan on at least three, and four or more so one outage doesn't pause readings. Anthropic, OpenAI and Google go through the gateway; any other OpenAI-compatible service (for example Mistral or DeepSeek) is added as an "Other service" with its https address.
+3. Add each key in the admin portal: **AI settings → Add a service**. Saving a key asks for your authenticator code, emails you, and is written to the audit log. Keys are encrypted with `AI_KEY_ENCRYPTION_KEY` (step 14) before they're stored, and only their last 4 characters are ever shown again.
+4. Press **Test** on each service, then choose a main service and 2 fallbacks for the writer and both checkers, and **Save roles**. The banner turns **Ready** when every role has 3 tested services across at least 3 companies.
 
 ## 13. Card art: R2 *(later plan)*
 
 The app currently draws cards as line art, so nothing is needed yet. When the final artwork is ready: **dash.cloudflare.com → R2 → Create bucket** `astro-card-art`, location hint Asia-Pacific. Leave public access off; the app serves the images itself.
 
-## 14. Admin Worker `astro-admin` *(plan 4)*
+## 14. Admin portal: Worker `astro-admin` *(plan 3)*
 
-Create a third Worker the same way as step 9, named **`astro-admin`**. Plan 4 gives its exact build and deploy commands, with non-production branch builds off. It answers on `astro.midnightpoetry.studio/admin`; everything else at that address stays the landing page.
+Do steps 4 (item 6), 5 and 8 for the portal first. Then, in this order:
 
-**Cloudflare Access** (keeps everyone but staff out): **dash.cloudflare.com → Zero Trust → Access → Applications → Add an application → Self-hosted**:
+**a. Cloudflare Access first** (keeps everyone but staff away from `/admin` before the portal exists). At **dash.cloudflare.com → Zero Trust** (the first visit asks you to pick a team name and the **Free** plan, which covers up to 50 people; it may ask for a card but doesn't charge) → **Access** (some accounts: **Access controls**) → **Applications → Add an application → Self-hosted**:
 
+- **Application name:** `Astro admin`
 - **Application domain:** `astro.midnightpoetry.studio`, **path** `admin*`
-- **Policy:** Allow, **Emails** = the staff addresses. **Session duration:** 8 hours.
+- **Session duration:** 8 hours
+- **Policy:** name `Staff`, action **Allow**, include **Emails** = your address and each staff member's (owner, admins, moderators). Readers never need this: they work in the app.
+- Save. Check: open `https://astro.midnightpoetry.studio/admin` in a private window. Cloudflare's sign-in page should appear.
 
-Staff then sign in to Astro itself, where an authenticator app is required. Plan 4 will add the step to make yourself the first administrator.
+**b. Generate the AI key encryption key.** In your password manager, generate a value of **exactly 64 characters, numbers only** and save it as "Astro · AI key encryption key". (Numbers only, because the portal reads it as hexadecimal.) Treat it like `BETTER_AUTH_SECRET`: if it's ever changed, every AI key must be entered again.
+
+**c. Create the Worker.** **Workers & Pages → Create → Import a repository** → `sxingxian/astro`:
+
+- **Project name:** `astro-admin` (exactly this)
+- **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:admin`
+- **Deploy command:** `pnpm cf:deploy:admin` (no database update: `astro-app` does that)
+- **Root directory:** `/`
+
+Then **Settings → Build**:
+
+- **Git branch (production):** `main`. **Non-production branch builds: off.**
+- **Build variables:** `NODE_VERSION` = `22`
+- **Build watch paths → Include:** `apps/admin/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
+
+And **Settings → Variables and Secrets → Add**, type **Secret** for each:
+
+| Name | Value |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | **the same value as `astro-app`'s** (accounts are shared; portal sessions are kept separate anyway) |
+| `AI_KEY_ENCRYPTION_KEY` | the 64-digit value from b |
+| `RESEND_API_KEY` | a second Resend key named `astro-admin` (same settings as step 7), so either can be revoked alone |
+| `TURNSTILE_SECRET_KEY` | the same Turnstile secret key as the app (step 6) |
+
+**Deployments → Retry build.** The portal then answers at `astro.midnightpoetry.studio/admin`, behind Access; everything else at that address stays the landing page.
+
+**Order the first time:** the `astro-app` deploy that includes the portal's database update must have run before the portal is used. Merging the admin portal pull request does that (check `astro-app` → **Deployments** shows it finished), then retry the `astro-admin` build if it ran first.
+
+**d. Make yourself the owner (once).** The portal has no sign-up: everyone joins by invitation, and the first owner is set by hand.
+
+1. Sign up on the app (`astroapp.midnightpoetry.studio`) with your email, if you haven't already, and confirm it.
+2. In Neon's **SQL Editor**, with your email between the quotes, press **Run**:
+
+   ```sql
+   insert into staff_role (user_id, role, granted_at) select id, 'owner', now() from "user" where email = 'your-email@example.com';
+   ```
+
+   It should say `INSERT 0 1`. There can only ever be one owner; running it again with another email fails on purpose.
+3. Open `astro.midnightpoetry.studio/admin`, pass Cloudflare Access, sign in with your app email and password, and set up your authenticator app when asked. Every portal change after that needs a code from it.
+4. Invite the rest of the team from **Team and roles**. Each invitee accepts in the app (with 2-step sign-in on), and you add their email to the Access policy in a.
 
 ## 15. After the first deploy: checks
 
@@ -351,10 +429,19 @@ All of these are done in a browser.
 - [ ] At **securityheaders.com**, scan `https://astroapp.midnightpoetry.studio/today`: Content-Security-Policy is listed and contains `nonce-` and `frame-ancestors 'none'`.
 - [ ] **Workers Free check:** a day after launch, open Cloudflare → `astro-app` → **Observability**. CPU time per request should stay under 10 ms for sign-in and the main pages. If it regularly doesn't, upgrade to Workers Paid (step 9).
 
-**Paid readings and admin** *(plans 3–4)*:
+**Admin portal** *(plan 3)*:
+
+- [ ] Open `https://astro.midnightpoetry.studio/admin` in a private window: Cloudflare Access's sign-in page appears, not the portal.
+- [ ] After passing Access, sign in as the owner with your authenticator code; the menu shows Dashboard, AI settings, Site settings, Users, Team and roles and Audit log.
+- [ ] Signed in to the portal, open your browser's developer tools → **Network**, reload, and click the page's first request: its response headers include `Content-Security-Policy`, `X-Robots-Tag: noindex` and `Cache-Control: no-store`. (Online scanners only see Access's sign-in page, so use the browser here.)
+- [ ] Neon: `select has_table_privilege('astro_admin', 'staff_role', 'SELECT');` returns `t` (step 4, item 6).
+- [ ] **Audit log** lists your sign-in.
+- [ ] **AI settings:** add one service with a real key and press **Test**: "Test passed". The email "an AI service key was changed" arrives.
+- [ ] **Site settings:** turn **Maintenance mode** on (it asks for a code); within a minute `astroapp.midnightpoetry.studio` shows "Astro is resting for a moment". Turn it off again.
+
+**Paid readings** *(plan 4)*:
 
 - [ ] Buy an AI reading in Stripe test mode; it appears in the journal and the admin portal.
-- [ ] Open `/admin` in a private window: Cloudflare Access blocks it.
 - [ ] Have the privacy notice and terms reviewed before public launch (`/terms` and `/privacy` don't exist yet).
 
 ## 16. Rolling back
