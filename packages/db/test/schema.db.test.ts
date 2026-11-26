@@ -22,7 +22,7 @@ describe("schema", () => {
     const rows = await sql<{ table_name: string }[]>`select table_name from information_schema.tables where table_schema = 'public'`;
     const names = rows.map((r) => r.table_name).sort();
     expect(names).toEqual(
-      ["account", "app_setting", "check_in", "draw_deck", "draw_session", "guest_day_cap", "mail_outbox", "rate_limit", "reading_note", "session", "two_factor", "user", "verification"].sort()
+      ["account", "ai_role_slot", "ai_service", "app_setting", "audit_log", "check_in", "draw_deck", "draw_session", "guest_day_cap", "invite", "mail_outbox", "rate_limit", "reading_note", "session", "staff_role", "two_factor", "user", "verification"].sort()
     );
   });
 
