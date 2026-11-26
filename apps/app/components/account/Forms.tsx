@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FormError } from "../AuthShell";
+import { useNewPassword } from "../NewPassword";
 import { postJson } from "@/lib/client";
 
 function useAction() {
@@ -26,6 +27,7 @@ function useAction() {
 export function ChangePassword() {
   const { busy, error, note, run } = useAction();
   const [open, setOpen] = useState(false);
+  const next = useNewPassword({ label: "New password", confirmLabel: "Confirm new password", id: "pw-next" });
   if (!open)
     return (
       <div className="flex flex-col gap-2">
@@ -38,19 +40,21 @@ export function ChangePassword() {
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
+        if (!next.matches()) return;
         const f = new FormData(e.currentTarget);
         const form = e.currentTarget;
         void run(async () => {
-          const res = await postJson("/api/account/password", { currentPassword: f.get("current"), newPassword: f.get("next") });
+          const res = await postJson("/api/account/password", { currentPassword: f.get("current"), newPassword: next.password });
           if (!res.ok) throw new Error(res.status === 400 || res.status === 401 ? res.data.message ?? "Check your current password, and use at least 12 characters." : "Something went wrong.");
           form.reset();
+          next.reset();
           setOpen(false);
           return "Password changed. Other devices have been signed out.";
         });
       }}
     >
       <div className="field"><label htmlFor="pw-current">Current password</label><input id="pw-current" name="current" type="password" autoComplete="current-password" required className="input" /></div>
-      <div className="field"><label htmlFor="pw-next">New password</label><input id="pw-next" name="next" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className="input" /></div>
+      {next.fields}
       <FormError message={error} />
       {note ? <p role="status" className="m-0 text-sm text-gold">{note}</p> : null}
       <div className="flex gap-3">
