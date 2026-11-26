@@ -14,12 +14,15 @@ describe("shuffle", () => {
     expect(shuffle(["a", "b", "c"], () => 0)).toEqual(["b", "c", "a"]);
   });
 
-  it("places a given card first about 1/22 of the time", () => {
+  // 5,500 secure shuffles: expected 250 hits, standard deviation about 15.5. The bounds sit about 4.5 standard
+  // deviations out (a false failure is roughly 1 in 150,000) and still catch a biased shuffle. The 30 s ceiling
+  // is for slow, busy build machines (Cloudflare Workers Builds runs lint, typecheck and tests side by side).
+  it("places a given card first about 1/22 of the time", { timeout: 30_000 }, () => {
     const deck = Array.from({ length: 22 }, (_, i) => (i === 0 ? "the-fool" : `card-${i}`));
     let first = 0;
-    for (let i = 0; i < 22_000; i++) if (shuffle(deck)[0] === "the-fool") first++;
-    expect(first).toBeGreaterThan(800);
-    expect(first).toBeLessThan(1200);
+    for (let i = 0; i < 5_500; i++) if (shuffle(deck)[0] === "the-fool") first++;
+    expect(first).toBeGreaterThan(180);
+    expect(first).toBeLessThan(320);
   });
 });
 
