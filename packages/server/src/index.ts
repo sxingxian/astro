@@ -4,3 +4,8 @@ export * from "./http";
 export * from "./mail";
 export * from "./origin";
 export * from "./password-hash";
+export * from "./step-up";
+export * from "./totp";
+export * from "./roles";
+export * from "./mail-templates";
+export * from "./limits";

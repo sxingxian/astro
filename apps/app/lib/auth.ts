@@ -1,3 +1,4 @@
+import { acceptSession } from "@astro/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { betterAuth } from "better-auth";
 import { cache } from "react";
@@ -26,11 +27,12 @@ export interface SessionUser {
   twoFactorEnabled: boolean;
 }
 
-/** The signed-in person for these request headers, or null. */
+/** The signed-in person for these request headers, or null. Portal sessions and disabled people never count. */
 export async function getSessionUser(headers: Headers): Promise<SessionUser | null> {
   const result = await getAuth().api.getSession({ headers });
   if (!result) return null;
-  const u = result.user as typeof result.user & { timeZone?: string; timeZoneChangedAt?: Date | null; checkInsEnabled?: boolean; twoFactorEnabled?: boolean | null };
+  const u = result.user as typeof result.user & { timeZone?: string; timeZoneChangedAt?: Date | null; checkInsEnabled?: boolean; twoFactorEnabled?: boolean | null; disabledAt?: Date | null };
+  if (!acceptSession(result.session as { surface?: unknown }, u, "app")) return null;
   return {
     id: u.id,
     sessionId: result.session.id,

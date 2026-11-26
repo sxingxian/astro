@@ -1,7 +1,6 @@
 import { isTimeZone } from "@astro/draw";
 import { buildAuthOptions, type AuthDeps } from "@astro/server";
 import type { BetterAuthOptions } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
 import type { parseEnv } from "./env";
 import { alreadyRegistered, resetPassword, verifyEmail } from "./mail-templates";
 
@@ -51,29 +50,30 @@ export function authOptions(env: AppEnv, deps: AuthDeps) {
     name: "app",
     baseURL: env.APP_URL,
     basePath: "/api/auth",
+    homeURL: env.APP_URL,
     cookiePrefix: "astro",
     sessionHours: 24 * 30,
-    templates: { verifyEmail, resetPassword, alreadyRegistered }
+    templates: { verifyEmail, resetPassword, alreadyRegistered },
+    // Clean the timezone before Better Auth sees the body, so new and duplicate sign-ups answer identically.
+    before: async (ctx) => {
+      if (ctx.path === "/sign-up/email" && ctx.body && typeof ctx.body === "object") {
+        return { context: { body: { ...(ctx.body as Record<string, unknown>), timeZone: cleanZone((ctx.body as { timeZone?: unknown }).timeZone) } } };
+      }
+    }
   });
   return {
     ...base,
     user: {
       additionalFields: {
+        ...base.user.additionalFields,
         timeZone: { type: "string", required: false, defaultValue: "UTC", input: true },
         timeZoneChangedAt: { type: "date", required: false, input: false },
         checkInsEnabled: { type: "boolean", required: false, defaultValue: true, input: false }
       }
     },
     disabledPaths: DISABLED_PATHS,
-    hooks: {
-      // Clean the timezone before Better Auth sees the body, so new and duplicate sign-ups answer identically.
-      before: createAuthMiddleware(async (ctx) => {
-        if (ctx.path === "/sign-up/email" && ctx.body && typeof ctx.body === "object") {
-          return { context: { body: { ...(ctx.body as Record<string, unknown>), timeZone: cleanZone((ctx.body as { timeZone?: unknown }).timeZone) } } };
-        }
-      })
-    },
     databaseHooks: {
+      ...base.databaseHooks,
       user: {
         create: {
           before: async (user) => ({ data: { ...user, timeZone: cleanZone((user as { timeZone?: unknown }).timeZone) } })
