@@ -66,6 +66,9 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const heroCleanup = buildHero(el, reduced);
         if (heroCleanup) cleanups.push(heroCleanup);
         buildReveals(el, reduced);
+        // Marks that motion is set up, and which mode, for styling and for the browser tests.
+        document.documentElement.dataset.motion = reduced ? "reduced" : "full";
+        cleanups.push(() => delete document.documentElement.dataset.motion);
 
         if (!reduced) {
           buildPairs(el);
