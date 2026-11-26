@@ -30,7 +30,7 @@ Sections marked *(plan N)* are for parts that aren't built yet. They're here so 
 | Turnstile site key (not secret) | Cloudflare (step 6) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
 | Turnstile secret key | Cloudflare (step 6) | `astro-app` secret `TURNSTILE_SECRET_KEY` |
 | Resend API key | Resend (step 7) | `astro-app` secret `RESEND_API_KEY` |
-| Sign-in secret | Your password manager (64 characters) | `astro-app` secret `BETTER_AUTH_SECRET` |
+| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-app` secret `BETTER_AUTH_SECRET` |
 
 The two values that aren't secret (Hyperdrive ID and Turnstile site key) can instead be sent to Claude, who will put them into the code for you.
 
@@ -209,6 +209,17 @@ Then **Settings → Variables and Secrets → Add**, choosing type **Secret** fo
 | `RESEND_API_KEY` | Resend API key (step 7) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 3)* |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | from step 12, only the providers you use *(plan 3)* |
+
+**What `BETTER_AUTH_SECRET` is for.** Hashing passwords in the database (Workers Free) didn't remove the need for it, because it does other jobs:
+
+- **Signs sign-in cookies.** The app can tell a real session from a forged one.
+- **Signs email links.** Confirmation and password-reset links can't be faked or altered.
+- **Encrypts 2-step sign-in.** Each member's authenticator key and backup codes are encrypted with it before they're stored, so someone who copied the database still couldn't produce their codes.
+
+Treat it like a master key:
+
+- Make it once, keep it in your password manager, and never change it casually. Changing it signs everyone out and breaks every member's 2-step sign-in.
+- If it may have leaked, tell Claude. Better Auth can switch to a new secret while still accepting the old one, but the app needs a small change to do that safely.
 
 Finally, **Deployments → Retry build** (or merge any pull request). In the build log you should see `migrations: N applied`, then the deploy. The address `astroapp.midnightpoetry.studio` is created on that first deploy.
 
