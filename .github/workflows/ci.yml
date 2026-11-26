@@ -49,8 +49,10 @@ jobs:
       - name: Database integration tests
         run: pnpm db:test
       - run: pnpm build
-      - name: Local settings for the app's wrangler dev (development values only)
-        run: cp apps/app/.dev.vars.example apps/app/.dev.vars
+      - name: Local settings for wrangler dev (development values only)
+        run: |
+          cp apps/app/.dev.vars.example apps/app/.dev.vars
+          cp apps/admin/.dev.vars.example apps/admin/.dev.vars
       - name: End-to-end tests
         run: pnpm e2e
         env:

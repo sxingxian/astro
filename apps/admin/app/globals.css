@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "@astro/tokens/tokens.css";
+
+@theme {
+  --color-night: #0B0B14;
+  --color-ink: #14142A;
+  --color-deep: #0F0F1E;
+  --color-nebula: #2A2350;
+  --color-gold: #D8B46A;
+  --color-moon: #EDE6D6;
+  --color-muted: #8C88A6;
+  --color-haze: #B9B4CF;
+  --color-ok: #7FC8A0;
+  --color-warn: #E8B86A;
+  --color-error: #F0A0A0;
+  --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  html { background: var(--astro-night); color: var(--astro-moon); color-scheme: dark; }
+  body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--astro-gold); }
+  a:hover { color: var(--astro-moon); }
+  :focus-visible { outline: 2px solid var(--astro-gold); outline-offset: 3px; border-radius: 4px; }
+}
+
+/* The admin style from the Plan 3 mockups: Night/Ink panels, gold hairlines, Inter UI, Cormorant headings, 8 px grid. */
+@layer components {
+  .skip-link { position: absolute; left: 16px; top: -100px; z-index: 50; padding: 12px 18px; border-radius: 999px; background: var(--astro-gold); color: var(--astro-night); font-weight: 600; text-decoration: none; }
+  .skip-link:focus { top: 16px; }
+  .serif { font-family: var(--font-display); }
+  .panel { background: #14142A; border: 1px solid rgba(216, 180, 106, 0.16); border-radius: 16px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px;
+    border-radius: 10px; border: 1px solid rgba(216, 180, 106, 0.4); background: transparent; color: var(--astro-moon);
+    font-size: 14px; font-family: inherit; text-decoration: none; cursor: pointer;
+    transition: transform 120ms var(--ease-out), background-color 150ms ease, border-color 150ms ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-gold { background: #D8B46A; color: #0B0B14; border-color: #D8B46A; font-weight: 600; }
+  .btn-danger { border-color: rgba(226, 109, 109, 0.6); color: #F0A0A0; }
+  .input {
+    min-height: 44px; box-sizing: border-box; width: 100%; padding: 0 12px; border-radius: 10px;
+    border: 1px solid rgba(216, 180, 106, 0.28); background: #0F0F1E; color: var(--astro-moon); font-size: 15px; font-family: inherit;
+  }
+  textarea.input { padding: 12px; line-height: 1.5; }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #B9B4CF; }
+  .label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #8C88A6; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(216, 180, 106, 0.5); color: #D8B46A; }
+  .nav a { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #B9B4CF; text-decoration: none; font-size: 14px; }
+  .nav a[aria-current="page"] { background: #2A2350; color: var(--astro-moon); font-weight: 600; }
+  .error { color: #F0A0A0; font-size: 14px; }
+  table.grid { width: 100%; border-collapse: collapse; }
+  table.grid th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #8C88A6; font-weight: 500; text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(216, 180, 106, 0.12); }
+  table.grid td { padding: 12px; border-bottom: 1px solid rgba(216, 180, 106, 0.08); font-size: 14px; vertical-align: middle; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+  .btn:active { transform: none; }
+}

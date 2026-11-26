@@ -12,13 +12,15 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "e2e": "turbo run e2e",
+    "e2e": "turbo run e2e --concurrency=1",
     "cf:build:landing": "turbo run lint typecheck test build --filter=@astro/landing...",
     "cf:deploy:landing": "pnpm --filter @astro/landing run deploy",
     "db:migrate": "pnpm --filter @astro/db run migrate",
     "db:test": "turbo run test:db --concurrency=1",
     "cf:build:app": "turbo run lint typecheck test build --filter=@astro/app...",
-    "cf:deploy:app": "pnpm --filter @astro/app run deploy"
+    "cf:deploy:app": "pnpm --filter @astro/app run deploy",
+    "cf:build:admin": "turbo run lint typecheck test build --filter=@astro/admin...",
+    "cf:deploy:admin": "pnpm --filter @astro/admin run deploy"
   },
   "devDependencies": {
     "eslint": "^10.15.0",
