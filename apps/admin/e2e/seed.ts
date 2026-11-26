@@ -28,6 +28,8 @@ export async function seedPerson(opts: { email: string; role?: "owner" | "admin"
     await db.$client`insert into "user" (id, name, email, email_verified, two_factor_enabled, disabled_at)
       values (${id}, ${opts.email.split("@")[0] ?? "x"}, ${opts.email}, true, ${Boolean(opts.twoStep)}, case when ${Boolean(opts.disabled)} then now() end)`;
     await db.$client`insert into account (id, account_id, provider_id, user_id, password) values (${crypto.randomUUID()}, ${id}, 'credential', ${id}, ${hash})`;
+    // There can only be one owner: a test that needs one takes over from any earlier test's owner.
+    if (opts.role === "owner") await db.$client`delete from staff_role where role = 'owner'`;
     if (opts.role) await db.$client`insert into staff_role (user_id, role) values (${id}, ${opts.role})`;
     let totp: OTPAuth.TOTP | undefined;
     if (opts.twoStep) {

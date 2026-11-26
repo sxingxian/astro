@@ -1,6 +1,7 @@
 import { and, inArray, isNull, schema, sql } from "@astro/db";
-import { alreadyRegistered, buildAuthOptions, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps, type Role } from "@astro/server";
-import type { BetterAuthOptions } from "better-auth";
+import { alreadyRegistered, audit, buildAuthOptions, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps, type Role } from "@astro/server";
+import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import type { AdminEnvVars } from "./env";
 
 /**
@@ -38,6 +39,40 @@ export const ADMIN_DISABLED_PATHS = [
   "/two-factor/verify-otp"
 ];
 
+const SIGN_IN_PATHS: Record<string, string> = {
+  "/sign-in/email": "password",
+  "/two-factor/verify-totp": "authenticator",
+  "/two-factor/verify-backup-code": "backup code"
+};
+
+/**
+ * Logs each portal sign-in. A plugin, listed after two-factor, so it runs after two-factor's hook: while a code
+ * is still owed, two-factor has already discarded the session and there is nothing to log yet.
+ */
+function auditSignIns(deps: AuthDeps, secret: string): BetterAuthPlugin {
+  return {
+    id: "astro-audit-sign-in",
+    hooks: {
+      after: [
+        {
+          matcher: (ctx) => Boolean(ctx.path && SIGN_IN_PATHS[ctx.path]),
+          handler: createAuthMiddleware(async (ctx) => {
+            const s = ctx.context.newSession;
+            if (!s) return;
+            const [r] = await deps.db.select({ role: schema.staffRole.role }).from(schema.staffRole).where(and(sql`${schema.staffRole.userId} = ${s.user.id}`, isNull(schema.staffRole.revokedAt)));
+            const country = ctx.headers?.get("cf-ipcountry");
+            await audit(
+              deps.db,
+              { actorId: s.user.id, actorRole: r?.role ?? null, action: "auth.sign_in", entity: "session", summary: { method: SIGN_IN_PATHS[ctx.path]!, ...(country && /^[A-Z]{2}$/.test(country) ? { country } : {}) }, ip: s.session.ipAddress },
+              secret
+            );
+          })
+        }
+      ]
+    }
+  };
+}
+
 /** Better Auth for the portal: shared accounts, its own 8-hour sessions and cookies, staff-only sign-in. */
 export function adminAuthOptions(env: AdminEnvVars, deps: AuthDeps) {
   const base = buildAuthOptions(env, deps, {
@@ -70,6 +105,7 @@ export function adminAuthOptions(env: AdminEnvVars, deps: AuthDeps) {
   return {
     ...base,
     disabledPaths: ADMIN_DISABLED_PATHS,
+    plugins: [...base.plugins, auditSignIns(deps, env.BETTER_AUTH_SECRET)],
     advanced: { ...base.advanced, defaultCookieAttributes: { path: "/admin", sameSite: "strict" } }
   } satisfies BetterAuthOptions;
 }

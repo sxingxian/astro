@@ -52,9 +52,13 @@ export async function listTeam(db: Db, now: Date): Promise<{ members: TeamMember
   return { members, invites };
 }
 
-async function roleOf(db: Db, userId: string): Promise<Role | null> {
-  const [r] = await db.select({ role: schema.staffRole.role }).from(schema.staffRole).where(and(eq(schema.staffRole.userId, userId), isNull(schema.staffRole.revokedAt)));
-  return r?.role ?? null;
+async function holderOf(db: Db, userId: string): Promise<{ role: Role; email: string } | null> {
+  const [r] = await db
+    .select({ role: schema.staffRole.role, email: schema.user.email })
+    .from(schema.staffRole)
+    .innerJoin(schema.user, eq(schema.user.id, schema.staffRole.userId))
+    .where(and(eq(schema.staffRole.userId, userId), isNull(schema.staffRole.revokedAt)));
+  return r ?? null;
 }
 
 const endPortalSessions = (db: Db, userId: string) => db.delete(schema.session).where(and(eq(schema.session.userId, userId), eq(schema.session.surface, "admin")));
@@ -92,25 +96,27 @@ export async function revokeInvite(db: Db, actor: Actor, inviteId: string): Prom
 }
 
 /** Changes someone's role. Both the old and the new role must be ones the actor may grant. Ends their portal sessions. */
-export async function changeRole(db: Db, actor: Actor, userId: string, role: Role): Promise<{ from: Role; to: Role }> {
+export async function changeRole(db: Db, actor: Actor, userId: string, role: Role): Promise<{ from: Role; to: Role; email: string }> {
   if (userId === actor.id) throw new HttpError(403, "self");
-  const current = await roleOf(db, userId);
-  if (!current) throw new HttpError(404, "not_found");
+  const holder = await holderOf(db, userId);
+  if (!holder) throw new HttpError(404, "not_found");
+  const current = holder.role;
   if (current === "owner") throw new HttpError(403, "owner");
   if (!canGrant(actor.role, current) || !canGrant(actor.role, role)) throw new HttpError(403, "forbidden_role");
   await db.update(schema.staffRole).set({ role, grantedBy: actor.id, grantedAt: new Date() }).where(eq(schema.staffRole.userId, userId));
   await endPortalSessions(db, userId);
-  return { from: current, to: role };
+  return { from: current, to: role, email: holder.email };
 }
 
 /** Removes someone's role (their account stays). The owner can't be removed. Ends their portal sessions. */
-export async function removeRole(db: Db, actor: Actor, userId: string): Promise<{ role: Role }> {
+export async function removeRole(db: Db, actor: Actor, userId: string): Promise<{ role: Role; email: string }> {
   if (userId === actor.id) throw new HttpError(403, "self");
-  const current = await roleOf(db, userId);
-  if (!current) throw new HttpError(404, "not_found");
+  const holder = await holderOf(db, userId);
+  if (!holder) throw new HttpError(404, "not_found");
+  const current = holder.role;
   if (current === "owner") throw new HttpError(403, "owner");
   if (!canGrant(actor.role, current)) throw new HttpError(403, "forbidden_role");
   await db.delete(schema.staffRole).where(eq(schema.staffRole.userId, userId));
   await endPortalSessions(db, userId);
-  return { role: current };
+  return { role: current, email: holder.email };
 }

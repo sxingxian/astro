@@ -10,3 +10,4 @@ export * from "./roles";
 export * from "./mail-templates";
 export * from "./limits";
 export * from "./invite";
+export * from "./audit";

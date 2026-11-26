@@ -40,6 +40,8 @@ test("an invitation is accepted in the app: account, then authenticator, then th
   await expect(page.getByRole("heading", { name: "You're on the team" })).toBeVisible();
   const [row] = await sql<{ role: string }[]>`select s.role from staff_role s join "user" u on u.id = s.user_id where u.email = ${email}`;
   expect(row?.role).toBe("reader");
+  const [logged] = await sql<{ actor_role: string }[]>`select a.actor_role from audit_log a join "user" u on u.id = a.actor_id where u.email = ${email} and a.action = 'team.accept'`;
+  expect(logged?.actor_role).toBe("reader");
 });
 
 test("an invitation can't be used a second time", async ({ page }) => {
