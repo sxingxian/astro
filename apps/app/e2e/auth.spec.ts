@@ -117,7 +117,8 @@ test("resetting the password signs out every other device", async ({ page, brows
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   const mail = await lastMail(email, /reset/i);
   await page.goto(linkIn(mail.text));
-  await page.getByLabel("New password").fill("a brand new long passphrase");
+  await page.getByLabel("New password", { exact: true }).fill("a brand new long passphrase");
+  await page.getByLabel("Confirm new password").fill("a brand new long passphrase");
   await page.getByRole("button", { name: "Set new password" }).click();
   await expect(page.getByText("Password updated")).toBeVisible();
 

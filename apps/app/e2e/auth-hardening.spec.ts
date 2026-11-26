@@ -53,7 +53,8 @@ test("changing the password signs out every other device", async ({ page, browse
   await page.goto("/account");
   await page.getByRole("button", { name: "Change password" }).click();
   await page.getByLabel("Current password").fill(PASSWORD);
-  await page.getByLabel("New password").fill("a different long passphrase");
+  await page.getByLabel("New password", { exact: true }).fill("a different long passphrase");
+  await page.getByLabel("Confirm new password").fill("a different long passphrase");
   await page.getByRole("button", { name: "Save new password" }).click();
   await expect(page.getByText("Password changed. Other devices have been signed out.")).toBeVisible();
   expect(await (await p2.request.get("/api/auth/get-session")).json()).toBeNull();

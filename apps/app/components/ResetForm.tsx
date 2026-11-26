@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { FormError } from "./AuthShell";
+import { useNewPassword } from "./NewPassword";
 import { postJson } from "@/lib/client";
-import { passwordHint } from "@/lib/password";
 
 export function ResetForm({ token }: { token: string }) {
-  const [password, setPassword] = useState("");
+  const { password, fields, matches } = useNewPassword({ label: "New password", confirmLabel: "Confirm new password", id: "new-password" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const hint = passwordHint(password);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!matches()) return setError(null);
     setBusy(true);
     setError(null);
     const res = await postJson("/api/auth/reset-password", { newPassword: password, token });
@@ -34,11 +34,7 @@ export function ResetForm({ token }: { token: string }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
-      <div className="field">
-        <label htmlFor="new-password">New password</label>
-        <input id="new-password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className="input" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby="pw-hint" />
-        <p id="pw-hint" className={`m-0 text-sm ${hint.ok ? "text-gold" : "text-muted"}`}>{hint.label}</p>
-      </div>
+      {fields}
       <FormError message={error} />
       <button type="submit" className="btn-gold w-full" disabled={busy}>{busy ? "Saving…" : "Set new password"}</button>
     </form>
