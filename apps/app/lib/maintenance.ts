@@ -7,6 +7,16 @@ export const MAINTENANCE_COPY = {
 };
 
 /**
+ * The database's own reason for a failed query (Drizzle's message only names the query). Postgres messages hold no
+ * passwords; the query parameters are left out.
+ */
+export function describeDbError(e: unknown): string {
+  const cause = e instanceof Error ? (e.cause as { code?: string; message?: string } | undefined) : undefined;
+  const head = e instanceof Error ? (e.message.split("\n")[0] ?? "") : String(e);
+  return cause?.message ? `${head} | cause: ${cause.code ? `${cause.code} ` : ""}${cause.message}` : head;
+}
+
+/**
  * A per-isolate check of whether the owner has paused the app. It re-reads at most once per `ttlSeconds`;
  * requests arriving together share one read; a read that takes longer than `timeoutMs` or fails leaves the last
  * answer (or "off") standing, so a slow or broken database never holds up pages or shows everyone the notice.
@@ -24,7 +34,7 @@ export function makeMaintenanceCheck(read: () => Promise<boolean>) {
           return on;
         })
         .catch((e: unknown) => {
-          console.error("maintenance check failed", e instanceof Error ? e.message : e);
+          console.error("maintenance check failed", describeDbError(e));
           cached = { on: cached?.on ?? false, at: startedAt };
           return cached.on;
         })
