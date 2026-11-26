@@ -48,7 +48,7 @@ export default async function AccountPage() {
       </header>
 
       <Group title="Security">
-        <div className="flex flex-col gap-3"><h3 className="m-0 text-base font-semibold">2-step sign-in</h3><TwoStepSetup enabled={user.twoFactorEnabled} /></div>
+        <div id="two-step" className="flex flex-col gap-3 scroll-mt-6"><h3 className="m-0 text-base font-semibold">2-step sign-in</h3><TwoStepSetup enabled={user.twoFactorEnabled} /></div>
         <div className="flex flex-col gap-3"><h3 className="m-0 text-base font-semibold">Password</h3><ChangePassword /></div>
       </Group>
 

@@ -1,0 +1,116 @@
+import { and, eq, isNull, schema, sql, type Db } from "@astro/db";
+import { canGrant, HttpError, INVITE_HOURS, inviteEmail, newInviteToken, type Mail, type Role } from "@astro/server";
+
+export interface Actor {
+  id: string;
+  role: Role;
+}
+
+interface InviteDeps {
+  sendMail: (m: Mail) => Promise<void>;
+  appUrl: string;
+}
+
+export interface TeamMember {
+  userId: string;
+  email: string;
+  role: Role;
+  twoFactorEnabled: boolean;
+  grantedAt: Date;
+}
+
+export interface TeamInvite {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: Date;
+  expiresAt: Date;
+  status: "pending" | "accepted" | "expired" | "cancelled";
+}
+
+/** Everyone with a role, and invites from the last 30 days. */
+export async function listTeam(db: Db, now: Date): Promise<{ members: TeamMember[]; invites: TeamInvite[] }> {
+  const members = await db
+    .select({ userId: schema.staffRole.userId, email: schema.user.email, role: schema.staffRole.role, twoFactorEnabled: schema.user.twoFactorEnabled, grantedAt: schema.staffRole.grantedAt })
+    .from(schema.staffRole)
+    .innerJoin(schema.user, eq(schema.user.id, schema.staffRole.userId))
+    .where(isNull(schema.staffRole.revokedAt))
+    .orderBy(sql`case ${schema.staffRole.role} when 'owner' then 0 when 'admin' then 1 when 'moderator' then 2 else 3 end`, schema.user.email);
+  const rows = await db
+    .select({ id: schema.invite.id, email: schema.invite.email, role: schema.invite.role, createdAt: schema.invite.createdAt, expiresAt: schema.invite.expiresAt, acceptedAt: schema.invite.acceptedAt, revokedAt: schema.invite.revokedAt })
+    .from(schema.invite)
+    .where(sql`${schema.invite.createdAt} > ${new Date(now.getTime() - 30 * 86_400_000).toISOString()}`)
+    .orderBy(sql`${schema.invite.createdAt} desc`);
+  const invites = rows.map((r): TeamInvite => ({
+    id: r.id,
+    email: r.email,
+    role: r.role,
+    createdAt: r.createdAt,
+    expiresAt: r.expiresAt,
+    status: r.acceptedAt ? "accepted" : r.revokedAt ? "cancelled" : r.expiresAt.getTime() <= now.getTime() ? "expired" : "pending"
+  }));
+  return { members, invites };
+}
+
+async function roleOf(db: Db, userId: string): Promise<Role | null> {
+  const [r] = await db.select({ role: schema.staffRole.role }).from(schema.staffRole).where(and(eq(schema.staffRole.userId, userId), isNull(schema.staffRole.revokedAt)));
+  return r?.role ?? null;
+}
+
+const endPortalSessions = (db: Db, userId: string) => db.delete(schema.session).where(and(eq(schema.session.userId, userId), eq(schema.session.surface, "admin")));
+
+/**
+ * Invites someone by email. Only roles the actor may grant; never someone who already has a role. Replaces any
+ * earlier pending invite for that email. The link opens the app, valid for 72 hours; only its hash is stored.
+ */
+export async function createInvite(db: Db, actor: Actor, input: { email: string; role: Role }, now: Date, deps: InviteDeps): Promise<{ inviteId: string; expiresAt: Date }> {
+  if (!canGrant(actor.role, input.role)) throw new HttpError(403, "forbidden_role");
+  const email = input.email.trim().toLowerCase();
+  const holder = await db.execute(sql`select 1 from staff_role s join "user" u on u.id = s.user_id where lower(u.email) = ${email} and s.revoked_at is null`);
+  if (holder.length > 0) throw new HttpError(409, "has_role");
+  const { token, hash } = await newInviteToken();
+  const expiresAt = new Date(now.getTime() + INVITE_HOURS * 3600_000);
+  const [row] = await db.transaction(async (tx) => {
+    await tx
+      .update(schema.invite)
+      .set({ revokedAt: now })
+      .where(and(sql`lower(${schema.invite.email}) = ${email}`, isNull(schema.invite.acceptedAt), isNull(schema.invite.revokedAt)));
+    return tx.insert(schema.invite).values({ email, role: input.role, tokenHash: hash, invitedBy: actor.id, expiresAt }).returning({ id: schema.invite.id });
+  });
+  // The token goes after "#", which browsers never send to a server, so it stays out of request logs.
+  await deps.sendMail(inviteEmail(email, input.role, `${deps.appUrl}/invite#${token}`, expiresAt));
+  return { inviteId: row!.id, expiresAt };
+}
+
+/** Cancels a pending invite the actor could have sent. */
+export async function revokeInvite(db: Db, actor: Actor, inviteId: string): Promise<{ email: string; role: Role }> {
+  const [inv] = await db.select({ role: schema.invite.role, email: schema.invite.email }).from(schema.invite).where(eq(schema.invite.id, inviteId));
+  if (!inv) throw new HttpError(404, "not_found");
+  if (!canGrant(actor.role, inv.role)) throw new HttpError(403, "forbidden_role");
+  await db.update(schema.invite).set({ revokedAt: new Date() }).where(and(eq(schema.invite.id, inviteId), isNull(schema.invite.acceptedAt)));
+  return inv;
+}
+
+/** Changes someone's role. Both the old and the new role must be ones the actor may grant. Ends their portal sessions. */
+export async function changeRole(db: Db, actor: Actor, userId: string, role: Role): Promise<{ from: Role; to: Role }> {
+  if (userId === actor.id) throw new HttpError(403, "self");
+  const current = await roleOf(db, userId);
+  if (!current) throw new HttpError(404, "not_found");
+  if (current === "owner") throw new HttpError(403, "owner");
+  if (!canGrant(actor.role, current) || !canGrant(actor.role, role)) throw new HttpError(403, "forbidden_role");
+  await db.update(schema.staffRole).set({ role, grantedBy: actor.id, grantedAt: new Date() }).where(eq(schema.staffRole.userId, userId));
+  await endPortalSessions(db, userId);
+  return { from: current, to: role };
+}
+
+/** Removes someone's role (their account stays). The owner can't be removed. Ends their portal sessions. */
+export async function removeRole(db: Db, actor: Actor, userId: string): Promise<{ role: Role }> {
+  if (userId === actor.id) throw new HttpError(403, "self");
+  const current = await roleOf(db, userId);
+  if (!current) throw new HttpError(404, "not_found");
+  if (current === "owner") throw new HttpError(403, "owner");
+  if (!canGrant(actor.role, current)) throw new HttpError(403, "forbidden_role");
+  await db.delete(schema.staffRole).where(eq(schema.staffRole.userId, userId));
+  await endPortalSessions(db, userId);
+  return { role: current };
+}

@@ -9,3 +9,4 @@ export * from "./totp";
 export * from "./roles";
 export * from "./mail-templates";
 export * from "./limits";
+export * from "./invite";

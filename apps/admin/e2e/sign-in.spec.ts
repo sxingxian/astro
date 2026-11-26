@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as OTPAuth from "otpauth";
-import { PASSWORD, seedPerson, sessionCookie } from "./seed";
+import { PASSWORD, seedPerson } from "./seed";
+import { signInAs } from "./helpers";
 
 // Better Auth rate-limits sign-in per client IP; give each test its own, as Cloudflare would.
 let ip = 0;
@@ -72,17 +73,14 @@ test("staff with an authenticator sign in with a code and see their menu", async
 
 test("an app session cookie never opens the portal", async ({ page, context, baseURL }) => {
   const s = await seedPerson({ email: `crossover-${Date.now()}@example.com`, role: "admin", twoStep: true });
-  const value = await sessionCookie(s.id, "app");
-  const { hostname } = new URL(baseURL ?? "http://127.0.0.1:8791");
-  await context.addCookies([{ name: "astro-admin.session_token", value, domain: hostname, path: "/admin" }]);
+  await signInAs(context, baseURL, s.id, "app");
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/sign-in$/);
 });
 
 test("signing out ends the session", async ({ page, context, baseURL }) => {
   const s = await seedPerson({ email: `out-${Date.now()}@example.com`, role: "admin", twoStep: true });
-  const { hostname } = new URL(baseURL ?? "http://127.0.0.1:8791");
-  await context.addCookies([{ name: "astro-admin.session_token", value: await sessionCookie(s.id, "admin"), domain: hostname, path: "/admin" }]);
+  await signInAs(context, baseURL, s.id);
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();

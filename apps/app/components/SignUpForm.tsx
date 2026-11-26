@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { CheckEmail, FormError } from "./AuthShell";
 import { Turnstile } from "./Turnstile";
 import { localTimeZone, postJson } from "@/lib/client";
+import { afterSignIn } from "@/lib/invite-client";
 import { passwordHint } from "@/lib/password";
 
 export function SignUpForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
@@ -22,7 +23,7 @@ export function SignUpForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: str
     if (mode === "on" && !token) return setError("Please complete the check above.");
     setBusy(true);
     setError(null);
-    const res = await postJson("/api/auth/sign-up/email", { email, password, name: email.split("@")[0]?.slice(0, 40) || "Friend", timeZone: localTimeZone(), callbackURL: "/today" }, token ? { "x-captcha-response": token } : {});
+    const res = await postJson("/api/auth/sign-up/email", { email, password, name: email.split("@")[0]?.slice(0, 40) || "Friend", timeZone: localTimeZone(), callbackURL: afterSignIn() }, token ? { "x-captcha-response": token } : {});
     setBusy(false);
     if (res.ok) return setSent(true);
     if (res.status === 429) return setError("Too many attempts. Please wait a minute and try again.");

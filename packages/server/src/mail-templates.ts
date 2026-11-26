@@ -28,3 +28,31 @@ export function alreadyRegistered(to: string, signInUrl: string): Mail {
   const lines = ["Someone tried to create an Astro account with this email, but you already have one.", "If it was you, sign in instead, or reset your password if you've forgotten it."];
   return { to, subject: "You already have an Astro account", text: `${title}\n\n${lines.join("\n")}\n\n${signInUrl}\n`, html: layout(title, lines, { label: "Sign in", url: signInUrl }) };
 }
+
+const ROLE_WORDS: Record<string, string> = {
+  admin: "an admin",
+  moderator: "a moderator",
+  reader: "a reader"
+};
+
+const formatDay = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** An invitation to join Astro's team. The link opens the app, where the person signs in and sets up 2-step sign-in. */
+export function inviteEmail(to: string, role: string, url: string, expiresAt: Date): Mail {
+  const title = `You're invited to join Astro as ${ROLE_WORDS[role] ?? role}`;
+  const lines = [
+    "Open the link to accept. You'll sign in to Astro with this email address (or create an account), and turn on 2-step sign-in with an authenticator app. Your access starts after that.",
+    `This invitation expires on ${formatDay(expiresAt)}. If you weren't expecting it, you can ignore this email.`
+  ];
+  return { to, subject: "You're invited to join Astro", text: `${title}\n\n${lines.join("\n")}\n\n${url}\n`, html: layout(title, lines, { label: "Accept invitation", url }) };
+}
+
+/** Tells the owner an AI service key changed. Never includes the key. */
+export function aiKeyChangedEmail(to: string, details: { service: string; last4: string; by: string; at: Date }): Mail {
+  const title = "An AI service key was changed";
+  const lines = [
+    `The key for ${details.service} was replaced by ${details.by} on ${formatDay(details.at)}. It now ends in ${details.last4}.`,
+    "If this wasn't you or someone you trust, sign in to the admin portal, replace the key, and check the audit log."
+  ];
+  return { to, subject: "Astro: an AI service key was changed", text: `${title}\n\n${lines.join("\n")}\n`, html: layout(title, lines) };
+}

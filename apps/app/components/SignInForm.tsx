@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { FormError } from "./AuthShell";
 import { Turnstile } from "./Turnstile";
+import { afterSignIn } from "@/lib/invite-client";
 import { postJson } from "@/lib/client";
 
 export function SignInForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
@@ -24,7 +25,7 @@ export function SignInForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: str
     );
     setBusy(false);
     if (res.ok && res.data.twoFactorRedirect) return window.location.assign("/two-step");
-    if (res.ok) return window.location.assign("/today");
+    if (res.ok) return window.location.assign(afterSignIn());
     if (res.status === 403 && res.data.code === "EMAIL_NOT_VERIFIED") return setError("Check your email to confirm your account. We've sent a new link.");
     if (res.status === 429) return setError("Too many attempts. Please wait a minute and try again.");
     if (res.status === 401) return setError("That email and password don't match.");

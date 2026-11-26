@@ -12,7 +12,9 @@ const schema = z.object({
   TURNSTILE_MODE: onOff,
   TURNSTILE_SECRET_KEY: z.string().optional(),
   PUBLIC_TURNSTILE_SITE_KEY: z.string(),
-  HIBP_CHECK: onOff
+  HIBP_CHECK: onOff,
+  /** The admin portal, linked after a staff invitation is accepted. */
+  ADMIN_URL: z.url().optional()
 });
 
 export type Env = z.infer<typeof schema> & { HYPERDRIVE: Hyperdrive; GUEST_DRAWS: RateLimit };
