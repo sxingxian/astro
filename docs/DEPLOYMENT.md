@@ -115,11 +115,49 @@ At **console.neon.tech**:
    ```
 
    The first should list both users with `rolsuper` = `f`, and the second should return `f`. On the app's first deploy, Cloudflare gives `astro_web` permission to read and write the app's data, and nothing more. Do this step before the app's first deploy (step 9).
-5. **Build the two database addresses.** On the project dashboard press **Connect**:
+5. **Build the two database addresses.** A database address has the user name and password built in. You copy Neon's address once, then make two versions of it: one for `migrator` and one for `astro_web`.
+
+   **a. Copy Neon's address.** On the project dashboard press **Connect**:
    - **Branch:** `main`. **Database:** `neondb`. **Role:** `neondb_owner`.
    - Turn **Connection pooling off**. Hyperdrive does the pooling, so the address must not contain `-pooler`.
-   - Copy the address. It looks like `postgresql://neondb_owner:XXXX@ep-something-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
-   - In your password manager, make two entries from it. Replace `neondb_owner:XXXX` with `migrator:your-migrator-password` for one, and with `astro_web:your-astro-web-password` for the other. Keep everything after the `@` unchanged.
+   - Copy the address. It has this shape:
+
+     ```
+     postgresql://neondb_owner:XXXX@ep-something-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+                  └─ user name ─┘└pw┘└────────── keep everything from the @ onwards ──────────┘
+     ```
+
+   **b. Make the two versions in your password manager.** Work inside the password manager, not a notes app or document, so the passwords are never stored anywhere unprotected.
+   1. Create an entry named "Astro · Neon migrator address" and paste Neon's address into its notes field.
+   2. Select the part between `postgresql://` and the `@`. That's `neondb_owner:` plus Neon's password.
+   3. Type `migrator:` followed by the migrator password from item 2 in its place.
+   4. Create a second entry, "Astro · Neon astro_web address", paste Neon's address again, and replace the same part with `astro_web:` followed by the astro_web password.
+
+   **Worked example.** Say Neon's address is:
+
+   ```
+   postgresql://neondb_owner:npg_Ab12Cd34@ep-cool-river-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   ```
+
+   and your two passwords are `Q7hT2mVx9KpL4sWe8RbN3cYz6UfJ1dGa5HqM` (migrator) and `Lw3Ez8NcR1vTg6YpK9sMh2QaX5uBj7DfC4Hn` (astro_web). The two addresses are:
+
+   ```
+   postgresql://migrator:Q7hT2mVx9KpL4sWe8RbN3cYz6UfJ1dGa5HqM@ep-cool-river-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   postgresql://astro_web:Lw3Ez8NcR1vTg6YpK9sMh2QaX5uBj7DfC4Hn@ep-cool-river-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   ```
+
+   These are made-up examples; use your own passwords.
+
+   **c. Check each address before using it.**
+   - [ ] It starts with `postgresql://migrator:` or `postgresql://astro_web:`.
+   - [ ] There's exactly one `:` between the user name and the password, and exactly one `@` after the password.
+   - [ ] There are no spaces, and no `<`, `>` or quote marks left over.
+   - [ ] The password is letters and numbers only. Characters such as `@`, `/`, `#` or `?` break the address; if yours has any, generate a new password and change it in Neon's SQL Editor with `ALTER ROLE migrator PASSWORD '…';` (or `astro_web`).
+   - [ ] The part after the `@` doesn't contain `-pooler`.
+
+   **d. Where each one goes.**
+   - **migrator address:** Cloudflare → `astro-app` → build secret `DATABASE_URL_MIGRATOR` (step 9).
+   - **astro_web address:** Cloudflare → Hyperdrive `astro-web` (step 5).
 
 ## 5. Cloudflare: Hyperdrive (the app's link to the database)
 
