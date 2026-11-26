@@ -172,22 +172,27 @@ Astro sends sign-up confirmations, password resets, and a heads-up when someone 
 
 At **resend.com**:
 
-1. **Domains → Add domain** → `midnightpoetry.studio`, region nearest Singapore. Add the DNS records Resend shows in Cloudflare (**your domain → DNS → Records → Add record**, copying each type, name and value exactly), or let Resend add them for you if it offers to connect to Cloudflare. Wait until Resend shows the domain as **Verified**.
-2. **API Keys → Create API key** → name `astro-app`, **Permission: Sending access**, domain `midnightpoetry.studio`. Save the key in your password manager (step 9).
+1. **Domains → Add domain** → `app.midnightpoetry.studio` (the sending address's domain), region nearest Singapore. Add the DNS records Resend shows in Cloudflare (**your domain → DNS → Records → Add record**, copying each type, name and value exactly), or let Resend add them for you if it offers to connect to Cloudflare. Wait until Resend shows the domain as **Verified**.
+2. **API Keys → Create API key** → name `astro-app`, **Permission: Sending access**, domain `app.midnightpoetry.studio`. Save the key in your password manager (step 9).
 
-Emails come from `hello@midnightpoetry.studio`. To use a different address, change `EMAIL_FROM` in step 8.
+Emails come from `astro-noreply@app.midnightpoetry.studio` (set in step 8). Resend only sends from a domain it has verified, so the domain in Resend must be exactly `app.midnightpoetry.studio`.
 
-## 8. GitHub: put the Hyperdrive ID and Turnstile site key into the app
+## 8. GitHub: Hyperdrive ID, Turnstile site key and sending address
 
-**Easiest:** send Claude the Hyperdrive ID and the Turnstile site key. Neither is secret. Claude makes the change as a pull request; then do the last two bullets below.
+**Done (26 Nov).** `apps/app/wrangler.jsonc` now holds:
 
-**Or do it yourself on github.com:**
+- Hyperdrive ID `a8972b247bd840468e460b7110605f0a`;
+- Turnstile site key `0x4AAAAAAGT4jVGbsgfhz3rb`;
+- sending address `Astro <astro-noreply@app.midnightpoetry.studio>`.
+
+None of these is secret. You only need this step again if you recreate the Hyperdrive configuration or the Turnstile widget, or change the sending address.
+
+To change them later, send the new values to Claude, or edit the file on github.com:
 
 - Open `sxingxian/astro` → `apps/app/wrangler.jsonc` → the **pencil** (Edit).
-- Replace `00000000000000000000000000000000` with your Hyperdrive ID.
-- Replace `set-in-dashboard` with your Turnstile site key. If you chose a different sending address in step 7, change `EMAIL_FROM` too. Keep every quote mark and comma.
+- Change the value between the quotes, keeping every quote mark and comma.
 - **Commit changes…** → **Create a new branch for this commit and start a pull request** → **Propose changes** → **Create pull request**.
-- Wait for the **verify** check to turn green (about 5 minutes), then **Merge pull request → Confirm merge**.
+- When the **verify** check is green, **Merge pull request → Confirm merge**.
 
 ## 9. Cloudflare: app Worker `astro-app`
 

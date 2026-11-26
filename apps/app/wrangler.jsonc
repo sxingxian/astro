@@ -12,19 +12,19 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      // Replace with the ID of the Hyperdrive configuration astro-web (docs/DEPLOYMENT.md, steps 5 and 8).
-      "id": "00000000000000000000000000000000",
+      // The Hyperdrive configuration astro-web (docs/DEPLOYMENT.md, step 5). Not secret.
+      "id": "a8972b247bd840468e460b7110605f0a",
       "localConnectionString": "postgres://astro_web:astro_web@127.0.0.1:5432/astro_dev"
     }
   ],
   "ratelimits": [{ "name": "GUEST_DRAWS", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   "vars": {
     "APP_URL": "https://astroapp.midnightpoetry.studio",
-    "EMAIL_FROM": "Astro <hello@midnightpoetry.studio>",
+    "EMAIL_FROM": "Astro <astro-noreply@app.midnightpoetry.studio>",
     "MAIL_DRIVER": "resend",
     "TURNSTILE_MODE": "on",
     "HIBP_CHECK": "on",
-    "PUBLIC_TURNSTILE_SITE_KEY": "set-in-dashboard"
+    "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAGT4jVGbsgfhz3rb"
   },
   "observability": { "enabled": true },
   // Local wrangler dev keeps the browser's own host and Origin instead of rewriting them to the route above.
