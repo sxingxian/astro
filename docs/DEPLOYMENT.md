@@ -100,6 +100,7 @@ At **console.neon.tech**:
    ```sql
    CREATE ROLE migrator LOGIN PASSWORD 'paste-migrator-password-here';
    GRANT ALL ON SCHEMA public TO migrator;
+   GRANT CREATE ON DATABASE neondb TO migrator;  -- lets it keep its record of applied updates
    CREATE ROLE astro_web LOGIN PASSWORD 'paste-astro-web-password-here';
    CREATE EXTENSION IF NOT EXISTS pgcrypto;
    ```
@@ -112,9 +113,10 @@ At **console.neon.tech**:
    ```sql
    select rolname, rolsuper from pg_roles where rolname in ('migrator','astro_web');
    select pg_has_role('astro_web', 'neon_superuser', 'member');
+   select has_database_privilege('migrator', 'neondb', 'CREATE');
    ```
 
-   The first should list both users with `rolsuper` = `f`, and the second should return `f`. On the app's first deploy, Cloudflare gives `astro_web` permission to read and write the app's data, and nothing more. Do this step before the app's first deploy (step 9).
+   The first should list both users with `rolsuper` = `f`, the second should return `f`, and the third should return `t`. If the app's build log ever says `permission denied for database neondb`, run `GRANT CREATE ON DATABASE neondb TO migrator;` in the SQL Editor and retry the build. On the app's first deploy, Cloudflare gives `astro_web` permission to read and write the app's data, and nothing more. Do this step before the app's first deploy (step 9).
 5. **Build the two database addresses.** A database address has the user name and password built in. You copy Neon's address once, then make two versions of it: one for `migrator` and one for `astro_web`.
 
    **a. Copy Neon's address.** On the project dashboard press **Connect**:
