@@ -18,7 +18,7 @@ export function Hero({ sky }: { sky?: ReactNode }) {
       </div>
       <div data-anim="hero-out" className="relative flex flex-col items-center gap-7 px-5 pb-20 pt-36 sm:px-10">
         <div className="[perspective:1000px]">
-          <div data-anim="hero-card">
+          <div data-anim="hero-card" className="[transform-style:preserve-3d]">
             <CardBack className="h-[200px] w-[120px] [transform:rotateY(-24deg)_rotateX(10deg)] shadow-[0_30px_80px_rgba(0,0,0,.6),0_0_80px_rgba(216,180,106,.15)]" />
           </div>
         </div>

@@ -58,7 +58,8 @@ a { color: var(--astro-gold); }
 }
 
 
-.line { display: block; overflow: hidden; padding-bottom: 0.06em; }
+/* Reveal mask: room below for display-face descenders (y, g), pulled back so line spacing is unchanged. */
+.line { display: block; overflow: hidden; padding-bottom: 0.2em; margin-bottom: -0.14em; }
 .line-in { display: inline-block; }
 
 .progress { position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 40; background: var(--astro-gold); transform-origin: 0 50%; transform: scaleX(0); }

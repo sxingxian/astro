@@ -25,6 +25,26 @@ test.describe("default motion", () => {
     expect(new Set(samples).size).toBeGreaterThan(1);
   });
 
+  test("the hero card stays card-sized while it enters and follows the pointer", async ({ page }) => {
+    await page.goto("/");
+    const card = page.locator('[data-anim="hero-card"]');
+    let maxWidth = 0;
+    for (let i = 0; i < 14; i++) {
+      await page.mouse.move(600 + i * 3, 80 + i);
+      maxWidth = Math.max(maxWidth, (await card.boundingBox())?.width ?? 0);
+      await page.waitForTimeout(90);
+    }
+    // The card is 120px wide; tilt and bob may add a little, never a screen-wide ray.
+    expect(maxWidth).toBeLessThan(170);
+  });
+
+  test("headline descenders are not clipped by the reveal masks", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForTimeout(2000);
+    const clipped = await page.locator("#h-sky .line").evaluateAll((els) => els.filter((el) => el.scrollHeight > el.clientHeight).length);
+    expect(clipped).toBe(0);
+  });
+
   test("keyboard anchor navigation focuses the target chapter", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: "Begin the journey" }).focus();
