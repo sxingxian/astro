@@ -79,6 +79,7 @@ The landing page has no runtime variables or secrets. Its security headers (CSP 
    CREATE ROLE migrator LOGIN PASSWORD '<long random password>';
    GRANT ALL ON SCHEMA public TO migrator;      -- migrator creates and owns every table
    CREATE ROLE astro_web LOGIN PASSWORD '<another long random password>';
+   CREATE EXTENSION IF NOT EXISTS pgcrypto;     -- bcrypt password hashing runs in the database
    -- astro_admin follows in plan 4.
    ```
 
@@ -101,7 +102,7 @@ Put the `astro-web` id in `apps/app/wrangler.jsonc` under `hyperdrive` (binding 
 
 Create a second Worker from the same repository, named **`astro-app`**.
 
-> **Plan:** the app Worker needs **Workers Paid**. Its bundle is about 3.9 MB compressed (the Free plan allows 3 MB), and password hashing (scrypt) takes roughly 100 ms of CPU per sign-in, above the Free plan's per-request CPU limit.
+> **Plan:** the app runs on **Workers Free**. Cloudflare's limit is 64 MiB uncompressed per Worker on both plans (the app is about 18 MiB), and 10 ms of CPU per request on Free. Passwords are hashed with bcrypt inside Postgres (`apps/app/lib/password-hash.ts`), so a sign-in costs the Worker only waiting time, which doesn't count. After the first deploy, check CPU time per request in the Worker's **Observability** tab; if pages regularly go over 10 ms, move to Workers Paid ($5 a month), with nothing else to change.
 
 Settings → **Build**:
 
@@ -218,6 +219,7 @@ App (plan 2):
 - [ ] The Turnstile widget appears on sign-up and sign-in, and on a guest's first draw.
 - [ ] Draw today's card as a guest and as a member; a second draw the same day goes back to the same reading.
 - [ ] After a reading, the Verify screen shows "Matches ✓".
+- [ ] Worker → Observability: CPU time per request stays under 10 ms for sign-in and the main pages (Workers Free).
 - [ ] `curl -sI https://astroapp.midnightpoetry.studio/today` shows a CSP with `'nonce-` and `frame-ancestors 'none'`.
 
 Paid readings and admin *(plans 3–4)*:
@@ -256,5 +258,6 @@ E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e   # e2e agai
 - Workers serve only their custom domains (`workers_dev` and `preview_urls` are off).
 - Non-production branch builds stay off for any Worker whose build has `DATABASE_URL_MIGRATOR`.
 - Development shortcuts (outbox mail, Turnstile off, leaked-password check off) are refused by the app on its production address.
+- Passwords are stored as bcrypt (cost 12) over a SHA-256 of the password, computed by Postgres's pgcrypto; the password reaches Neon only inside the encrypted Hyperdrive connection, and Postgres doesn't log query values by default.
 - Deck orders, orientations and salts never leave the server until a reading is complete; tests check API responses and page HTML for leaks.
 - To do: pin GitHub Actions to exact commit SHAs (with the version in a comment).

@@ -27,6 +27,12 @@ describe("authOptions", () => {
     expect(o.rateLimit?.enabled).toBe(true);
   });
 
+  it("hashes passwords in the database, not on the Worker", () => {
+    const o = authOptions(env, deps);
+    expect(typeof o.emailAndPassword?.password?.hash).toBe("function");
+    expect(typeof o.emailAndPassword?.password?.verify).toBe("function");
+  });
+
   it("wires Turnstile on the sign-up, sign-in and reset endpoints, and the leaked-password check", () => {
     const o = authOptions(env, deps);
     expect(ids(o)).toEqual(expect.arrayContaining(["two-factor", "captcha", "have-i-been-pwned"]));

@@ -7,6 +7,7 @@ import { captcha, haveIBeenPwned, twoFactor } from "better-auth/plugins";
 import type { parseEnv } from "./env";
 import type { Mail } from "./mail";
 import { alreadyRegistered, resetPassword, verifyEmail } from "./mail-templates";
+import { createPasswordHasher } from "./password-hash";
 
 type AppEnv = ReturnType<typeof parseEnv>;
 
@@ -76,6 +77,8 @@ export function authOptions(env: AppEnv, { db, sendMail, waitUntil }: AuthDeps) 
       maxPasswordLength: 128,
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 3600,
+      // bcrypt runs in Postgres so the Worker stays under the Workers Free plan's 10 ms CPU per request.
+      password: createPasswordHasher(db),
       sendResetPassword: async ({ user, url }) => sendMail(resetPassword(user.email, url)),
       onExistingUserSignUp: async ({ user }) => sendMail(alreadyRegistered(user.email, `${env.APP_URL}/sign-in`))
     },
