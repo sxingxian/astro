@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@import "@astro/tokens/tokens.css";
+@import "@astro/ui/card.css";
+@source "../../../packages/ui/src";
+
+@theme {
+  --color-night: #0B0B14;
+  --color-ink: #14142A;
+  --color-nebula: #2A2350;
+  --color-gold: #D8B46A;
+  --color-moon: #EDE6D6;
+  --color-muted: #8C88A6;
+  --color-haze: #B9B4CF;
+  --color-error: #E26D6D;
+  --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  html { background: var(--astro-night); color: var(--astro-moon); color-scheme: dark; }
+  body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--astro-gold); }
+  :focus-visible { outline: 2px solid var(--astro-gold); outline-offset: 3px; border-radius: 4px; }
+}
+
+@layer components {
+  .skip-link { position: absolute; left: 16px; top: -100px; z-index: 50; padding: 12px 18px; border-radius: 999px; background: var(--astro-gold); color: var(--astro-night); font-weight: 600; text-decoration: none; }
+  .skip-link:focus { top: 16px; }
+  .eyebrow { margin: 0; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--astro-gold); font-weight: 600; }
+  .panel { background: var(--astro-ink); border: 1px solid rgba(216, 180, 106, 0.16); border-radius: 20px; }
+  .btn-gold, .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 24px;
+    border-radius: 999px; font-weight: 600; font-size: 16px; text-decoration: none; border: 0; cursor: pointer; font-family: inherit;
+    transition: transform var(--duration-press) var(--ease-out), background-color var(--duration-hover) ease, border-color var(--duration-hover) ease;
+  }
+  .btn-gold { background: var(--astro-gold); color: var(--astro-night); }
+  .btn-ghost { background: transparent; border: 1px solid rgba(216, 180, 106, 0.45); color: var(--astro-moon); font-weight: 500; }
+  .btn-gold:active, .btn-ghost:active { transform: scale(0.97); }
+  .btn-gold:disabled { opacity: 0.6; cursor: not-allowed; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label { font-size: 14px; color: var(--astro-haze); }
+  .input {
+    box-sizing: border-box; width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(216, 180, 106, 0.25);
+    background: var(--astro-ink); color: var(--astro-moon); font: 16px/1.4 var(--font-sans);
+  }
+  .input:focus-visible { border-color: var(--astro-gold); }
+  .error-text { color: #E26D6D; font-size: 14px; }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-gold:hover { background: #E6C88A; }
+    .btn-ghost:hover { border-color: var(--astro-gold); }
+  }
+}
+
+/* ---------- Draw: the fan of face-down cards ---------- */
+@layer components {
+  .fan { display: flex; overflow-x: auto; overscroll-behavior-x: contain; padding: 28px 20px 12px; scrollbar-width: thin; }
+  .fan-card {
+    flex: none; width: 56px; height: 92px; margin-left: -26px; padding: 0; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+    transition: transform var(--duration-hover) var(--ease-out);
+  }
+  .fan-card:first-child { margin-left: 0; }
+  .fan-card .card-back { width: 100%; height: 100%; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45); }
+  .fan-card[aria-pressed="true"] { transform: translateY(-16px); }
+  .fan-card[aria-pressed="true"] .card-back { box-shadow: 0 0 0 2px var(--astro-gold), 0 12px 30px rgba(216, 180, 106, 0.35); }
+  .fan-card:disabled { cursor: default; }
+  .fan-card:focus-visible { outline: 2px solid var(--astro-moon); outline-offset: 2px; }
+  @media (hover: hover) and (pointer: fine) {
+    .fan-card:not(:disabled):hover { transform: translateY(-8px); }
+    .fan-card[aria-pressed="true"]:hover { transform: translateY(-16px); }
+  }
+
+  /* The flip on reveal: 600 ms is a deliberate ritual moment (the spec's one exception to the 300 ms rule). */
+  .flip { perspective: 900px; }
+  .flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 600ms var(--ease-in-out); }
+  .flip.is-flipped .flip-inner { transform: rotateY(180deg); }
+  .flip-side { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .flip-face { transform: rotateY(180deg); }
+  .flip-side > * { width: 100%; height: 100%; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fan-card, .fan-card[aria-pressed="true"], .fan-card:hover { transition: none; transform: none; }
+    .flip-inner, .flip.is-flipped .flip-inner { transition: none; transform: none; }
+    .flip-face { transform: none; opacity: 0; transition: opacity 200ms ease; }
+    .flip-back { transition: opacity 200ms ease; }
+    .flip.is-flipped .flip-face { opacity: 1; }
+    .flip.is-flipped .flip-back { opacity: 0; }
+  }
+}

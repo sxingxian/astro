@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "astro-app",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  // Serve only the custom domain: no *.workers.dev address and no preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "astroapp.midnightpoetry.studio", "custom_domain": true }],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // Replace with the id from `wrangler hyperdrive create astro-web` (docs/DEPLOYMENT.md, section 5).
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgres://astro_web:astro_web@127.0.0.1:5432/astro_dev"
+    }
+  ],
+  "ratelimits": [{ "name": "GUEST_DRAWS", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+  "vars": {
+    "APP_URL": "https://astroapp.midnightpoetry.studio",
+    "EMAIL_FROM": "Astro <hello@midnightpoetry.studio>",
+    "MAIL_DRIVER": "resend",
+    "TURNSTILE_MODE": "on",
+    "HIBP_CHECK": "on",
+    "PUBLIC_TURNSTILE_SITE_KEY": "set-in-dashboard"
+  },
+  "observability": { "enabled": true },
+  // Local wrangler dev keeps the browser's own host and Origin instead of rewriting them to the route above.
+  "dev": { "ip": "127.0.0.1", "port": 8790, "host": "127.0.0.1:8790", "local_protocol": "http", "upstream_protocol": "http" }
+}

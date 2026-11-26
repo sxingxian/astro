@@ -1,6 +1,5 @@
+import { CardBack, CardFace } from "@astro/ui";
 import { deck } from "@/content/site";
-import { CardBack } from "./CardBack";
-import { CardFace } from "./CardFace";
 import { ChapterIntro } from "./Chapter";
 
 const CHOSEN_INDEX = 13;

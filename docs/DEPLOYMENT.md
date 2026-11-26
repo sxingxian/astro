@@ -5,7 +5,7 @@ Astro runs entirely on **Cloudflare** (Workers, Workers Builds, Hyperdrive, R2, 
 | Host | Serves | Cloudflare Worker | Status |
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
-| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | Plan 2 |
+| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | **Built (plan 2)** |
 | `astro.midnightpoetry.studio/admin` | Admin portal: pricing, contacts, AI provider, readers | `astro-admin` | Plan 4 |
 
 Sections marked *(plan N)* describe settings for parts that aren't built yet. They're here so the whole setup is planned in one place; the names below (Workers, secrets, roles) are the ones those plans will use.
@@ -70,21 +70,24 @@ The landing page has no runtime variables or secrets. Its security headers (CSP 
 
 **First deploy:** push to `main` (or press **Retry build** on the Worker's Deployments tab). The custom domain is created on that deploy.
 
-## 4. Neon Postgres *(plan 2)*
+## 4. Neon Postgres
 
 1. At neon.tech create a project named `astro`, **Region: AWS Asia Pacific (Singapore)**, Postgres 17. The default branch `main` is production.
-2. Create three roles (Roles → New role). The SQL that grants each role exactly what it needs ships with plan 2's first migration.
+2. Create the roles **before the first app deploy**, with SQL rather than the console. Roles made in the Neon console (or its API) join `neon_superuser`, which would give the runtime role far more than it needs. In the SQL editor, connected as the project owner to the `neondb` database, run:
 
-   | Role | Used by | Can do |
-   | --- | --- | --- |
-   | `migrator` | Workers Builds deploy command only | Owns the schema; runs migrations |
-   | `astro_web` | `astro-app` through Hyperdrive | Read/write member data; no DDL |
-   | `astro_admin` | `astro-admin` through Hyperdrive | Admin tables and the audit trail; no DDL |
+   ```sql
+   CREATE ROLE migrator LOGIN PASSWORD '<long random password>';
+   GRANT ALL ON SCHEMA public TO migrator;      -- migrator creates and owns every table
+   CREATE ROLE astro_web LOGIN PASSWORD '<another long random password>';
+   CREATE EXTENSION IF NOT EXISTS pgcrypto;     -- bcrypt password hashing runs in the database
+   -- astro_admin follows in plan 4.
+   ```
 
+   Migration `0001_grants_and_settings.sql` then grants `astro_web` only `SELECT, INSERT, UPDATE, DELETE` on the app's tables, and no DDL, the first time `pnpm db:migrate` runs. If you create `astro_web` after the first deploy, run that file's `DO $$ … $$` block once in the SQL editor as `migrator`. Check with `select rolname, rolsuper from pg_roles where rolname in ('migrator','astro_web');` that neither has `rolsuper`, and `select pg_has_role('astro_web', 'neon_superuser', 'member');` returns `false`.
 3. Copy the **direct** (unpooled) connection string for each role from **Connection details**. Store them in your password manager; they go into Cloudflare below and nowhere else.
-4. For local development, create a Neon branch `dev` from `main` and use its connection string in `apps/app/.dev.vars` (git-ignored).
+4. For local development you can use a local Postgres (see section 16) or a Neon branch `dev`; either way the connection string stays in your shell or `apps/app/.dev.vars` (git-ignored), never in the repo.
 
-## 5. Hyperdrive *(plan 2)*
+## 5. Hyperdrive
 
 The running Workers reach Neon through Hyperdrive, which pools connections and keeps the database password out of the Worker's code.
 
@@ -93,11 +96,13 @@ pnpm --filter @astro/app exec wrangler hyperdrive create astro-web   --connectio
 pnpm --filter @astro/app exec wrangler hyperdrive create astro-admin --connection-string="<astro_admin direct connection string>"
 ```
 
-Put each returned id in the matching `wrangler.jsonc` under `hyperdrive` (binding `DB`). The ids aren't secret; the connection strings are stored by Hyperdrive, not in the repo.
+Put the `astro-web` id in `apps/app/wrangler.jsonc` under `hyperdrive` (binding `HYPERDRIVE`), replacing the zero placeholder, and commit it. The id isn't secret; the connection string is stored by Hyperdrive, not in the repo. (`astro-admin` is for plan 4.)
 
-## 6. App Worker: `astro-app` *(plan 2)*
+## 6. App Worker: `astro-app`
 
 Create a second Worker from the same repository, named **`astro-app`**.
+
+> **Plan:** the app runs on **Workers Free**. Cloudflare's limit is 64 MiB uncompressed per Worker on both plans (the app is about 18 MiB), and 10 ms of CPU per request on Free. Passwords are hashed with bcrypt inside Postgres (`apps/app/lib/password-hash.ts`), so a sign-in costs the Worker only waiting time, which doesn't count. After the first deploy, check CPU time per request in the Worker's **Observability** tab; if pages regularly go over 10 ms, move to Workers Paid ($5 a month), with nothing else to change.
 
 Settings → **Build**:
 
@@ -107,49 +112,49 @@ Settings → **Build**:
 - **Non-production branch builds: off.** The build has the production migrator credential. Cloudflare's docs don't say whether build secrets are limited to production builds, so assume they aren't; a branch build would otherwise run unreviewed code with that credential.
 - **Build variables:** `NODE_VERSION=22`
 - **Build secrets:** `DATABASE_URL_MIGRATOR` = the `migrator` direct connection string. Build secrets aren't available to the running Worker.
-- **Build watch paths → Include:** `apps/app/*`, `packages/*`, `db/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
+- **Build watch paths → Include:** `apps/app/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
 
 Settings → **Variables and Secrets** (runtime):
 
 | Name | Type | Value |
 | --- | --- | --- |
-| `APP_URL` | Variable | `https://astroapp.midnightpoetry.studio` |
-| `BETTER_AUTH_SECRET` | Secret | `openssl rand -hex 32` |
+| `BETTER_AUTH_SECRET` | Secret | `openssl rand -hex 32` (at least 32 characters) |
 | `TURNSTILE_SECRET_KEY` | Secret | from section 8 |
 | `RESEND_API_KEY` | Secret | from section 9 |
-| `EMAIL_FROM` | Variable | e.g. `Astro <hello@midnightpoetry.studio>` |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Secret | from section 10 *(plan 3)* |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | Secret | from section 11; only the providers you use *(plan 3)* |
 
+The plain variables live in `apps/app/wrangler.jsonc` under `vars`, because a deploy replaces dashboard variables with the file's: `APP_URL`, `EMAIL_FROM`, `MAIL_DRIVER=resend`, `TURNSTILE_MODE=on`, `HIBP_CHECK=on` and `PUBLIC_TURNSTILE_SITE_KEY` (put your real site key there; it's public). The Worker refuses to start on the production address if `MAIL_DRIVER=outbox`, `TURNSTILE_MODE=off` or `HIBP_CHECK=off`, or if a required secret is missing.
+
 **Never put the migrator connection string, Stripe keys or AI keys in a runtime variable, `wrangler.jsonc`, a `.env` file committed to git, or GitHub.**
 
-## 7. Database migrations *(plan 2)*
+## 7. Database migrations
 
-Migrations live in `db/migrations` (Drizzle) and run from the `astro-app` deploy command: `pnpm db:migrate && pnpm cf:deploy:app`.
+Migrations live in `packages/db/migrations` (Drizzle) and run from the `astro-app` deploy command: `pnpm db:migrate && pnpm cf:deploy:app`. `pnpm db:migrate` reads `DATABASE_URL_MIGRATOR`, refuses to run without it, and prints `migrations: N applied`. To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db generate`, review the SQL, commit.
 
 - **Order.** `&&` means a failed migration stops the deploy; the previous Worker keeps serving and the schema is left as the migration tool's transaction left it.
 - **Expand, then contract.** The old Worker serves traffic while the migration runs, so every migration must work with both the old and the new code. Add tables and nullable columns in one release; backfill; make them required or remove old ones in a later release.
 - **Before a risky migration,** create a Neon branch of `main` (Branches → Create branch) as an instant restore point.
 - **Admin Worker:** `astro-admin` never migrates. It deploys after `astro-app` has migrated, and only reads columns that already exist.
 
-## 8. Cloudflare Turnstile *(plan 2)*
+## 8. Cloudflare Turnstile
 
 Cloudflare dashboard → **Turnstile → Add widget**:
 
 - **Hostnames:** `astroapp.midnightpoetry.studio`, `astro.midnightpoetry.studio`
 - **Mode:** Managed
 
-Put the **site key** in the app's build variable `PUBLIC_TURNSTILE_SITE_KEY` and the **secret key** in the runtime secret `TURNSTILE_SECRET_KEY` (section 6). Turnstile protects sign-up, sign-in, password reset, contact forms and guest draws.
+Put the **site key** in `PUBLIC_TURNSTILE_SITE_KEY` in `apps/app/wrangler.jsonc` and the **secret key** in the runtime secret `TURNSTILE_SECRET_KEY` (section 6). Turnstile protects sign-up, sign-in, password-reset requests and a guest's first draw of the day.
 
-## 9. Email for accounts (Resend) *(plan 2)*
+## 9. Email for accounts (Resend)
 
-Better Auth sends sign-up confirmations, password resets and 2-step codes.
+Better Auth sends sign-up confirmations, password resets and a heads-up when someone tries to sign up with an email that already has an account.
 
 1. Create a Resend account, add the sending domain and the DNS records it asks for (SPF, DKIM).
 2. Create an API key with **sending access only** → `RESEND_API_KEY`.
 3. Set `EMAIL_FROM` to an address on that domain.
 
-Until the key is set, sign-up and password reset show "We can't send email right now".
+Without the key the Worker refuses to start on the production address (section 6).
 
 ## 10. Stripe *(plan 3)*
 
@@ -165,9 +170,9 @@ Until the key is set, sign-up and password reset show "We can't send email right
 2. Create an API key at each provider you want available (Anthropic, OpenAI, Google) and set it as a runtime secret on `astro-app` (section 6).
 3. In the admin portal → **AI**, choose the provider and model. The app calls the provider through the gateway; Workers AI isn't used.
 
-## 12. Card art: R2 *(plan 2)*
+## 12. Card art: R2 *(later plan)*
 
-R2 → **Create bucket** `astro-card-art` (location hint: Asia-Pacific). Bind it to `astro-app` and `astro-admin` as `CARD_ART` in `wrangler.jsonc`. Images are served by the Worker with long-lived cache headers; the bucket itself isn't public.
+Plan 2 draws cards with line glyphs, so no bucket is needed yet. When final art lands: R2 → **Create bucket** `astro-card-art` (location hint: Asia-Pacific). Bind it to `astro-app` and `astro-admin` as `CARD_ART` in `wrangler.jsonc`. Images are served by the Worker with long-lived cache headers; the bucket itself isn't public.
 
 ## 13. Admin Worker: `astro-admin` *(plan 4)*
 
@@ -207,11 +212,18 @@ Landing page (now):
 - [ ] With **Reduce motion** on (iOS Settings → Accessibility → Motion): nothing animates and every section is visible.
 - [ ] Keyboard only: Tab shows "Skip to content"; "Begin the journey" moves to the deck.
 
-App and admin *(plans 2–4)*:
+App (plan 2):
 
-- [ ] Sign up, confirm the email, turn on 2-step, sign out and back in with a code.
-- [ ] Draw today's card as a guest and as a member; check one reading per spread per day.
-- [ ] After a reading, verify the fingerprint on the Verify screen.
+- [ ] `pnpm db:migrate` ran in the Workers Builds log (`migrations: N applied`) before `wrangler deploy`.
+- [ ] Sign up, confirm the email (it arrives from your Resend domain), turn on 2-step, sign out and back in with a code.
+- [ ] The Turnstile widget appears on sign-up and sign-in, and on a guest's first draw.
+- [ ] Draw today's card as a guest and as a member; a second draw the same day goes back to the same reading.
+- [ ] After a reading, the Verify screen shows "Matches ✓".
+- [ ] Worker → Observability: CPU time per request stays under 10 ms for sign-in and the main pages (Workers Free).
+- [ ] `curl -sI https://astroapp.midnightpoetry.studio/today` shows a CSP with `'nonce-` and `frame-ancestors 'none'`.
+
+Paid readings and admin *(plans 3–4)*:
+
 - [ ] Buy an AI reading in Stripe test mode; check it appears in the journal and the admin portal.
 - [ ] Open `/admin` from a browser not signed in to Access: Access blocks it.
 - [ ] Have the privacy notice and terms reviewed before public launch (`/terms` and `/privacy` don't exist yet).
@@ -226,6 +238,13 @@ App and admin *(plans 2–4)*:
 ```bash
 pnpm install
 pnpm --filter @astro/landing dev                     # landing page at http://localhost:3000
+
+# App: a local Postgres with roles migrator and astro_web, and databases astro_dev / astro_test
+cp apps/app/.dev.vars.example apps/app/.dev.vars     # development values only (outbox mail, Turnstile off)
+DATABASE_URL_MIGRATOR=postgres://migrator:migrator@127.0.0.1:5432/astro_dev pnpm db:migrate
+pnpm --filter @astro/app preview                     # OpenNext build + wrangler dev on http://127.0.0.1:8790
+DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm db:test        # database tests
+DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/app e2e
 pnpm cf:build:landing                                # the same build Cloudflare runs
 pnpm --filter @astro/landing preview                 # wrangler dev, applies _headers like production
 E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e   # e2e against wrangler dev
@@ -238,4 +257,7 @@ E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e   # e2e agai
 - Only `esbuild`, `workerd` and `sharp` may run install scripts (`pnpm.onlyBuiltDependencies`).
 - Workers serve only their custom domains (`workers_dev` and `preview_urls` are off).
 - Non-production branch builds stay off for any Worker whose build has `DATABASE_URL_MIGRATOR`.
+- Development shortcuts (outbox mail, Turnstile off, leaked-password check off) are refused by the app on its production address.
+- Passwords are stored as bcrypt (cost 12) over a SHA-256 of the password, computed by Postgres's pgcrypto; the password reaches Neon only inside the encrypted Hyperdrive connection, and Postgres doesn't log query values by default.
+- Deck orders, orientations and salts never leave the server until a reading is complete; tests check API responses and page HTML for leaks.
 - To do: pin GitHub Actions to exact commit SHAs (with the version in a comment).

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { hero, links } from "@/content/site";
-import { CardBack } from "./CardBack";
+import { CardBack } from "@astro/ui";
 import { ChapterRail } from "./ChapterRail";
 import { StaticSky } from "./StaticSky";
 

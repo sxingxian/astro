@@ -1,5 +1,5 @@
 import { pairs } from "@/content/site";
-import { CardFace } from "./CardFace";
+import { CardFace } from "@astro/ui";
 import { ChapterIntro } from "./Chapter";
 
 export function PairsChapter() {

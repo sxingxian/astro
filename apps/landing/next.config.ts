@@ -5,7 +5,7 @@ const config: NextConfig = {
   images: { unoptimized: true },
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@astro/tokens", "@astro/cards"]
+  transpilePackages: ["@astro/tokens", "@astro/cards", "@astro/ui"]
 };
 
 export default config;

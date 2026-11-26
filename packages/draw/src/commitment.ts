@@ -9,8 +9,11 @@ export function createSalt(): string {
   return toHex(bytes);
 }
 
+/** Length of a fingerprint in hex characters (128 bits). */
+export const FINGERPRINT_HEX = 32;
+
 /**
- * First 16 hex chars of SHA-256(order.join(",") + "|" + orientations.join(",") + ":" + salt).
+ * First 32 hex chars of SHA-256(order.join(",") + "|" + orientations.join(",") + ":" + salt).
  * Orientations are committed alongside the order so a card cannot be flipped after the fingerprint is shown.
  */
 export async function fingerprintOf(order: readonly string[], orientations: readonly Orientation[], salt: string): Promise<string> {
@@ -19,10 +22,10 @@ export async function fingerprintOf(order: readonly string[], orientations: read
   }
   const data = new TextEncoder().encode(`${order.join(",")}|${orientations.join(",")}:${salt}`);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return toHex(new Uint8Array(digest)).slice(0, 16);
+  return toHex(new Uint8Array(digest)).slice(0, FINGERPRINT_HEX);
 }
 
-/** "a3f90c7e51bd92e4" → "a3f9 0c7e 51bd 92e4". */
+/** Groups of four: "0123456789abcdef…" → "0123 4567 89ab cdef …". */
 export function formatFingerprint(fp: string): string {
   return fp.match(/.{1,4}/g)?.join(" ") ?? fp;
 }
