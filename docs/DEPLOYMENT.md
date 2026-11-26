@@ -125,22 +125,33 @@ At **console.neon.tech**:
 
 Hyperdrive keeps the app's connections to Neon fast and keeps the database password out of the code.
 
-At **dash.cloudflare.com** → **Workers & Pages → Hyperdrive → Create configuration**:
+**Find it.** Hyperdrive isn't under Workers & Pages. Either:
 
+- open **https://dash.cloudflare.com/?to=/:account/workers/hyperdrive** (pick your account if asked), or
+- at **dash.cloudflare.com**, in the left menu open **Storage & databases → Hyperdrive**. Some accounts call it **Postgres & MySQL (Hyperdrive)**.
+
+**Create the configuration.** Press **Create configuration** (top right).
+
+- If it asks what kind of database, choose your own **public database** (Postgres). Don't pick a private database, Tunnel, or a provider such as PlanetScale.
 - **Name:** `astro-web`
-- **Connection string:** paste the **astro_web** address from step 4. If the form asks for separate fields instead, copy them from that address:
-  - **Host:** the part after `@` up to `/`.
-  - **Port:** `5432`.
-  - **Database:** `neondb`.
-  - **User:** `astro_web`.
-  - **Password:** the astro_web password.
-- **Create**. Cloudflare tests the connection before saving.
+- **Connection details:**
+  - If there's one box for a connection string, paste the **astro_web** address from step 4.
+  - If it shows separate boxes (sometimes behind **Manual entry**), copy each part from that address:
 
-Then open `astro-web` → **Settings** → turn **Caching off**. With caching on, a signed-out session or a just-changed setting could keep working for up to a minute. If your dashboard has no caching setting, tell Claude before the first app deploy.
+    | Box | Value |
+    | --- | --- |
+    | Database type | PostgreSQL |
+    | Host | the part after `@` up to the next `/`, for example `ep-something-123456.ap-southeast-1.aws.neon.tech` |
+    | Port | `5432` |
+    | Database | `neondb` |
+    | User | `astro_web` |
+    | Password | the astro_web password |
 
-Copy the configuration's **ID** (a 32-character code on its page). It isn't secret; you'll use it in step 8.
+- Press **Create**. Cloudflare tests the connection before saving. If it fails, check the address has no `-pooler` in it (step 4), then try again without `&channel_binding=require` at the end.
 
-If Hyperdrive rejects the address, remove `&channel_binding=require` from the end and try again.
+**Copy the ID.** Back on the Hyperdrive page, open `astro-web`. Its **ID** is a 32-character code of letters and numbers on that page. It isn't secret; you'll use it in step 8.
+
+**Turn caching off.** Open `astro-web` → **Settings**. If there's a **Caching** section, switch caching **off** and **Save**. This matters for security: with caching on, a session that was just signed out or revoked can keep working for up to about a minute. Cloudflare's own docs only describe this switch for the command line. If your Settings page has no caching option, send Claude a screenshot of it before the app's first deploy, and Claude will handle it another way.
 
 *(plan 4)* Later you'll make a second configuration, `astro-admin`, for the admin portal in the same way.
 
