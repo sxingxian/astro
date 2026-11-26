@@ -25,9 +25,8 @@ Paid AI readings (Plan 4) need all of this first, so the admin portal comes befo
    - the card meanings (owner only);
    - each change saved as a draft, which can be checked, published, and restored from history.
 4. **AI settings:**
-   - the provider: Anthropic, OpenAI, Google Gemini, or any service with an OpenAI-compatible API;
-   - the model;
-   - an encrypted, write-only key;
+   - services from Anthropic, OpenAI, Google Gemini, or any service with an OpenAI-compatible API, each with its model and an encrypted, write-only key;
+   - three roles (writer, checker 1, checker 2), each with a main service and at least two fallbacks, always three different companies per reading;
    - a "Test connection" button;
    - a daily spending cap and AI orders per person per day, stored now and enforced in Plan 4.
 5. **Site settings:** contacts, social links, disclaimers, reversal rate, daily limits, maintenance mode.
@@ -190,20 +189,55 @@ On publish, each override is validated:
 
 **Workers Free budget.** No extra Worker requests: the landing page stays static, and the app reads wording within requests it already serves. Each landing publish uses one Workers Builds build.
 
-### 4. AI settings and the encrypted key
+### 4. AI settings: services, roles, fallbacks and the encrypted key
 
-**Table** `ai_setting` holds one row per provider configuration:
+**How readings will be checked (owner, 26 Nov; generated in Plan 4).** Every AI reading uses three different AI companies:
+
+1. The **writer** drafts the reading.
+2. **Checker 1** and **checker 2** each check the draft against the cards drawn, the published card meanings and the safety rules (no medical, legal or financial advice; no claims the cards don't support). Each replies "pass" or "fix this" with notes.
+3. If either flags a problem, the writer revises once with their notes, and both check again.
+4. If it still fails, the user sees a calm "we couldn't complete this reading" message and isn't charged.
+
+The reading is shown only after it passes.
+
+**Services.** Table `ai_service` holds one row per AI service the owner adds:
 
 - the provider: `anthropic`, `openai`, `gemini`, or `openai_compatible`;
 - the display name;
+- the company it belongs to, used for the "three different companies" rule. It's fixed for the first three providers and typed by the owner for `openai_compatible`;
 - the base URL (`openai_compatible` only; must be `https://` with a hostname, not an IP address; the Worker's `global_fetch_strictly_public` flag also stops calls to private networks);
 - the model;
 - `key_ciphertext`, `key_iv`, `key_last4`;
-- whether it's the primary or the fallback;
+- whether it's switched on;
 - max output tokens, temperature, timeout;
 - `updated_by`, `updated_at`.
 
-`app_setting` holds the daily spending cap and AI orders per person per day.
+**Roles and fallbacks.** Table `ai_role_slot(role, position, service_id)` defines an ordered list for each role:
+
+- the roles are `writer`, `checker_1` and `checker_2`;
+- position 0 is the main service, and 1 and 2 are the fallbacks (more allowed).
+- Every role needs a main service and **at least two fallbacks**. AI readings can't be switched on until all three roles meet this and every service in them has passed a test.
+
+**When a fallback is used.** The next service in a role's list is tried when the current one:
+
+- times out;
+- returns a server error;
+- reports that its quota or credit is used up (HTTP 402 or 429, or the provider's "insufficient quota" error);
+- has a rejected key.
+
+A service that fails is skipped for 10 minutes. Errors are recorded per service and shown in the portal.
+
+**Three different companies, every time.**
+
+- While building a reading, a service whose company is already used for another role in that reading is skipped, and the next fallback is tried.
+- If a role runs out of services, the reading fails gracefully, as in step 4.
+- The portal warns when the setup is fragile, for example when only three companies are configured, because one outage would then stop AI readings. Four or five companies keep readings running through an outage.
+- **Note:** a service such as OpenRouter can resell another company's models. The company field is what the rule uses, so the portal asks the owner to name the real company behind each `openai_compatible` service.
+
+`app_setting` holds:
+
+- the daily spending cap, which counts every call (writer, checkers, revisions and fallbacks);
+- AI orders per person per day.
 
 **Encryption:**
 
@@ -218,6 +252,7 @@ On publish, each override is validated:
 
 **Test connection:**
 
+- Each service has its own Test button, and "Test all" runs every service in the three roles.
 - The admin Worker decrypts the key and sends a one-line prompt through Cloudflare AI Gateway (`astro`) where the provider is supported; `openai_compatible` services are called directly.
 - It reports success, the time taken, and the provider's error message with any key text removed.
 - Limited to 10 tests per hour.
