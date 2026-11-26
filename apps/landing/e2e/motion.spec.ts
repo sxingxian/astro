@@ -36,6 +36,14 @@ test.describe("default motion", () => {
 test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
+  test("every section is visible straight away, without scrolling or fading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-motion", /.+/);
+    const opacities = await page.locator('[data-anim="reveal"]').evaluateAll((els) => els.map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(0);
+    expect(opacities.every((o) => o === "1")).toBe(true);
+  });
+
   test("no smooth scroll, no deck loop, all content revealed", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("html")).not.toHaveClass(/lenis/);
