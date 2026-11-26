@@ -1,263 +1,320 @@
 # Deploying Astro
 
-Astro runs entirely on **Cloudflare** (Workers, Workers Builds, Hyperdrive, R2, Turnstile, AI Gateway, Access) and **Neon** Postgres in Singapore. Cloudflare runs every deploy and every database migration. GitHub stores the code and runs the pull-request tests; it never deploys and holds no Cloudflare, Neon or Stripe secrets. Allow about an hour the first time.
+Every step below is done on a website, in your browser: **Cloudflare**, **GitHub**, **Neon** and **Resend** now, and **Stripe** and the AI providers later. You never need a terminal, Command Prompt or PowerShell. Cloudflare runs every build, deploy and database migration for you. Allow about an hour the first time.
 
-| Host | Serves | Cloudflare Worker | Status |
+| Address | Serves | Cloudflare Worker | Status |
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
 | `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | **Built (plan 2)** |
 | `astro.midnightpoetry.studio/admin` | Admin portal: pricing, contacts, AI provider, readers | `astro-admin` | Plan 4 |
 
-Sections marked *(plan N)* describe settings for parts that aren't built yet. They're here so the whole setup is planned in one place; the names below (Workers, secrets, roles) are the ones those plans will use.
+Sections marked *(plan N)* are for parts that aren't built yet. They're here so the whole setup is planned in one place.
+
+## Before you start
+
+**Accounts:** Cloudflare (with `midnightpoetry.studio`), GitHub (owner of `sxingxian/astro`), Neon, Resend.
+
+**A password manager with a password generator** (Bitwarden, 1Password, Apple Passwords or similar). You'll create several secret values. For each one:
+
+- Generate it in the password manager: **at least 40 characters, letters and numbers only** (hyphens are fine; no other symbols, because they break database addresses).
+- Save it there with a clear name (for example "Astro · Neon migrator password").
+- Paste it only into the website field this guide names. Never put it in an email, a chat, a GitHub file or a screenshot.
+
+**Where each value ends up:**
+
+| Value | Made in | Goes into |
+| --- | --- | --- |
+| `migrator` database password and address | Neon (step 4) | Cloudflare → `astro-app` → build secret `DATABASE_URL_MIGRATOR` |
+| `astro_web` database password and address | Neon (step 4) | Cloudflare → Hyperdrive `astro-web` (step 5) |
+| Hyperdrive ID (not secret) | Cloudflare (step 5) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
+| Turnstile site key (not secret) | Cloudflare (step 6) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
+| Turnstile secret key | Cloudflare (step 6) | `astro-app` secret `TURNSTILE_SECRET_KEY` |
+| Resend API key | Resend (step 7) | `astro-app` secret `RESEND_API_KEY` |
+| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-app` secret `BETTER_AUTH_SECRET` |
+
+The two values that aren't secret (Hyperdrive ID and Turnstile site key) can instead be sent to Claude, who will put them into the code for you.
 
 ## How a release goes out
 
 ```
-pull request ──► GitHub Actions "CI / verify": lint, typecheck, unit tests, build, Playwright e2e
-                 (required by the main ruleset; no secrets)
-merge to main ──► Cloudflare Workers Builds, one build per Worker whose watch paths changed
-                   install → lint → typecheck → unit tests → build
-                   └─► deploy command
-                         astro-landing:  wrangler deploy
-                         astro-app:      migrate Neon (migrator role) → wrangler deploy      (plan 2)
-                         astro-admin:    wrangler deploy                                      (plan 4)
+pull request on GitHub ──► GitHub runs the tests ("verify"); a pull request can't merge until they pass
+merge to main          ──► Cloudflare builds each Worker whose files changed
+                           tests → build → deploy
+                           astro-app also updates the database first; if that fails, nothing is deployed
 ```
 
 If any step fails, that Worker isn't deployed and the previous version keeps serving.
 
-## 1. Cloudflare account and domain
+## 1. Cloudflare: domain and security settings
 
-1. Add the zone `midnightpoetry.studio` to your Cloudflare account (Websites → Add a domain) and switch the nameservers at your registrar. Every Worker below claims its hostname as a **custom domain** on its first deploy, which creates the DNS record and certificate, so this zone must be in the same account.
-2. SSL/TLS → Overview: **Full (strict)**. SSL/TLS → Edge Certificates: **Always Use HTTPS** on, **Minimum TLS 1.2**.
-3. Security → Bots: **Bot Fight Mode** on.
+At **dash.cloudflare.com**:
+
+1. **Add a domain** → `midnightpoetry.studio`, then change the nameservers at your domain registrar to the two Cloudflare shows. Each Worker creates its own address and certificate on its first deploy, so the domain must be in the same Cloudflare account.
+2. Open the domain → **SSL/TLS → Overview** → **Full (strict)**. Then **SSL/TLS → Edge Certificates** → **Always Use HTTPS** on, **Minimum TLS Version** 1.2.
+3. **Security → Bots** → **Bot Fight Mode** on.
 4. If `astro.midnightpoetry.studio` was ever attached to a Pages project or another Worker, remove it there first.
 
 ## 2. GitHub: protect `main`
 
-Workers Builds deploys every commit that lands on `main`, so `main` must only accept tested pull requests.
+Cloudflare deploys every change that lands on `main`, so `main` must only accept tested pull requests.
 
-Repository → **Settings → Rules → Rulesets → New ruleset → New branch ruleset**:
+At **github.com/sxingxian/astro** → **Settings → Rules → Rulesets → New ruleset → New branch ruleset**:
 
-- **Name:** `Protect main`. **Enforcement status:** Active. **Bypass list:** empty.
-- **Target branches:** Add target → **Include default branch**.
-- **Rules:**
-  - Restrict deletions, Block force pushes (on by default).
-  - **Require a pull request before merging**, required approvals **0** (GitHub doesn't let you approve your own pull request).
-  - **Require status checks to pass** → Add checks → **`verify`** (from GitHub Actions). Tick **Require branches to be up to date before merging**.
+- **Ruleset name:** `Protect main`. **Enforcement status:** Active. **Bypass list:** leave empty.
+- **Target branches:** **Add target → Include default branch**.
+- Tick:
+  - **Restrict deletions** and **Block force pushes** (already ticked).
+  - **Require a pull request before merging**, with **Required approvals: 0** (GitHub doesn't let you approve your own pull request).
+  - **Require status checks to pass** → **Add checks** → type `verify` and pick it. Also tick **Require branches to be up to date before merging**.
+- **Create**.
 
-Check: a direct `git push` to `main` is refused, and a pull request shows "Required: verify".
+Check: open any file on `main` and click the pencil. GitHub should only offer to save your change on a new branch with a pull request, not straight onto `main`.
 
-## 3. Landing page Worker: `astro-landing`
+## 3. Cloudflare: landing page Worker `astro-landing`
 
-Cloudflare dashboard → **Workers & Pages → Create → Import a repository** → GitHub → `sxingxian/astro`. Name the Worker **`astro-landing`**: it must match `name` in `apps/landing/wrangler.jsonc`.
+At **dash.cloudflare.com** → **Workers & Pages → Create → Import a repository** → connect GitHub if asked → pick `sxingxian/astro`.
 
-> **Don't use the default deploy command `npx wrangler deploy`.** `npx` runs npm, which can't read the pnpm workspace links (`workspace:*`) and fails with `EUNSUPPORTEDPROTOCOL`. Use the `pnpm` commands below; Wrangler is installed with the project.
+- **Project name:** `astro-landing` (it must be exactly this).
+- **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:landing`
+- **Deploy command:** `pnpm cf:deploy:landing`. Replace the suggested `npx wrangler deploy`, which fails on this project.
+- **Root directory:** `/`
 
-Settings → **Build**:
+After it's created, open the Worker → **Settings → Build** and check:
 
 - **Git branch (production):** `main`
-- **Root directory:** `/` (repository root, so pnpm sees the whole workspace)
-- **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:landing`
-- **Deploy command:** `pnpm cf:deploy:landing`
-- **Non-production branch builds:** off. `workers_dev` and `preview_urls` are off in `wrangler.jsonc`, so the Worker only ever answers on its custom domain.
-- **Build variables:** `NODE_VERSION=22`. pnpm 10 comes from `packageManager` in `package.json`.
+- **Non-production branch builds:** off
+- **Build variables:** add `NODE_VERSION` = `22`
 - **Build watch paths → Include:** `apps/landing/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
 - **Build cache:** on
 
-`cf:build:landing` runs `turbo run lint typecheck test build --filter=@astro/landing...`, so the landing page and every package it uses are linted, type-checked and unit-tested before the static export is built. The Playwright end-to-end tests run only in the pull-request check, because the Cloudflare build image has no Chrome.
+The first build starts by itself. If it ran before you finished the settings, open **Deployments** and press **Retry build**. The address `astro.midnightpoetry.studio` is created on that first deploy. The landing page has no secrets.
 
-The landing page has no runtime variables or secrets. Its security headers (CSP with hashed inline scripts, HSTS, `nosniff`, COOP, `frame-ancestors 'none'`, Permissions-Policy) are in `apps/landing/out/_headers`, written at build time by `apps/landing/scripts/csp.mjs`.
+## 4. Neon: database and its two users
 
-**First deploy:** push to `main` (or press **Retry build** on the Worker's Deployments tab). The custom domain is created on that deploy.
+At **console.neon.tech**:
 
-## 4. Neon Postgres
-
-1. At neon.tech create a project named `astro`, **Region: AWS Asia Pacific (Singapore)**, Postgres 17. The default branch `main` is production.
-2. Create the roles **before the first app deploy**, with SQL rather than the console. Roles made in the Neon console (or its API) join `neon_superuser`, which would give the runtime role far more than it needs. In the SQL editor, connected as the project owner to the `neondb` database, run:
+1. **New project** → name `astro`, **Region: AWS Asia Pacific (Singapore)**, Postgres 17. The branch called `main` is production.
+2. Generate two passwords in your password manager (letters and numbers, 40+ characters): one for **migrator** (updates the database structure during deploys) and one for **astro_web** (what the live app uses).
+3. In the project, open **SQL Editor** (left menu). Check the database selector shows `neondb`. Paste this, put your two passwords between the quotes, and press **Run**:
 
    ```sql
-   CREATE ROLE migrator LOGIN PASSWORD '<long random password>';
-   GRANT ALL ON SCHEMA public TO migrator;      -- migrator creates and owns every table
-   CREATE ROLE astro_web LOGIN PASSWORD '<another long random password>';
-   CREATE EXTENSION IF NOT EXISTS pgcrypto;     -- bcrypt password hashing runs in the database
-   -- astro_admin follows in plan 4.
+   CREATE ROLE migrator LOGIN PASSWORD 'paste-migrator-password-here';
+   GRANT ALL ON SCHEMA public TO migrator;
+   CREATE ROLE astro_web LOGIN PASSWORD 'paste-astro-web-password-here';
+   CREATE EXTENSION IF NOT EXISTS pgcrypto;
    ```
 
-   Migration `0001_grants_and_settings.sql` then grants `astro_web` only `SELECT, INSERT, UPDATE, DELETE` on the app's tables, and no DDL, the first time `pnpm db:migrate` runs. If you create `astro_web` after the first deploy, run that file's `DO $$ … $$` block once in the SQL editor as `migrator`. Check with `select rolname, rolsuper from pg_roles where rolname in ('migrator','astro_web');` that neither has `rolsuper`, and `select pg_has_role('astro_web', 'neon_superuser', 'member');` returns `false`.
-3. Copy the **direct** (unpooled) connection string for each role from **Connection details**. Store them in your password manager; they go into Cloudflare below and nowhere else.
-4. For local development you can use a local Postgres (see section 16) or a Neon branch `dev`; either way the connection string stays in your shell or `apps/app/.dev.vars` (git-ignored), never in the repo.
+   Create the users here in the SQL Editor, not on Neon's **Roles** page. Users made on the Roles page get administrator powers the app shouldn't have. The last line turns on the database's built-in password hashing, which Astro uses for sign-ins.
 
-## 5. Hyperdrive
+   Then clear the editor so the passwords aren't left on screen.
+4. Check the result. Run each line on its own in the SQL Editor:
 
-The running Workers reach Neon through Hyperdrive, which pools connections and keeps the database password out of the Worker's code.
+   ```sql
+   select rolname, rolsuper from pg_roles where rolname in ('migrator','astro_web');
+   select pg_has_role('astro_web', 'neon_superuser', 'member');
+   ```
 
-```bash
-pnpm --filter @astro/app exec wrangler hyperdrive create astro-web   --connection-string="<astro_web direct connection string>"
-pnpm --filter @astro/app exec wrangler hyperdrive create astro-admin --connection-string="<astro_admin direct connection string>"
-```
+   The first should list both users with `rolsuper` = `f`, and the second should return `f`. On the app's first deploy, Cloudflare gives `astro_web` permission to read and write the app's data, and nothing more. Do this step before the app's first deploy (step 9).
+5. **Build the two database addresses.** On the project dashboard press **Connect**:
+   - **Branch:** `main`. **Database:** `neondb`. **Role:** `neondb_owner`.
+   - Turn **Connection pooling off**. Hyperdrive does the pooling, so the address must not contain `-pooler`.
+   - Copy the address. It looks like `postgresql://neondb_owner:XXXX@ep-something-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
+   - In your password manager, make two entries from it. Replace `neondb_owner:XXXX` with `migrator:your-migrator-password` for one, and with `astro_web:your-astro-web-password` for the other. Keep everything after the `@` unchanged.
 
-Put the `astro-web` id in `apps/app/wrangler.jsonc` under `hyperdrive` (binding `HYPERDRIVE`), replacing the zero placeholder, and commit it. The id isn't secret; the connection string is stored by Hyperdrive, not in the repo. (`astro-admin` is for plan 4.)
+## 5. Cloudflare: Hyperdrive (the app's link to the database)
 
-## 6. App Worker: `astro-app`
+Hyperdrive keeps the app's connections to Neon fast and keeps the database password out of the code.
 
-Create a second Worker from the same repository, named **`astro-app`**.
+At **dash.cloudflare.com** → **Workers & Pages → Hyperdrive → Create configuration**:
 
-> **Plan:** the app runs on **Workers Free**. Cloudflare's limit is 64 MiB uncompressed per Worker on both plans (the app is about 18 MiB), and 10 ms of CPU per request on Free. Passwords are hashed with bcrypt inside Postgres (`apps/app/lib/password-hash.ts`), so a sign-in costs the Worker only waiting time, which doesn't count. After the first deploy, check CPU time per request in the Worker's **Observability** tab; if pages regularly go over 10 ms, move to Workers Paid ($5 a month), with nothing else to change.
+- **Name:** `astro-web`
+- **Connection string:** paste the **astro_web** address from step 4. If the form asks for separate fields instead, copy them from that address:
+  - **Host:** the part after `@` up to `/`.
+  - **Port:** `5432`.
+  - **Database:** `neondb`.
+  - **User:** `astro_web`.
+  - **Password:** the astro_web password.
+- **Create**. Cloudflare tests the connection before saving.
 
-Settings → **Build**:
+Then open `astro-web` → **Settings** → turn **Caching off**. With caching on, a signed-out session or a just-changed setting could keep working for up to a minute. If your dashboard has no caching setting, tell Claude before the first app deploy.
 
-- **Root directory:** `/`
+Copy the configuration's **ID** (a 32-character code on its page). It isn't secret; you'll use it in step 8.
+
+If Hyperdrive rejects the address, remove `&channel_binding=require` from the end and try again.
+
+*(plan 4)* Later you'll make a second configuration, `astro-admin`, for the admin portal in the same way.
+
+## 6. Cloudflare: Turnstile (bot check on forms)
+
+At **dash.cloudflare.com** → **Turnstile → Add widget**:
+
+- **Widget name:** `Astro`
+- **Hostnames:** `astroapp.midnightpoetry.studio` and `astro.midnightpoetry.studio`
+- **Widget mode:** Managed
+- **Create**
+
+Copy the **site key** (public, for step 8) and the **secret key** (save it in your password manager, for step 9). Turnstile protects sign-up, sign-in, password resets and a guest's first draw of the day.
+
+## 7. Resend: email for accounts
+
+Astro sends sign-up confirmations, password resets, and a heads-up when someone tries to sign up with an email that already has an account.
+
+At **resend.com**:
+
+1. **Domains → Add domain** → `midnightpoetry.studio`, region nearest Singapore. Add the DNS records Resend shows in Cloudflare (**your domain → DNS → Records → Add record**, copying each type, name and value exactly), or let Resend add them for you if it offers to connect to Cloudflare. Wait until Resend shows the domain as **Verified**.
+2. **API Keys → Create API key** → name `astro-app`, **Permission: Sending access**, domain `midnightpoetry.studio`. Save the key in your password manager (step 9).
+
+Emails come from `hello@midnightpoetry.studio`. To use a different address, change `EMAIL_FROM` in step 8.
+
+## 8. GitHub: put the Hyperdrive ID and Turnstile site key into the app
+
+**Easiest:** send Claude the Hyperdrive ID and the Turnstile site key. Neither is secret. Claude makes the change as a pull request; then do the last two bullets below.
+
+**Or do it yourself on github.com:**
+
+- Open `sxingxian/astro` → `apps/app/wrangler.jsonc` → the **pencil** (Edit).
+- Replace `00000000000000000000000000000000` with your Hyperdrive ID.
+- Replace `set-in-dashboard` with your Turnstile site key. If you chose a different sending address in step 7, change `EMAIL_FROM` too. Keep every quote mark and comma.
+- **Commit changes…** → **Create a new branch for this commit and start a pull request** → **Propose changes** → **Create pull request**.
+- Wait for the **verify** check to turn green (about 5 minutes), then **Merge pull request → Confirm merge**.
+
+## 9. Cloudflare: app Worker `astro-app`
+
+> **Plan:** the app runs on **Workers Free**. Cloudflare allows 64 MiB per Worker on both plans (the app is about 18 MiB) and 10 ms of processing time per request on Free. Sign-in password checks run inside the database, so they don't use that time. After the first deploy, check step 15. Only if pages regularly go over 10 ms, upgrade to Workers Paid ($5 a month); nothing else changes.
+
+Do steps 4–8 first.
+
+At **dash.cloudflare.com** → **Workers & Pages → Create → Import a repository** → `sxingxian/astro`:
+
+- **Project name:** `astro-app` (exactly this)
 - **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:app`
-- **Deploy command:** `pnpm db:migrate && pnpm cf:deploy:app`
-- **Non-production branch builds: off.** The build has the production migrator credential. Cloudflare's docs don't say whether build secrets are limited to production builds, so assume they aren't; a branch build would otherwise run unreviewed code with that credential.
-- **Build variables:** `NODE_VERSION=22`
-- **Build secrets:** `DATABASE_URL_MIGRATOR` = the `migrator` direct connection string. Build secrets aren't available to the running Worker.
+- **Deploy command:** `pnpm db:migrate && pnpm cf:deploy:app`. The first half updates the database structure before each deploy.
+- **Root directory:** `/`
+
+Open the Worker → **Settings → Build**:
+
+- **Git branch (production):** `main`
+- **Non-production branch builds: off.** The build holds the database's migrator password, so it must only ever build reviewed code from `main`.
+- **Build variables and secrets:**
+  - add `NODE_VERSION` = `22` (Text);
+  - add `DATABASE_URL_MIGRATOR` (**Secret**) = the **migrator** address from step 4.
 - **Build watch paths → Include:** `apps/app/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
 
-Settings → **Variables and Secrets** (runtime):
+Then **Settings → Variables and Secrets → Add**, choosing type **Secret** for each:
 
-| Name | Type | Value |
-| --- | --- | --- |
-| `BETTER_AUTH_SECRET` | Secret | `openssl rand -hex 32` (at least 32 characters) |
-| `TURNSTILE_SECRET_KEY` | Secret | from section 8 |
-| `RESEND_API_KEY` | Secret | from section 9 |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Secret | from section 10 *(plan 3)* |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | Secret | from section 11; only the providers you use *(plan 3)* |
+| Name | Value |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | a new 64-character value from your password manager, letters and numbers |
+| `TURNSTILE_SECRET_KEY` | Turnstile secret key (step 6) |
+| `RESEND_API_KEY` | Resend API key (step 7) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 3)* |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | from step 12, only the providers you use *(plan 3)* |
 
-The plain variables live in `apps/app/wrangler.jsonc` under `vars`, because a deploy replaces dashboard variables with the file's: `APP_URL`, `EMAIL_FROM`, `MAIL_DRIVER=resend`, `TURNSTILE_MODE=on`, `HIBP_CHECK=on` and `PUBLIC_TURNSTILE_SITE_KEY` (put your real site key there; it's public). The Worker refuses to start on the production address if `MAIL_DRIVER=outbox`, `TURNSTILE_MODE=off` or `HIBP_CHECK=off`, or if a required secret is missing.
+**What `BETTER_AUTH_SECRET` is for.** Hashing passwords in the database (Workers Free) didn't remove the need for it, because it does other jobs:
 
-**Never put the migrator connection string, Stripe keys or AI keys in a runtime variable, `wrangler.jsonc`, a `.env` file committed to git, or GitHub.**
+- **Signs sign-in cookies.** The app can tell a real session from a forged one.
+- **Signs email links.** Confirmation and password-reset links can't be faked or altered.
+- **Encrypts 2-step sign-in.** Each member's authenticator key and backup codes are encrypted with it before they're stored, so someone who copied the database still couldn't produce their codes.
 
-## 7. Database migrations
+Treat it like a master key:
 
-Migrations live in `packages/db/migrations` (Drizzle) and run from the `astro-app` deploy command: `pnpm db:migrate && pnpm cf:deploy:app`. `pnpm db:migrate` reads `DATABASE_URL_MIGRATOR`, refuses to run without it, and prints `migrations: N applied`. To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db generate`, review the SQL, commit.
+- Make it once, keep it in your password manager, and never change it casually. Changing it signs everyone out and breaks every member's 2-step sign-in.
+- If it may have leaked, tell Claude. Better Auth can switch to a new secret while still accepting the old one, but the app needs a small change to do that safely.
 
-- **Order.** `&&` means a failed migration stops the deploy; the previous Worker keeps serving and the schema is left as the migration tool's transaction left it.
-- **Expand, then contract.** The old Worker serves traffic while the migration runs, so every migration must work with both the old and the new code. Add tables and nullable columns in one release; backfill; make them required or remove old ones in a later release.
-- **Before a risky migration,** create a Neon branch of `main` (Branches → Create branch) as an instant restore point.
-- **Admin Worker:** `astro-admin` never migrates. It deploys after `astro-app` has migrated, and only reads columns that already exist.
+Finally, **Deployments → Retry build** (or merge any pull request). In the build log you should see `migrations: N applied`, then the deploy. The address `astroapp.midnightpoetry.studio` is created on that first deploy.
 
-## 8. Cloudflare Turnstile
+If the first build ran before the settings were in place, it may have failed or the app may show an error page. That's expected: the app refuses to run on its real address while a secret is missing. Add what's missing and press **Retry build**.
 
-Cloudflare dashboard → **Turnstile → Add widget**:
+The app's other settings (address, sending email, Turnstile on, leaked-password check on) live in `apps/app/wrangler.jsonc`, because each deploy replaces settings typed into the dashboard with the file's. Only secrets go in the dashboard.
 
-- **Hostnames:** `astroapp.midnightpoetry.studio`, `astro.midnightpoetry.studio`
-- **Mode:** Managed
+**Never put the migrator address, Stripe keys or AI keys anywhere except the Cloudflare secret fields above.**
 
-Put the **site key** in `PUBLIC_TURNSTILE_SITE_KEY` in `apps/app/wrangler.jsonc` and the **secret key** in the runtime secret `TURNSTILE_SECRET_KEY` (section 6). Turnstile protects sign-up, sign-in, password-reset requests and a guest's first draw of the day.
+## 10. Database updates (nothing to do)
 
-## 9. Email for accounts (Resend)
+Cloudflare updates the database structure on every `astro-app` deploy (`pnpm db:migrate` in the deploy command). You don't run anything. A few things worth knowing:
 
-Better Auth sends sign-up confirmations, password resets and a heads-up when someone tries to sign up with an email that already has an account.
+- If an update fails, the deploy stops and the current version keeps serving.
+- Every update is written so the current version and the new one both work during the switch.
+- Before a big change, Claude will say so. Make a restore point first: Neon → **Branches → Create branch** from `main`.
+- *(plan 4)* The admin Worker never changes the database structure.
 
-1. Create a Resend account, add the sending domain and the DNS records it asks for (SPF, DKIM).
-2. Create an API key with **sending access only** → `RESEND_API_KEY`.
-3. Set `EMAIL_FROM` to an address on that domain.
+## 11. Stripe *(plan 3)*
 
-Without the key the Worker refuses to start on the production address (section 6).
+At **dashboard.stripe.com**:
 
-## 10. Stripe *(plan 3)*
+1. Create and activate the account (business details, bank account).
+2. **Developers → Webhooks → Add endpoint**:
+   - URL `https://astroapp.midnightpoetry.studio/api/stripe/webhook`;
+   - events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`, `charge.dispute.created`.
 
-1. Create and activate the Stripe account (business details, bank account).
-2. Developers → **Webhooks → Add endpoint**: `https://astroapp.midnightpoetry.studio/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`, `charge.dispute.created`. Copy the signing secret → `STRIPE_WEBHOOK_SECRET`.
-3. Developers → **API keys** → secret key → `STRIPE_SECRET_KEY`. Use a **restricted key** limited to Checkout Sessions, Prices, Products and Refunds.
-4. Prices per currency are set in the admin portal (Plan prices) and mirrored into Stripe; nothing is hard-coded.
-5. Rehearse in Stripe test mode first with card `4242 4242 4242 4242`.
+   Copy the **Signing secret** → `STRIPE_WEBHOOK_SECRET` (step 9).
+3. **Developers → API keys → Create restricted key**, allowing only Checkout Sessions, Prices, Products and Refunds → `STRIPE_SECRET_KEY`.
+4. Prices per currency are set in Astro, not typed into Stripe by hand.
+5. Rehearse in **Test mode** first, paying with card `4242 4242 4242 4242`.
 
-## 11. AI readings: AI Gateway *(plan 3)*
+## 12. AI readings: AI Gateway *(plan 3)*
 
-1. Cloudflare dashboard → **AI → AI Gateway → Create gateway** named `astro`. Turn on **logging** and **rate limiting**; set a daily spend alert at the provider.
-2. Create an API key at each provider you want available (Anthropic, OpenAI, Google) and set it as a runtime secret on `astro-app` (section 6).
-3. In the admin portal → **AI**, choose the provider and model. The app calls the provider through the gateway; Workers AI isn't used.
+1. At **dash.cloudflare.com** → **AI → AI Gateway → Create gateway** → name `astro`. Turn on **logging** and **rate limiting**.
+2. At each AI provider you want (Anthropic, OpenAI, Google), create an API key and set a monthly spending limit there. Add each key as an `astro-app` secret (step 9).
+3. Choose the provider and model in Astro's admin portal *(plan 4)*. The app always calls the provider through the gateway.
 
-## 12. Card art: R2 *(later plan)*
+## 13. Card art: R2 *(later plan)*
 
-Plan 2 draws cards with line glyphs, so no bucket is needed yet. When final art lands: R2 → **Create bucket** `astro-card-art` (location hint: Asia-Pacific). Bind it to `astro-app` and `astro-admin` as `CARD_ART` in `wrangler.jsonc`. Images are served by the Worker with long-lived cache headers; the bucket itself isn't public.
+The app currently draws cards as line art, so nothing is needed yet. When the final artwork is ready: **dash.cloudflare.com → R2 → Create bucket** `astro-card-art`, location hint Asia-Pacific. Leave public access off; the app serves the images itself.
 
-## 13. Admin Worker: `astro-admin` *(plan 4)*
+## 14. Admin Worker `astro-admin` *(plan 4)*
 
-Create a third Worker from the repository, named **`astro-admin`**, with the same build settings pattern (`pnpm cf:build:admin`, `pnpm cf:deploy:admin`, non-production branch builds off). Its `wrangler.jsonc` claims the **route** `astro.midnightpoetry.studio/admin*`. A route with a path is more specific than the landing page's custom domain, so Cloudflare sends `/admin` traffic here and everything else to `astro-landing`. Check this on the first deploy.
+Create a third Worker the same way as step 9, named **`astro-admin`**. Plan 4 gives its exact build and deploy commands, with non-production branch builds off. It answers on `astro.midnightpoetry.studio/admin`; everything else at that address stays the landing page.
 
-**Cloudflare Access** (Zero Trust → Access → Applications → Add → Self-hosted):
+**Cloudflare Access** (keeps everyone but staff out): **dash.cloudflare.com → Zero Trust → Access → Applications → Add an application → Self-hosted**:
 
-- **Application domain:** `astro.midnightpoetry.studio/admin*`
-- **Policy:** Allow, **Emails** = the staff addresses. Session duration 8 hours.
+- **Application domain:** `astro.midnightpoetry.studio`, **path** `admin*`
+- **Policy:** Allow, **Emails** = the staff addresses. **Session duration:** 8 hours.
 
-Access stops anyone who isn't staff before the admin portal loads. Staff then sign in to Astro itself, where an authenticator app (TOTP) is **required**.
+Staff then sign in to Astro itself, where an authenticator app is required. Plan 4 will add the step to make yourself the first administrator.
 
-**First super admin:** sign up at `https://astroapp.midnightpoetry.studio/sign-up`, confirm the email, then in Neon's SQL editor (as `migrator`):
+## 15. After the first deploy: checks
 
-```sql
-update staff_roles set role = 'super_admin'
-where user_id = (select id from "user" where email = 'you@example.com');
-```
+All of these are done in a browser.
 
-Invite other staff from the admin portal; each must enrol an authenticator before any action works.
+**Landing page:**
 
-## 14. After the first deploy
+- [ ] `https://astro.midnightpoetry.studio` loads.
+- [ ] At **securityheaders.com**, scan `https://astro.midnightpoetry.studio`: grade **A**, with Content-Security-Policy and Strict-Transport-Security listed.
+- [ ] On a phone: nothing scrolls sideways, and the cards fit.
+- [ ] With **Reduce Motion** on (iPhone: Settings → Accessibility → Motion), nothing animates and every section shows.
+- [ ] Using only the keyboard, the first Tab shows "Skip to content".
 
-Landing page (now):
+**App:**
 
-- [ ] `https://astro.midnightpoetry.studio` loads, and `https://astro-landing.<account>.workers.dev` does **not** (workers.dev is off).
-- [ ] Headers:
-
-  ```bash
-  curl -sI https://astro.midnightpoetry.studio | grep -iE "content-security-policy|strict-transport|x-content-type|referrer-policy|permissions-policy|cross-origin-opener"
-  ```
-
-  Expect a CSP with `script-src 'self' 'sha256-…'`, HSTS, `nosniff`, `frame-ancestors 'none'`.
-- [ ] `https://securityheaders.com` against the landing page: grade A.
-- [ ] Browser console: no errors, no CSP violations.
-- [ ] On a phone (360px wide): no sideways scrolling; the deck and pairs fit.
-- [ ] With **Reduce motion** on (iOS Settings → Accessibility → Motion): nothing animates and every section is visible.
-- [ ] Keyboard only: Tab shows "Skip to content"; "Begin the journey" moves to the deck.
-
-App (plan 2):
-
-- [ ] `pnpm db:migrate` ran in the Workers Builds log (`migrations: N applied`) before `wrangler deploy`.
-- [ ] Sign up, confirm the email (it arrives from your Resend domain), turn on 2-step, sign out and back in with a code.
-- [ ] The Turnstile widget appears on sign-up and sign-in, and on a guest's first draw.
-- [ ] Draw today's card as a guest and as a member; a second draw the same day goes back to the same reading.
+- [ ] Cloudflare → `astro-app` → **Deployments** → latest build log shows `migrations: N applied` before the deploy.
+- [ ] Sign up, confirm the email (it arrives from your Resend domain), turn on 2-step sign-in, sign out, and sign back in with a code.
+- [ ] The Turnstile check appears on sign-up, sign-in and a guest's first draw.
+- [ ] Draw today's card as a guest and as a member. Drawing again the same day returns the same reading.
 - [ ] After a reading, the Verify screen shows "Matches ✓".
-- [ ] Worker → Observability: CPU time per request stays under 10 ms for sign-in and the main pages (Workers Free).
-- [ ] `curl -sI https://astroapp.midnightpoetry.studio/today` shows a CSP with `'nonce-` and `frame-ancestors 'none'`.
+- [ ] At **securityheaders.com**, scan `https://astroapp.midnightpoetry.studio/today`: Content-Security-Policy is listed and contains `nonce-` and `frame-ancestors 'none'`.
+- [ ] **Workers Free check:** a day after launch, open Cloudflare → `astro-app` → **Observability**. CPU time per request should stay under 10 ms for sign-in and the main pages. If it regularly doesn't, upgrade to Workers Paid (step 9).
 
-Paid readings and admin *(plans 3–4)*:
+**Paid readings and admin** *(plans 3–4)*:
 
-- [ ] Buy an AI reading in Stripe test mode; check it appears in the journal and the admin portal.
-- [ ] Open `/admin` from a browser not signed in to Access: Access blocks it.
+- [ ] Buy an AI reading in Stripe test mode; it appears in the journal and the admin portal.
+- [ ] Open `/admin` in a private window: Cloudflare Access blocks it.
 - [ ] Have the privacy notice and terms reviewed before public launch (`/terms` and `/privacy` don't exist yet).
 
-## 15. Rolling back
+## 16. Rolling back
 
-- **A Worker:** the Worker → **Deployments** → pick the previous version → **Rollback**. Instant; no rebuild.
-- **The database:** migrations aren't rolled back automatically. Because they're expand-then-contract, the previous Worker version runs against the newer schema. If data must be restored, use Neon **Restore** to a point in time or the branch made before the migration.
-
-## 16. Local development
-
-```bash
-pnpm install
-pnpm --filter @astro/landing dev                     # landing page at http://localhost:3000
-
-# App: a local Postgres with roles migrator and astro_web, and databases astro_dev / astro_test
-cp apps/app/.dev.vars.example apps/app/.dev.vars     # development values only (outbox mail, Turnstile off)
-DATABASE_URL_MIGRATOR=postgres://migrator:migrator@127.0.0.1:5432/astro_dev pnpm db:migrate
-pnpm --filter @astro/app preview                     # OpenNext build + wrangler dev on http://127.0.0.1:8790
-DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm db:test        # database tests
-DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/app e2e
-pnpm cf:build:landing                                # the same build Cloudflare runs
-pnpm --filter @astro/landing preview                 # wrangler dev, applies _headers like production
-E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e   # e2e against wrangler dev
-```
+- **A Worker:** Cloudflare → the Worker → **Deployments** → pick the previous version → **Rollback**. Instant, no rebuild.
+- **The database:** updates aren't undone automatically. They're written so the previous app version still works with them. If data must be restored, use Neon → **Restore** (to a point in time) or the branch you made before a big change.
 
 ## Release safety
 
-- GitHub holds no deploy or database credentials, and its only workflow (`CI`) has `contents: read`. Cloudflare and Neon credentials live in Cloudflare (Workers Builds build secrets, Worker runtime secrets, Hyperdrive).
-- CI installs only the versions in `pnpm-lock.yaml` (`--frozen-lockfile`); so does every Cloudflare build. Dependabot opens weekly update pull requests for npm packages and GitHub Actions.
-- Only `esbuild`, `workerd` and `sharp` may run install scripts (`pnpm.onlyBuiltDependencies`).
-- Workers serve only their custom domains (`workers_dev` and `preview_urls` are off).
-- Non-production branch builds stay off for any Worker whose build has `DATABASE_URL_MIGRATOR`.
-- Development shortcuts (outbox mail, Turnstile off, leaked-password check off) are refused by the app on its production address.
-- Passwords are stored as bcrypt (cost 12) over a SHA-256 of the password, computed by Postgres's pgcrypto; the password reaches Neon only inside the encrypted Hyperdrive connection, and Postgres doesn't log query values by default.
-- Deck orders, orientations and salts never leave the server until a reading is complete; tests check API responses and page HTML for leaks.
-- To do: pin GitHub Actions to exact commit SHAs (with the version in a comment).
+- GitHub holds no deploy or database passwords. Its only job is running tests on pull requests.
+- Cloudflare and Neon passwords live only in Cloudflare (build secrets, Worker secrets, Hyperdrive).
+- Builds install only the exact package versions in the lock file. Dependabot proposes updates weekly as pull requests.
+- Workers answer only on their real addresses (no `workers.dev` or preview addresses).
+- Non-production branch builds stay off for any Worker whose build holds the migrator password.
+- Development shortcuts (fake email, Turnstile off, leaked-password check off) are refused by the app on its real address.
+- Passwords are stored as bcrypt (strength 12) over a SHA-256 of the password, computed inside the database. The password travels only over the encrypted Hyperdrive connection.
+- Deck orders, orientations and salts never leave the server until a reading is complete; tests check for leaks.
+- Developer setup and commands are in `docs/DEVELOPMENT.md`; they aren't needed to deploy.
+- To do: pin GitHub Actions to exact commit SHAs.
