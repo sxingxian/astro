@@ -13,7 +13,9 @@ export function buildHero(root: HTMLElement, reduced: boolean) {
   }
 
   const tl = gsap.timeline({ defaults: { ease: "astroOut" } });
-  if (card) tl.from(card, { opacity: 0, y: 48, rotationY: -70, rotationX: 14, transformPerspective: 900, duration: 1.6 }, 0.15);
+  // Depth comes from the parent's CSS perspective. Never tween transformPerspective here: a `from`
+  // animates it towards 0, and a few-pixel perspective blows the tilted card up to fill the screen.
+  if (card) tl.from(card, { opacity: 0, y: 48, rotationY: -70, rotationX: 14, duration: 1.6 }, 0.15);
   tl.from(lines, { yPercent: 110, duration: 1.1, stagger: 0.12 }, 0.45);
   tl.from(intro, { opacity: 0, y: 28, duration: 1, stagger: 0.08 }, 0.35);
   if (card) gsap.to(card, { y: -12, duration: 3.6, ease: "sine.inOut", repeat: -1, yoyo: true, delay: 1.8 });
