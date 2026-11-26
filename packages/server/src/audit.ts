@@ -15,6 +15,7 @@ export const AUDIT_ACTIONS = {
   "user.disable": ["email"],
   "user.enable": ["email"],
   "user.reset_2fa": ["email"],
+  "settings.change": ["setting", "value"],
   "audit.export": ["rows"]
 } as const satisfies Record<string, readonly string[]>;
 

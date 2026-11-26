@@ -3,6 +3,17 @@ import { AUDIT_GROUPS, type AuditGroup } from "./audit-groups";
 
 export { AUDIT_GROUPS, type AuditGroup };
 
+export const SETTING_LABEL: Record<string, string> = {
+  reversal_rate: "Reversal rate",
+  guest_daily_cap: "Guest draws per day",
+  maintenance_mode: "Maintenance mode",
+  contact_email: "Support email",
+  social_links: "Social links",
+  disclaimer_note: "Reading disclaimer",
+  ai_daily_cap_usd: "AI daily spending limit",
+  ai_per_person_per_day: "AI readings per person per day"
+};
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -71,6 +82,8 @@ export function describe(e: Pick<AuditRow, "action" | "summary">): { what: strin
       return { what: "Enabled an account", details: String(s.email) };
     case "user.reset_2fa":
       return { what: "Reset 2-step sign-in", details: String(s.email) };
+    case "settings.change":
+      return { what: "Changed a setting", details: `${SETTING_LABEL[String(s.setting)] ?? s.setting} → ${s.value}` };
     case "audit.export":
       return { what: "Downloaded the audit log", details: `${s.rows} entries` };
     default:

@@ -4,7 +4,7 @@ import type { BetterAuthOptions } from "better-auth";
 import type { parseEnv } from "./env";
 import { alreadyRegistered, resetPassword, verifyEmail } from "./mail-templates";
 
-type AppEnv = ReturnType<typeof parseEnv>;
+type AppEnv = Omit<ReturnType<typeof parseEnv>, "MAINTENANCE_CACHE_SECONDS">;
 
 export type { AuthDeps } from "@astro/server";
 export { CAPTCHA_ENDPOINTS } from "@astro/server";

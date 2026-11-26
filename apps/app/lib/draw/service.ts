@@ -1,7 +1,7 @@
 import { majors, minors, allCards } from "@astro/cards";
 import { and, desc, eq, schema, sql, type Db } from "@astro/db";
 import { createDeck, isTimeZone, localDay, nextLocalMidnight, type Orientation } from "@astro/draw";
-import { getReversalRate } from "../settings";
+import { getSetting } from "@astro/server";
 import { DrawError } from "./errors";
 
 export type Actor = { kind: "user"; userId: string; timeZone: string } | { kind: "guest"; guestHash: string; ipHash: string; timeZone: string };
@@ -39,7 +39,6 @@ export interface Reading extends StartResult {
   reveal?: { stage: Stage; order: string[]; orientations: Orientation[]; salt: string }[];
 }
 
-export const GUEST_DAILY_CAP_PER_NETWORK = 3;
 const GUEST_TTL_MS = 48 * 3600_000;
 
 const STAGES: Record<Spread, { stage: Stage; cards: readonly string[]; count: number }[]> = {
@@ -106,7 +105,7 @@ async function takeGuestSlot(db: Exec, ipHash: string, now: Date) {
     .values({ ipHash, localDay: day, count: 1 })
     .onConflictDoUpdate({ target: [schema.guestDayCap.ipHash, schema.guestDayCap.localDay], set: { count: sql`${schema.guestDayCap.count} + 1` } })
     .returning({ count: schema.guestDayCap.count });
-  if ((row?.count ?? 0) > GUEST_DAILY_CAP_PER_NETWORK) throw new DrawError("rate_limited");
+  if ((row?.count ?? 0) > (await getSetting(db, "guest_daily_cap"))) throw new DrawError("rate_limited");
 }
 
 /** Today's reading for this spread if one exists, without creating anything. */
@@ -129,7 +128,7 @@ export async function startDraw(db: Db, actor: Actor, spread: Spread, now: Date 
   const day = localDay(now, timeZone);
   const lockKey = actor.kind === "user" ? `draw:u:${actor.userId}:${spread}` : `draw:g:${actor.guestHash}`;
   // Shuffle outside the lock; it's cheap and keeps the critical section short.
-  const rate = await getReversalRate(db);
+  const rate = await getSetting(db, "reversal_rate");
   const decks = await Promise.all(STAGES[spread].map(async (s) => ({ stage: s.stage, deck: await createDeck(s.cards, rate) })));
 
   const finish = async (tx: Exec, session: SessionRow): Promise<StartResult> => {
