@@ -86,14 +86,38 @@ $$;
 --> statement-breakpoint
 CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE OR TRUNCATE ON audit_log FOR EACH STATEMENT EXECUTE FUNCTION audit_log_append_only();
 --> statement-breakpoint
+-- Accepting an invite, as one checked step. The app calls this instead of writing staff_role or invite itself, so
+-- even a compromised app user can't grant a role: it would need an unused invite token for its own email, with
+-- 2-step sign-in on. SECURITY DEFINER with a fixed search_path; owned by the migrating role.
+CREATE OR REPLACE FUNCTION accept_invite(p_token_hash bytea, p_user_id text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  inv invite%ROWTYPE;
+  u record;
+BEGIN
+  SELECT * INTO inv FROM invite WHERE token_hash = p_token_hash FOR UPDATE;
+  IF NOT FOUND OR inv.accepted_at IS NOT NULL OR inv.revoked_at IS NOT NULL THEN RETURN 'invalid'; END IF;
+  IF inv.expires_at <= now() THEN RETURN 'expired'; END IF;
+  SELECT email, two_factor_enabled, disabled_at INTO u FROM "user" WHERE id = p_user_id;
+  IF NOT FOUND OR u.disabled_at IS NOT NULL THEN RETURN 'invalid'; END IF;
+  IF lower(u.email) <> lower(inv.email) THEN RETURN 'wrong_email'; END IF;
+  IF NOT u.two_factor_enabled THEN RETURN 'two_step_required'; END IF;
+  INSERT INTO staff_role (user_id, role, granted_by) VALUES (p_user_id, inv.role, inv.invited_by) ON CONFLICT (user_id) DO NOTHING;
+  IF NOT FOUND THEN RETURN 'has_role'; END IF;
+  UPDATE invite SET accepted_at = now() WHERE id = inv.id;
+  RETURN 'ok:' || inv.role;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION accept_invite(bytea, text) FROM PUBLIC;
+--> statement-breakpoint
 -- astro_web (the app) got full access to these tables through 0001's default privileges. Narrow it.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'astro_web') THEN
     REVOKE ALL ON staff_role, invite, audit_log, ai_service, ai_role_slot FROM astro_web;
-    GRANT SELECT, INSERT ON staff_role TO astro_web;          -- readers accept invites in the app
-    GRANT SELECT ON invite TO astro_web;
-    GRANT UPDATE (accepted_at) ON invite TO astro_web;
+    GRANT SELECT ON staff_role TO astro_web;                  -- the app knows who is a reader; it never grants roles
+    GRANT EXECUTE ON FUNCTION accept_invite(bytea, text) TO astro_web;  -- the only way to accept an invite
     GRANT INSERT ON audit_log TO astro_web;
     GRANT SELECT ON ai_service, ai_role_slot TO astro_web;    -- AI readings (plan 4) read settings, never change them
   END IF;
@@ -106,15 +130,14 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'astro_admin') THEN
     GRANT USAGE ON SCHEMA public TO astro_admin;
     GRANT SELECT, INSERT, UPDATE, DELETE ON staff_role, invite, ai_service, ai_role_slot, app_setting TO astro_admin;
-    GRANT SELECT, INSERT ON "user", account TO astro_admin;
+    GRANT SELECT ON "user", account TO astro_admin;              -- sign-in reads them; no sign-up, no password resets
     GRANT UPDATE (name, email_verified, two_factor_enabled, disabled_at, updated_at) ON "user" TO astro_admin;
-    GRANT UPDATE (password, updated_at) ON account TO astro_admin;  -- staff password resets
     GRANT SELECT, INSERT, UPDATE, DELETE ON session, verification, two_factor TO astro_admin;
     GRANT SELECT, INSERT, UPDATE, DELETE ON rate_limit TO astro_admin;
     GRANT INSERT ON audit_log, mail_outbox TO astro_admin;
     GRANT SELECT ON audit_log TO astro_admin;
     GRANT USAGE ON SEQUENCE audit_log_id_seq TO astro_admin;
-    GRANT SELECT ON draw_session TO astro_admin;                  -- dashboard counts
+    GRANT SELECT (user_id, spread, status, created_at, completed_at) ON draw_session TO astro_admin;  -- counts, never the cards
     GRANT SELECT (session_id, outcome, created_at) ON check_in TO astro_admin;  -- counts, never notes
   END IF;
 END

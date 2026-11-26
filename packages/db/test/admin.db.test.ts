@@ -71,6 +71,21 @@ describe("admin portal tables", () => {
     await expect(as("astro_admin", (tx) => tx`select note from check_in`)).rejects.toThrow(/permission denied/i);
   });
 
+  it("never lets astro_web grant a role or read invites; it can only accept one through accept_invite", async () => {
+    await expect(as("astro_web", (tx) => tx`insert into staff_role (user_id, role) values ('x', 'admin')`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_web", (tx) => tx`select token_hash from invite`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_web", (tx) => tx`update invite set accepted_at = now()`)).rejects.toThrow(/permission denied/i);
+    const [r] = await as("astro_web", (tx) => tx<{ r: string }[]>`select accept_invite(${Buffer.alloc(32)}, 'nobody') as r`);
+    expect(r?.r).toBe("invalid");
+  });
+
+  it("gives astro_admin no way to create accounts, overwrite passwords or read people's cards", async () => {
+    await expect(as("astro_admin", (tx) => tx`insert into "user" (id, name, email) values ('z', 'z', 'z@example.com')`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_admin", (tx) => tx`update account set password = 'x'`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_admin", (tx) => tx`select time_zone from draw_session`)).rejects.toThrow(/permission denied/i);
+    await as("astro_admin", (tx) => tx`select count(*) from draw_session where status = 'complete'`);
+  });
+
   it("marks new sessions as app sessions by default", async () => {
     await sql`insert into session (id, expires_at, token, user_id) values ('s1', now() + interval '1 day', 't1', 'u-owner')`;
     const [row] = await sql<{ surface: string }[]>`select surface from session where id = 's1'`;

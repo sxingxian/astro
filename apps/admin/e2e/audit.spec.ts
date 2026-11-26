@@ -21,7 +21,15 @@ test("sign-ins, invites and role changes are logged and shown on the Audit scree
   expect(changed.status()).toBe(200);
   await adminCtx.close();
 
-  // The owner signs in through the real form with their authenticator, then sends an invite.
+  // The owner sends an invite (through the API, with a fresh code)...
+  const invited = `invited-audit-${stamp}@example.com`;
+  const ownerCtx = await context.browser()!.newContext({ baseURL });
+  await signInAs(ownerCtx, baseURL, owner.id);
+  const sent = await ownerCtx.request.post("/admin/api/team/invite", { data: { email: invited, role: "reader", code: owner.totp!.generate() }, headers: { origin } });
+  expect(sent.status()).toBe(200);
+  await ownerCtx.close();
+
+  // ...then signs in through the real form with their authenticator.
   await page.goto("/admin/sign-in");
   await page.getByLabel("Email").fill(owner.email);
   await page.getByLabel("Password").fill(PASSWORD);
@@ -32,9 +40,9 @@ test("sign-ins, invites and role changes are logged and shown on the Audit scree
   // One sign-in, logged when the code was accepted, not also at the password step.
   const signIns = await sql<{ summary: { method: string } }[]>`select summary from audit_log where actor_id = ${owner.id} and action = 'auth.sign_in'`;
   expect(signIns.map((r) => r.summary.method)).toEqual(["authenticator"]);
-  const invited = `invited-audit-${stamp}@example.com`;
-  const sent = await page.request.post("/admin/api/team/invite", { data: { email: invited, role: "reader", code: owner.totp!.generate() }, headers: { origin } });
-  expect(sent.status()).toBe(200);
+  // The sign-in code is burned: it can't approve an action as well.
+  const reused = await page.request.post("/admin/api/team/invite", { data: { email: `reuse-${stamp}@example.com`, role: "reader", code: owner.totp!.generate() }, headers: { origin } });
+  expect((await reused.json()).error).toBe("step_up_replayed");
 
   await page.goto("/admin/audit");
   await expect(page.getByRole("heading", { name: "Audit log" })).toBeVisible();

@@ -1,5 +1,5 @@
 import { and, inArray, isNull, schema, sql } from "@astro/db";
-import { alreadyRegistered, audit, buildAuthOptions, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps, type Role } from "@astro/server";
+import { alreadyRegistered, audit, buildAuthOptions, burnSignInStep, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps, type Role } from "@astro/server";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import type { AdminEnvVars } from "./env";
@@ -30,6 +30,8 @@ export const ADMIN_DISABLED_PATHS = [
   "/refresh-token",
   "/get-access-token",
   "/send-verification-email",
+  // Email links sign people in without the authenticator code; the portal never sends them.
+  "/verify-email",
   "/two-factor/enable",
   "/two-factor/disable",
   "/two-factor/get-totp-uri",
@@ -60,6 +62,8 @@ function auditSignIns(deps: AuthDeps, secret: string): BetterAuthPlugin {
             const s = ctx.context.newSession;
             if (!s) return;
             const [r] = await deps.db.select({ role: schema.staffRole.role }).from(schema.staffRole).where(and(sql`${schema.staffRole.userId} = ${s.user.id}`, isNull(schema.staffRole.revokedAt)));
+            // A code used to sign in can't also approve a sensitive action (a phished code is good for one thing).
+            if (SIGN_IN_PATHS[ctx.path] === "authenticator") await burnSignInStep(deps.db, s.user.id, new Date());
             const country = ctx.headers?.get("cf-ipcountry");
             await audit(
               deps.db,

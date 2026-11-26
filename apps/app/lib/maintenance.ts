@@ -6,26 +6,53 @@ export const MAINTENANCE_COPY = {
   body: "Please come back shortly. Your readings and journal are safe."
 };
 
-let cached: { on: boolean; at: number } | null = null;
-
 /**
- * Whether the owner has paused the app. Each isolate re-reads it at most once per `ttlSeconds`, so a busy app
- * costs one tiny query a minute, not one per request. If the read fails, the last answer (or "off") stands:
- * a database hiccup shouldn't show everyone the maintenance page.
+ * A per-isolate check of whether the owner has paused the app. It re-reads at most once per `ttlSeconds`;
+ * requests arriving together share one read; a read that takes longer than `timeoutMs` or fails leaves the last
+ * answer (or "off") standing, so a slow or broken database never holds up pages or shows everyone the notice.
  */
-export async function isMaintenance(connectionString: string, ttlSeconds: number, now = Date.now()): Promise<boolean> {
-  if (cached && now - cached.at < ttlSeconds * 1000) return cached.on;
+export function makeMaintenanceCheck(read: () => Promise<boolean>) {
+  let cached: { on: boolean; at: number } | null = null;
+  let inFlight: Promise<boolean> | null = null;
+  return async function isMaintenance(ttlSeconds: number, timeoutMs: number, now: () => number = Date.now): Promise<boolean> {
+    if (cached && now() - cached.at < ttlSeconds * 1000) return cached.on;
+    if (!inFlight) {
+      const startedAt = now();
+      inFlight = read()
+        .then((on) => {
+          cached = { on, at: startedAt };
+          return on;
+        })
+        .catch((e: unknown) => {
+          console.error("maintenance check failed", e instanceof Error ? e.message : e);
+          cached = { on: cached?.on ?? false, at: startedAt };
+          return cached.on;
+        })
+        .finally(() => {
+          inFlight = null;
+        });
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fallback = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(cached?.on ?? false), timeoutMs);
+    });
+    try {
+      return await Promise.race([inFlight, fallback]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
+/** Reads the flag with a short-lived client that gives up quickly. */
+export async function readMaintenanceFlag(connectionString: string): Promise<boolean> {
   const db = createDb(connectionString);
   try {
     const [row] = await db.select({ value: schema.appSetting.value }).from(schema.appSetting).where(eq(schema.appSetting.key, "maintenance_mode")).limit(1);
-    cached = { on: row?.value === true, at: now };
-  } catch (e) {
-    console.error("maintenance check failed", e instanceof Error ? e.message : e);
-    cached = { on: cached?.on ?? false, at: now };
+    return row?.value === true;
   } finally {
     await db.$client.end({ timeout: 1 }).catch(() => {});
   }
-  return cached.on;
 }
 
 const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

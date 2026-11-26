@@ -49,18 +49,33 @@ async function hashIp(ip: string, secret: string): Promise<string> {
 export async function audit(db: Db, entry: AuditEntry, secret: string): Promise<void> {
   const allowed: readonly string[] = AUDIT_ACTIONS[entry.action];
   if (!allowed) throw new AuditSummaryError(`unknown action ${entry.action}`);
+  const summary: Record<string, SummaryValue> = {};
   for (const [k, v] of Object.entries(entry.summary)) {
     if (!allowed.includes(k)) throw new AuditSummaryError(`${entry.action} can't record "${k}"`);
-    if (typeof v === "string" ? v.length > MAX_VALUE : typeof v !== "number" && typeof v !== "boolean") throw new AuditSummaryError(`${entry.action}.${k} is too long or not a plain value`);
+    if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") throw new AuditSummaryError(`${entry.action}.${k} is not a plain value`);
+    // Long text is shortened, never refused: a long input must not be a way to skip the log.
+    summary[k] = typeof v === "string" && v.length > MAX_VALUE ? `${v.slice(0, MAX_VALUE - 1)}…` : v;
   }
   await db.insert(schema.auditLog).values({
     actorId: entry.actorId,
     actorRole: entry.actorRole,
     action: entry.action,
     entity: entry.entity,
-    entityId: entry.entityId,
-    summary: entry.summary,
+    entityId: entry.entityId?.slice(0, MAX_VALUE),
+    summary,
     ipHash: entry.ip ? await hashIp(entry.ip, secret) : null
+  });
+}
+
+/**
+ * Runs a change and writes its audit entry in one transaction: if either fails, neither happens. `fn` gets the
+ * transaction and returns its result with the entry to write.
+ */
+export async function withAudit<T>(db: Db, secret: string, fn: (tx: Db) => Promise<{ value: T; entry: AuditEntry }>): Promise<T> {
+  return db.transaction(async (tx) => {
+    const { value, entry } = await fn(tx as unknown as Db);
+    await audit(tx as unknown as Db, entry, secret);
+    return value;
   });
 }
 

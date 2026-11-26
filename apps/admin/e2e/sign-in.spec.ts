@@ -88,3 +88,9 @@ test("signing out ends the session", async ({ page, context, baseURL }) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/sign-in$/);
 });
+
+test("the portal never signs anyone in from an email link (that would skip the code)", async ({ page }) => {
+  for (const path of ["/admin/api/auth/verify-email?token=x", "/admin/api/auth/magic-link/verify?token=x"]) {
+    expect((await page.request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
+  }
+});

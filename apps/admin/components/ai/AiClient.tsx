@@ -79,7 +79,7 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
   const [live, setLive] = useState<Record<string, { ok: boolean; ms: number; failure?: string; error?: string }>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [asking, setAsking] = useState<null | { description: string; send: (code: string) => Promise<string | null> }>(null);
+  const [asking, setAsking] = useState<null | { description: string; confirm: string; send: (code: string) => Promise<string | null> }>(null);
 
   // Roles
   const initialRoles = Object.fromEntries(ROLES.map(({ role }) => {
@@ -90,13 +90,26 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
   const [roleErrors, setRoleErrors] = useState<string[]>([]);
   const setSlot = (role: Role, i: number, v: string) => setRoles((r) => ({ ...r, [role]: r[role].map((x, j) => (j === i ? v : x)) }));
 
-  async function saveRoles() {
+  function saveRoles() {
     setRoleErrors([]);
     const payload = ROLES.flatMap(({ role }) => roles[role].filter(Boolean).map((serviceId, position) => ({ role, position, serviceId })));
-    const res = await postJson<{ errors?: string[] }>("/api/ai/roles", { slots: payload });
-    if (!res.ok) return setRoleErrors(res.data.errors?.map((e) => roleError(e, services)) ?? ["Something went wrong. Please try again."]);
-    setNotice("Roles saved.");
-    router.refresh();
+    setAsking({
+      description: "Save the AI roles? Enter the code from your authenticator app to continue.",
+      confirm: "Save roles",
+      send: async (code) => {
+        const res = await postJson<{ errors?: string[] }>("/api/ai/roles", { slots: payload, code });
+        if (!res.ok && res.data.error === "invalid_roles") {
+          setAsking(null);
+          setRoleErrors(res.data.errors?.map((e) => roleError(e, services)) ?? []);
+          return null;
+        }
+        if (!res.ok) return res.data.error ?? "server_error";
+        setAsking(null);
+        setNotice("Roles saved.");
+        router.refresh();
+        return null;
+      }
+    });
   }
 
   // Services
@@ -109,6 +122,7 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
     setError(null);
     setAsking({
       description: `Save the key for ${draft.name || "this service"}? Enter the code from your authenticator app to continue. The owner will be emailed.`,
+      confirm: "Save the key",
       send: async (code) => {
         const res = await postJson("/api/ai/service", { ...draft, baseUrl: draft.provider === "openai_compatible" ? draft.baseUrl : null, code });
         if (!res.ok) return res.data.error ?? "server_error";
@@ -128,6 +142,7 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
     const svc = services.find((s) => s.id === replacing.id);
     setAsking({
       description: `Replace the key for ${svc?.name}? Enter the code from your authenticator app to continue. The owner will be emailed.`,
+      confirm: "Save the key",
       send: async (code) => {
         const res = await postJson("/api/ai/key", { serviceId: replacing.id, key: replacing.key, code });
         if (!res.ok) return res.data.error ?? "server_error";
@@ -154,7 +169,7 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
 
   // Writing and limits
   const [lim, setLim] = useState({ ...limits, ai_daily_cap_usd: limits.ai_daily_cap_usd.toFixed(2), ai_per_person_per_day: String(limits.ai_per_person_per_day), ai_max_tokens: String(limits.ai_max_tokens) });
-  async function saveLimits(e: React.FormEvent) {
+  function saveLimits(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const values = {
@@ -164,9 +179,22 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
       ai_daily_cap_usd: Number(lim.ai_daily_cap_usd),
       ai_per_person_per_day: Number(lim.ai_per_person_per_day)
     };
-    const res = await postJson<{ fields?: string[] }>("/api/settings", { values });
-    if (!res.ok) return setError(res.data.fields?.length ? "Check the writing and limit values." : "Something went wrong. Please try again.");
-    setNotice("Writing and limits saved.");
+    setAsking({
+      description: "Save the writing and spending limits? Enter the code from your authenticator app to continue.",
+      confirm: "Save limits",
+      send: async (code) => {
+        const res = await postJson<{ fields?: string[] }>("/api/settings", { values, code });
+        if (!res.ok && res.data.fields?.length) {
+          setAsking(null);
+          setError("Check the writing and limit values.");
+          return null;
+        }
+        if (!res.ok) return res.data.error ?? "server_error";
+        setAsking(null);
+        setNotice("Writing and limits saved.");
+        return null;
+      }
+    });
   }
 
   const options = services.map((s) => <option key={s.id} value={s.id}>{`${s.name} · ${s.company}`}</option>);
@@ -308,7 +336,7 @@ export function AiClient({ services, slots, readiness, limits }: Props) {
       <StepUpDialog
         open={asking !== null}
         description={asking?.description ?? ""}
-        confirmLabel="Save the key"
+        confirmLabel={asking?.confirm ?? "Confirm"}
         onConfirm={(code) => asking?.send(code) ?? Promise.resolve(null)}
         onCancel={() => setAsking(null)}
         messages={KEY_ERRORS}

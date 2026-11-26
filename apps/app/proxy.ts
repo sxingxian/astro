@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp, securityHeaders } from "./lib/csp";
 import { getEnv } from "./lib/env";
-import { isMaintenance, maintenanceHtml } from "./lib/maintenance";
+import { makeMaintenanceCheck, maintenanceHtml, readMaintenanceFlag } from "./lib/maintenance";
+
+/** One check per isolate. The read uses whichever connection string the first request saw (it never changes). */
+let connection = "";
+const isMaintenance = makeMaintenanceCheck(() => readMaintenanceFlag(connection));
+const MAINTENANCE_TIMEOUT_MS = 1500;
 
 /** Paths that keep working while the app is paused. */
 const ALWAYS_ON = new Set(["/maintenance", "/api/health"]);
@@ -11,7 +16,8 @@ async function paused(request: NextRequest): Promise<NextResponse | null> {
   const path = request.nextUrl.pathname;
   if (ALWAYS_ON.has(path)) return null;
   const env = getEnv();
-  if (!(await isMaintenance(env.HYPERDRIVE.connectionString, env.MAINTENANCE_CACHE_SECONDS))) return null;
+  connection = env.HYPERDRIVE.connectionString;
+  if (!(await isMaintenance(env.MAINTENANCE_CACHE_SECONDS, MAINTENANCE_TIMEOUT_MS))) return null;
   const headers = { "retry-after": "300", "cache-control": "no-store" };
   return path.startsWith("/api/")
     ? NextResponse.json({ error: "maintenance" }, { status: 503, headers })

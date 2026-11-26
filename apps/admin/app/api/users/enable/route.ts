@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { logAudit } from "@/lib/audit";
+import { inTransaction, logAudit } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { json, mutation, requireCan } from "@/lib/http";
 import { stepUp } from "@/lib/step-up";
@@ -11,7 +11,10 @@ export const POST = mutation(z.object({ userId: z.string().min(1).max(64), code:
   requireCan(user, "users.help");
   await stepUp(user, body.code);
   const db = getDb();
-  const { email } = await enableUser(db, user, body.userId);
-  await logAudit(user, request, { action: "user.enable", entity: "user", entityId: body.userId, summary: { email } });
+  const { email } = await inTransaction(async (tx) => {
+    const done = await enableUser(tx, user, body.userId);
+    await logAudit(user, request, { action: "user.enable", entity: "user", entityId: body.userId, summary: { email: done.email } }, tx);
+    return done;
+  });
   return json({ user: await findUser(db, email) });
 });

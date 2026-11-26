@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
-import { ownIp, signInAs } from "./helpers";
+import { msToNextStep, ownIp, signInAs } from "./helpers";
 import { seedPerson } from "./seed";
 
 const sql = postgres(process.env.DATABASE_URL_TEST ?? "", { max: 1, onnotice: () => {} });
@@ -78,6 +78,7 @@ test("a failing test shows the provider's error without the key", async ({ page,
 });
 
 test("roles need a main service and 2 fallbacks each", async ({ page, context, baseURL }) => {
+  test.setTimeout(90_000);
   const owner = await seedPerson({ email: `owner-airoles-${Date.now()}@example.com`, role: "owner", twoStep: true });
   await sql`delete from ai_service`;
   for (const [name, company] of [["Claude", "Anthropic"], ["GPT", "OpenAI"], ["Gemini", "Google"], ["Mistral", "Mistral AI"]] as const) {
@@ -88,7 +89,10 @@ test("roles need a main service and 2 fallbacks each", async ({ page, context, b
   const writer = page.getByRole("group", { name: "Writer" });
   await writer.getByLabel("Main").selectOption({ label: "Claude · Anthropic" });
   await writer.getByLabel("Fallback 1").selectOption({ label: "GPT · OpenAI" });
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" });
   await page.getByRole("button", { name: "Save roles" }).click();
+  await dialog.getByLabel("6-digit code").fill(owner.totp!.generate());
+  await dialog.getByRole("button", { name: "Save roles" }).click();
   await expect(page.getByRole("region", { name: "Roles" }).locator("[role=alert]")).toContainText("Writer needs a main service and at least 2 fallbacks");
   expect((await sql`select 1 from ai_role_slot`).length).toBe(0);
 
@@ -99,7 +103,10 @@ test("roles need a main service and 2 fallbacks each", async ({ page, context, b
   await pick("Writer", ["Claude · Anthropic", "GPT · OpenAI", "Gemini · Google"]);
   await pick("Checker 1", ["GPT · OpenAI", "Gemini · Google", "Mistral · Mistral AI"]);
   await pick("Checker 2", ["Gemini · Google", "Mistral · Mistral AI", "Claude · Anthropic"]);
+  await page.waitForTimeout(msToNextStep());
   await page.getByRole("button", { name: "Save roles" }).click();
+  await dialog.getByLabel("6-digit code").fill(owner.totp!.generate());
+  await dialog.getByRole("button", { name: "Save roles" }).click();
   await expect(page.getByRole("status", { name: "Readiness" })).toContainText("Ready");
   expect((await sql`select 1 from ai_role_slot`).length).toBe(9);
 });
@@ -113,4 +120,22 @@ test("an admin can't open AI settings or call its routes", async ({ page, contex
   for (const path of ["/admin/api/ai/service", "/admin/api/ai/key", "/admin/api/ai/roles", "/admin/api/ai/test"]) {
     expect((await page.request.post(path, { data: {}, headers: { origin } })).status(), path).toBe(403);
   }
+});
+
+test("every AI change needs a fresh code, not only keys", async ({ page, context, baseURL }) => {
+  const owner = await seedPerson({ email: `owner-aistep-${Date.now()}@example.com`, role: "owner", twoStep: true });
+  const [svc] = await sql<{ id: string }[]>`insert into ai_service (provider, name, company, model, base_url, key_last4, last_test_ok) values ('openai_compatible', 'Other', 'Other Co', 'm', 'https://api.example.ai/v1', 'abcd', true) returning id`;
+  await signInAs(context, baseURL, owner.id);
+  const origin = new URL(baseURL ?? "").origin;
+  const post = (path: string, data: unknown) => page.request.post(path, { data, headers: { origin } });
+
+  const moved = await post("/admin/api/ai/service", { id: svc!.id, provider: "openai_compatible", name: "Other", company: "Other Co", model: "m", baseUrl: "https://attacker.example/v1", enabled: true });
+  expect(moved.status()).toBe(403);
+  expect((await moved.json()).error).toMatch(/^step_up_/);
+  expect((await sql<{ base_url: string }[]>`select base_url from ai_service where id = ${svc!.id}`)[0]?.base_url).toBe("https://api.example.ai/v1");
+
+  expect((await post("/admin/api/ai/roles", { slots: [] })).status()).toBe(403);
+  const cap = await post("/admin/api/settings", { values: { ai_daily_cap_usd: 999 } });
+  expect(cap.status()).toBe(403);
+  expect((await sql<{ value: number }[]>`select value from app_setting where key = 'ai_daily_cap_usd'`)[0]?.value).toBe(20);
 });

@@ -1,7 +1,7 @@
-import { createDb } from "@astro/db";
+import { createDb, sql } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { audit, AuditSummaryError, listAudit } from "../src/audit";
+import { audit, AuditSummaryError, listAudit, withAudit } from "../src/audit";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
@@ -27,9 +27,31 @@ describe("audit", () => {
 
   it("refuses summary keys that aren't on the action's allowlist, so keys and free text can't get in", async () => {
     await expect(audit(db, { actorId: "o1", actorRole: "owner", action: "team.invite", entity: "invite", summary: { email: "x@example.com", key: "sk-live-123" } as never }, SECRET)).rejects.toBeInstanceOf(AuditSummaryError);
-    await expect(audit(db, { actorId: "o1", actorRole: "owner", action: "team.invite", entity: "invite", summary: { email: "x".repeat(300) } }, SECRET)).rejects.toBeInstanceOf(AuditSummaryError);
     const [n] = await db.$client<{ n: number }[]>`select count(*)::int as n from audit_log where summary->>'key' is not null`;
     expect(n?.n).toBe(0);
+  });
+
+  it("shortens long values instead of refusing them, so a long input can't skip the log", async () => {
+    await audit(db, { actorId: "o1", actorRole: "owner", action: "team.invite", entity: "invite", entityId: "long", summary: { email: `${"x".repeat(250)}@example.com` } }, SECRET);
+    const [row] = await db.$client<{ summary: { email: string } }[]>`select summary from audit_log where entity_id = 'long'`;
+    expect(row?.summary.email).toHaveLength(200);
+    expect(row?.summary.email.endsWith("…")).toBe(true);
+  });
+
+  it("withAudit keeps a change and its entry together: if the entry fails, the change is undone", async () => {
+    await expect(
+      withAudit(db, SECRET, async (tx) => {
+        await tx.execute(sql`insert into app_setting (key, value) values ('audit_probe', '1'::jsonb)`);
+        return { value: 1, entry: { actorId: "o1", actorRole: "owner", action: "team.invite", entity: "invite", summary: { key: "sk-x" } as never } };
+      })
+    ).rejects.toBeInstanceOf(AuditSummaryError);
+    expect((await db.$client`select 1 from app_setting where key = 'audit_probe'`).length).toBe(0);
+    const v = await withAudit(db, SECRET, async (tx) => {
+      await tx.execute(sql`insert into app_setting (key, value) values ('audit_probe', '1'::jsonb)`);
+      return { value: 7, entry: { actorId: "o1", actorRole: "owner", action: "settings.change", entity: "setting", entityId: "audit_probe", summary: { setting: "audit_probe", value: "1" } } };
+    });
+    expect(v).toBe(7);
+    expect((await db.$client`select 1 from audit_log where entity_id = 'audit_probe'`).length).toBe(1);
   });
 
   it("can't be changed or deleted afterwards", async () => {
