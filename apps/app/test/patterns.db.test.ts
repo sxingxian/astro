@@ -101,6 +101,16 @@ describe("computePatterns", () => {
   });
 });
 
+describe("Majors with -of- in their names", () => {
+  it("counts Wheel of Fortune as a Major", async () => {
+    const u = await member("p-wheel");
+    await seed(u, ["wheel-of-fortune"]);
+    const p = await computePatterns(db, u, "30d", now);
+    expect(p.majorShare).toBe(100);
+    expect(p.elements.every((e) => e.count === 0)).toBe(true);
+  });
+});
+
 describe("patternsCopy", () => {
   it("names the leading element for the range", async () => {
     const u = await member("p-copy");

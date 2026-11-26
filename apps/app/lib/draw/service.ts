@@ -51,6 +51,8 @@ const STAGES: Record<Spread, { stage: Stage; cards: readonly string[]; count: nu
 };
 
 type SessionRow = typeof schema.drawSession.$inferSelect;
+/** The database or a transaction on it. */
+type Exec = Pick<Db, "select" | "insert" | "update" | "delete" | "execute">;
 type DeckRow = typeof schema.drawDeck.$inferSelect;
 
 const zoneOf = (actor: Actor) => (isTimeZone(actor.timeZone) ? actor.timeZone : "UTC");
@@ -71,7 +73,7 @@ function deckView(d: DeckRow): DeckView {
 
 const stageRank = (s: Stage) => ({ single: 0, majors: 0, minors: 1 })[s];
 
-async function decksFor(db: Db, sessionId: string): Promise<DeckRow[]> {
+async function decksFor(db: Exec, sessionId: string): Promise<DeckRow[]> {
   const rows = await db.select().from(schema.drawDeck).where(eq(schema.drawDeck.sessionId, sessionId));
   return rows.sort((a, b) => stageRank(a.stage) - stageRank(b.stage));
 }
@@ -81,14 +83,14 @@ function startResult(s: SessionRow, decks: DeckRow[]): StartResult {
 }
 
 /** The person's reading for this spread that still counts as "today" in the reading's own timezone, if any. */
-async function todays(db: Db, actor: Actor, spread: Spread, now: Date): Promise<SessionRow | null> {
+async function todays(db: Exec, actor: Actor, spread: Spread, now: Date): Promise<SessionRow | null> {
   const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread)) : ownerFilter(actor);
   const [latest] = await db.select().from(schema.drawSession).where(where).orderBy(desc(schema.drawSession.createdAt)).limit(1);
   if (!latest) return null;
   return localDay(now, latest.timeZone) === latest.localDay ? latest : null;
 }
 
-async function purgeOldGuestReadings(db: Db, now: Date) {
+async function purgeOldGuestReadings(db: Exec, now: Date) {
   const cutoff = new Date(now.getTime() - GUEST_TTL_MS);
   await db.execute(sql`
     delete from draw_session where id in (
@@ -97,7 +99,7 @@ async function purgeOldGuestReadings(db: Db, now: Date) {
 }
 
 /** Counts a new guest reading against the network's daily cap (UTC day: a guest's timezone is not trusted). */
-async function takeGuestSlot(db: Db, ipHash: string, now: Date) {
+async function takeGuestSlot(db: Exec, ipHash: string, now: Date) {
   const day = now.toISOString().slice(0, 10);
   const [row] = await db
     .insert(schema.guestDayCap)
@@ -116,48 +118,62 @@ export async function findToday(db: Db, actor: Actor, spread: Spread, now: Date 
 /**
  * Starts today's reading, or returns the one already in progress. A completed reading for today
  * raises `daily_limit` with the time the person can draw again.
+ *
+ * The check and the insert run under a per-person advisory lock, so parallel requests (two tabs, or
+ * a guest sending several timezones at once) can never create two readings for one day.
  */
 export async function startDraw(db: Db, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult> {
   if (actor.kind === "guest" && spread !== "one") throw new DrawError("guest_spread");
 
-  const existing = await todays(db, actor, spread, now);
-  if (existing) {
-    if (existing.status === "complete") throw new DrawError("daily_limit", { sessionId: existing.id, resetsAt: nextLocalMidnight(now, existing.timeZone).toISOString() });
-    return startResult(existing, await decksFor(db, existing.id));
-  }
-
-  if (actor.kind === "guest") {
-    await purgeOldGuestReadings(db, now);
-    await takeGuestSlot(db, actor.ipHash, now);
-  }
-
   const timeZone = zoneOf(actor);
+  const day = localDay(now, timeZone);
+  const lockKey = actor.kind === "user" ? `draw:u:${actor.userId}:${spread}` : `draw:g:${actor.guestHash}`;
+  // Shuffle outside the lock; it's cheap and keeps the critical section short.
   const rate = await getReversalRate(db);
   const decks = await Promise.all(STAGES[spread].map(async (s) => ({ stage: s.stage, deck: await createDeck(s.cards, rate) })));
 
-  const created = await db.transaction(async (tx) => {
+  const finish = async (tx: Exec, session: SessionRow): Promise<StartResult> => {
+    if (session.status === "complete") throw new DrawError("daily_limit", { sessionId: session.id, resetsAt: nextLocalMidnight(now, session.timeZone).toISOString() });
+    return startResult(session, await decksFor(tx, session.id));
+  };
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+    const existing = await todays(tx, actor, spread, now);
+    if (existing) return finish(tx, existing);
+
+    if (actor.kind === "guest") {
+      await purgeOldGuestReadings(tx, now);
+      await takeGuestSlot(tx, actor.ipHash, now);
+    }
+
     const [row] = await tx
       .insert(schema.drawSession)
       .values({
         userId: actor.kind === "user" ? actor.userId : null,
         guestHash: actor.kind === "guest" ? actor.guestHash : null,
         spread,
-        localDay: localDay(now, timeZone),
+        localDay: day,
         timeZone,
         status: "picking",
         createdAt: now
       })
       .onConflictDoNothing()
       .returning();
-    if (!row) return null;
-    await tx.insert(schema.drawDeck).values(decks.map(({ stage, deck }) => ({ sessionId: row.id, stage, ...deck })));
-    return row;
-  });
 
-  // Another request created today's reading first: return that one.
-  const session = created ?? (await todays(db, actor, spread, now));
-  if (!session) throw new DrawError("not_found");
-  return startResult(session, await decksFor(db, session.id));
+    if (row) {
+      await tx.insert(schema.drawDeck).values(decks.map(({ stage, deck }) => ({ sessionId: row.id, stage, ...deck })));
+      return startResult(row, await decksFor(tx, row.id));
+    }
+
+    // A reading already holds this calendar day in the person's current timezone (for example, after a
+    // move west). That reading is today's: continue it, or report the daily limit if it's finished.
+    const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread), eq(schema.drawSession.localDay, day)) : and(ownerFilter(actor), eq(schema.drawSession.localDay, day));
+    const [held] = await tx.select().from(schema.drawSession).where(where).limit(1);
+    if (!held) throw new DrawError("not_found");
+    return finish(tx, held);
+  });
 }
 
 async function owned(db: Db, actor: Actor, sessionId: string): Promise<SessionRow> {

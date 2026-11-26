@@ -186,3 +186,26 @@ describe("getReading", () => {
     await db.execute(sql`update app_setting set value = '0.3'::jsonb where key = 'reversal_rate'`);
   });
 });
+
+describe("review fixes", () => {
+  it("returns today's reading to a member who moved west instead of failing", async () => {
+    const a = await member("Asia/Singapore");
+    const at = new Date("2026-11-25T16:30:00Z"); // 00:30 on the 26th in Singapore
+    const s = await startDraw(db, a, "one", at);
+    const la = { ...a, timeZone: "America/Los_Angeles" };
+    const later = new Date("2026-11-26T18:00:00Z"); // 10:00 on the 26th in Los Angeles
+    const again = await startDraw(db, la, "one", later);
+    expect(again.sessionId).toBe(s.sessionId);
+    await pick(db, la, s.sessionId, "single", [9], later);
+    expect((await errorOf(startDraw(db, la, "one", later))).code).toBe("daily_limit");
+  });
+
+  it("creates one guest reading even when two timezones race", async () => {
+    const tag = `race-${Date.now()}`;
+    const base = guest(tag, "UTC", `ip-${tag}`);
+    const results = await Promise.all(
+      ["Pacific/Kiritimati", "Etc/GMT+12", "Asia/Singapore", "America/New_York"].map((timeZone) => startDraw(db, { ...base, timeZone }, "one", noon))
+    );
+    expect(new Set(results.map((r) => r.sessionId)).size).toBe(1);
+  });
+});

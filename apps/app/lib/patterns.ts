@@ -46,13 +46,13 @@ export async function computePatterns(db: Db, userId: string, range: PatternRang
     select
       (select count(*) from s)::int as readings,
       (select count(*) from c)::int as cards,
-      (select count(*) from c where card_id not like '%-of-%')::int as majors,
+      (select count(*) from c where split_part(card_id, '-of-', 2) not in ('wands', 'cups', 'swords', 'pentacles'))::int as majors,
       (select count(*) from c where orientation = 'reversed')::int as reversed,
       coalesce((select json_agg(r) from (
         select card_id as "cardId", count(*)::int as count from c group by card_id having count(*) >= 2
         order by count(*) desc, max(completed_at) desc limit 3) r), '[]'::json) as repeats,
       coalesce((select json_object_agg(suit, n) from (
-        select split_part(card_id, '-of-', 2) as suit, count(*)::int as n from c where card_id like '%-of-%' group by 1) e), '{}'::json) as suits,
+        select split_part(card_id, '-of-', 2) as suit, count(*)::int as n from c where split_part(card_id, '-of-', 2) in ('wands', 'cups', 'swords', 'pentacles') group by 1) e), '{}'::json) as suits,
       (select json_build_object(
         'fit', count(*) filter (where ci.outcome = 'fit'),
         'partly', count(*) filter (where ci.outcome = 'partly'),

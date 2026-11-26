@@ -73,14 +73,16 @@ The landing page has no runtime variables or secrets. Its security headers (CSP 
 ## 4. Neon Postgres
 
 1. At neon.tech create a project named `astro`, **Region: AWS Asia Pacific (Singapore)**, Postgres 17. The default branch `main` is production.
-2. Create the roles **before the first app deploy** (Roles → New role): `migrator` and `astro_web` now, `astro_admin` with plan 4. Migration `0001_grants_and_settings.sql` grants `astro_web` exactly what it needs when it runs. If you create `astro_web` after the first deploy, run that file's `DO $$ … $$` block once in the SQL editor as `migrator`.
+2. Create the roles **before the first app deploy**, with SQL rather than the console. Roles made in the Neon console (or its API) join `neon_superuser`, which would give the runtime role far more than it needs. In the SQL editor, connected as the project owner to the `neondb` database, run:
 
-   | Role | Used by | Can do |
-   | --- | --- | --- |
-   | `migrator` | Workers Builds deploy command only | Owns the schema; runs migrations |
-   | `astro_web` | `astro-app` through Hyperdrive | Read/write member data; no DDL |
-   | `astro_admin` | `astro-admin` through Hyperdrive | Admin tables and the audit trail; no DDL |
+   ```sql
+   CREATE ROLE migrator LOGIN PASSWORD '<long random password>';
+   GRANT ALL ON SCHEMA public TO migrator;      -- migrator creates and owns every table
+   CREATE ROLE astro_web LOGIN PASSWORD '<another long random password>';
+   -- astro_admin follows in plan 4.
+   ```
 
+   Migration `0001_grants_and_settings.sql` then grants `astro_web` only `SELECT, INSERT, UPDATE, DELETE` on the app's tables, and no DDL, the first time `pnpm db:migrate` runs. If you create `astro_web` after the first deploy, run that file's `DO $$ … $$` block once in the SQL editor as `migrator`. Check with `select rolname, rolsuper from pg_roles where rolname in ('migrator','astro_web');` that neither has `rolsuper`, and `select pg_has_role('astro_web', 'neon_superuser', 'member');` returns `false`.
 3. Copy the **direct** (unpooled) connection string for each role from **Connection details**. Store them in your password manager; they go into Cloudflare below and nowhere else.
 4. For local development you can use a local Postgres (see section 16) or a Neon branch `dev`; either way the connection string stays in your shell or `apps/app/.dev.vars` (git-ignored), never in the repo.
 
