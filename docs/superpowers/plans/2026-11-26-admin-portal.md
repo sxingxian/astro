@@ -180,7 +180,7 @@ docs/DEPLOYMENT.md          new browser steps
   - `maintenance_mode` = `false`;
   - `contact_email` and `social_links`, empty.
 - **Grants:**
-  - A `DO` block runs when the roles exist (same pattern as `0001`).
+  - A `DO` block runs when the roles exist (same pattern as `0001`). Grant table by table on objects the migrating role owns. Never `ON ALL TABLES IN SCHEMA public`, which fails on Neon when `public` holds a table another role created.
   - `astro_admin`:
     - `SELECT, INSERT, UPDATE, DELETE` on `staff_role`, `invite`, `ai_service`, `ai_role_slot` and `app_setting`;
     - `SELECT` on `draw_session` (dashboard counts only);
@@ -202,7 +202,8 @@ docs/DEPLOYMENT.md          new browser steps
   - `astro_admin` `CREATE TABLE x()` fails;
   - `astro_web` can `SELECT key_last4 FROM ai_service` but can't `UPDATE ai_service`;
   - `astro_admin` can `UPDATE "user" SET disabled_at` but can't `UPDATE "user" SET email`, and can't `SELECT` `reading_note` or `check_in`;
-  - the new `session.surface` defaults to `'app'`.
+  - the new `session.surface` defaults to `'app'`;
+  - extend `grants.db.test.ts`: on the Neon-style database, `0003` migrates and `astro_admin` gets nothing on the foreign table.
 - [ ] **Step 2:** Run `pnpm --filter @astro/db test:db`. Expected: FAIL.
 - [ ] **Step 3:** Implement the schema, generate the migration, and add the grants, trigger and seeds by hand.
 - [ ] **Step 4:** Run `pnpm db:test`. Expected: PASS. Also confirm `0002` and earlier are untouched.
