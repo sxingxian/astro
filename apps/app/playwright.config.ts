@@ -20,7 +20,8 @@ export default defineConfig({
   webServer: external
     ? undefined
     : {
-        command: "pnpm exec wrangler dev",
+        // Maintenance mode is re-read every second under test (60 s in production).
+        command: "pnpm exec wrangler dev --var MAINTENANCE_CACHE_SECONDS:1",
         url: `http://127.0.0.1:${PORT}/api/health`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

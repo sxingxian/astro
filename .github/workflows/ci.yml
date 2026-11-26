@@ -42,13 +42,17 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - name: Create the runtime role used by grants
-        run: psql "$DATABASE_URL_TEST" -c "create role astro_web login password 'astro_web'"
+      - name: Create the runtime roles used by grants
+        run: |
+          psql "$DATABASE_URL_TEST" -c "create role astro_web login password 'astro_web'"
+          psql "$DATABASE_URL_TEST" -c "create role astro_admin login password 'astro_admin'"
       - name: Database integration tests
         run: pnpm db:test
       - run: pnpm build
-      - name: Local settings for the app's wrangler dev (development values only)
-        run: cp apps/app/.dev.vars.example apps/app/.dev.vars
+      - name: Local settings for wrangler dev (development values only)
+        run: |
+          cp apps/app/.dev.vars.example apps/app/.dev.vars
+          cp apps/admin/.dev.vars.example apps/admin/.dev.vars
       - name: End-to-end tests
         run: pnpm e2e
         env:

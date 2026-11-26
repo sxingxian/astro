@@ -42,10 +42,11 @@ The full spec is the Claude Doc "Astro — Product & Build Plan" (https://claude
 - **Accounts:** Better Auth, stored in Neon.
   - Sign-in is email and password only. There is no Google sign-in.
   - TOTP 2-factor sign-in is optional for users and required for staff.
+  - Staff roles: owner (one, all access, the only one who edits card meanings and AI settings), admin and moderator work in the admin portal behind Cloudflare Access; readers take paid-reading requests in the app. Everyone joins by invitation; nobody can sign up for a role.
 - **Email:** Resend (sign-up confirmation, password reset). Sending domain set in DEPLOYMENT.md.
 - **Card art storage:** R2.
 - **Payments:** Stripe Checkout, with prices set per currency.
-- **AI:** the provider is chosen in admin (Claude, OpenAI or Gemini) and called through Cloudflare AI Gateway, not Workers AI. API keys exist only as Worker secrets.
+- **AI:** services are added in the admin portal by the owner: Anthropic, OpenAI and Gemini through Cloudflare AI Gateway (not Workers AI), or any OpenAI-compatible service at its own https address. Every AI reading uses three different companies: a writer and two checkers, each with a main service and at least 2 fallbacks. API keys are entered in the portal, encrypted with AES-256-GCM under a Worker secret (`AI_KEY_ENCRYPTION_KEY`), write-only (only the last 4 characters show), and every change needs a fresh authenticator code and emails the owner.
 - **Bot protection:** Turnstile on every form and on guest draws, plus Bot Fight Mode, the WAF, and Cloudflare Access on /admin*.
 - **CI/CD:** Cloudflare runs every deploy and every database migration; GitHub Actions never deploys and never holds Cloudflare or database credentials.
   - Each Worker (landing, app, admin) is connected to the GitHub repo through **Cloudflare Workers Builds**, with build watch paths so only affected Workers rebuild.

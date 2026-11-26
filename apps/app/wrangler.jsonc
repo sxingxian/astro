@@ -20,6 +20,7 @@
   "ratelimits": [{ "name": "GUEST_DRAWS", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   "vars": {
     "APP_URL": "https://astroapp.midnightpoetry.studio",
+    "ADMIN_URL": "https://astro.midnightpoetry.studio/admin",
     "EMAIL_FROM": "Astro <astro-noreply@app.midnightpoetry.studio>",
     "MAIL_DRIVER": "resend",
     "TURNSTILE_MODE": "on",

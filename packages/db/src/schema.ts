@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, char, check, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, boolean, char, check, customType, date, index, integer, jsonb, pgTable, primaryKey, real, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -16,7 +16,9 @@ export const user = pgTable("user", {
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   timeZone: text("time_zone").notNull().default("UTC"),
   timeZoneChangedAt: ts("time_zone_changed_at"),
-  checkInsEnabled: boolean("check_ins_enabled").notNull().default(true)
+  checkInsEnabled: boolean("check_ins_enabled").notNull().default(true),
+  /** Set by staff (admin portal). A disabled person can't sign in and has no sessions. */
+  disabledAt: ts("disabled_at")
 });
 
 export const session = pgTable(
@@ -29,9 +31,11 @@ export const session = pgTable(
     updatedAt: ts("updated_at").notNull().defaultNow(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" })
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    /** Which Better Auth instance made the session. The app and the admin portal each accept only their own. */
+    surface: text("surface", { enum: ["app", "admin"] }).notNull().default("app")
   },
-  (t) => [index("session_user_idx").on(t.userId)]
+  (t) => [index("session_user_idx").on(t.userId), check("session_surface_check", sql`${t.surface} in ('app', 'admin')`)]
 );
 
 export const account = pgTable(
@@ -178,5 +182,107 @@ export const mailOutbox = pgTable("mail_outbox", {
   text: text("text").notNull(),
   createdAt: ts("created_at").notNull().defaultNow()
 });
+
+/* ---------- Admin portal ---------- */
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({ dataType: () => "bytea" });
+
+export const STAFF_ROLES = ["owner", "admin", "moderator", "reader"] as const;
+
+/** One active role per person. Exactly one active owner (unique partial index). */
+export const staffRole = pgTable(
+  "staff_role",
+  {
+    userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", { enum: STAFF_ROLES }).notNull(),
+    grantedBy: text("granted_by").references(() => user.id, { onDelete: "set null" }),
+    grantedAt: ts("granted_at").notNull().defaultNow(),
+    revokedAt: ts("revoked_at")
+  },
+  (t) => [
+    check("staff_role_role_check", sql`${t.role} in ('owner', 'admin', 'moderator', 'reader')`),
+    uniqueIndex("staff_role_one_owner_uq").on(sql`(true)`).where(sql`${t.role} = 'owner' and ${t.revokedAt} is null`)
+  ]
+);
+
+export const invite = pgTable(
+  "invite",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    role: text("role", { enum: STAFF_ROLES }).notNull(),
+    tokenHash: bytea("token_hash").notNull().unique(),
+    invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    expiresAt: ts("expires_at").notNull(),
+    acceptedAt: ts("accepted_at"),
+    revokedAt: ts("revoked_at")
+  },
+  (t) => [check("invite_role_check", sql`${t.role} in ('admin', 'moderator', 'reader')`), index("invite_email_idx").on(sql`lower(${t.email})`)]
+);
+
+/** Append-only: a trigger rejects UPDATE and DELETE, and runtime roles may only INSERT. */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    actorId: text("actor_id"),
+    actorRole: text("actor_role"),
+    action: text("action").notNull(),
+    entity: text("entity").notNull(),
+    entityId: text("entity_id"),
+    summary: jsonb("summary").notNull().default(sql`'{}'::jsonb`),
+    ipHash: text("ip_hash"),
+    at: ts("at").notNull().defaultNow()
+  },
+  (t) => [index("audit_log_at_idx").on(t.at), index("audit_log_actor_idx").on(t.actorId, t.at)]
+);
+
+export const AI_PROVIDERS = ["anthropic", "openai", "gemini", "openai_compatible"] as const;
+
+/** An AI service the owner added. The key is AES-256-GCM encrypted (see @astro/server ai/crypto). */
+export const aiService = pgTable(
+  "ai_service",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider", { enum: AI_PROVIDERS }).notNull(),
+    name: text("name").notNull(),
+    company: text("company").notNull(),
+    baseUrl: text("base_url"),
+    model: text("model").notNull(),
+    keyCiphertext: bytea("key_ciphertext"),
+    keyIv: bytea("key_iv"),
+    keyLast4: text("key_last4"),
+    enabled: boolean("enabled").notNull().default(true),
+    maxTokens: integer("max_tokens").notNull().default(1200),
+    temperature: real("temperature").notNull().default(0.7),
+    timeoutMs: integer("timeout_ms").notNull().default(30_000),
+    lastTestAt: ts("last_test_at"),
+    lastTestOk: boolean("last_test_ok"),
+    lastError: text("last_error"),
+    cooldownUntil: ts("cooldown_until"),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    updatedAt: ts("updated_at").notNull().defaultNow()
+  },
+  (t) => [
+    check("ai_service_provider_check", sql`${t.provider} in ('anthropic', 'openai', 'gemini', 'openai_compatible')`),
+    check("ai_service_base_url_check", sql`(${t.provider} = 'openai_compatible') = (${t.baseUrl} is not null)`)
+  ]
+);
+
+export const AI_ROLES = ["writer", "checker_1", "checker_2"] as const;
+
+/** Ordered services per role: position 0 is the main service, 1+ are fallbacks. */
+export const aiRoleSlot = pgTable(
+  "ai_role_slot",
+  {
+    role: text("role", { enum: AI_ROLES }).notNull(),
+    position: smallint("position").notNull(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => aiService.id, { onDelete: "cascade" })
+  },
+  (t) => [primaryKey({ columns: [t.role, t.position] }), check("ai_role_slot_role_check", sql`${t.role} in ('writer', 'checker_1', 'checker_2')`)]
+);
 
 export const authSchema = { user, session, account, verification, twoFactor, rateLimit };

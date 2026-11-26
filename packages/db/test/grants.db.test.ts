@@ -21,6 +21,7 @@ const at = (user: string, password: string) => {
 beforeAll(async () => {
   await admin.unsafe(`drop database if exists ${DB}`);
   await admin.unsafe("drop role if exists grants_owner; drop role if exists grants_migrator");
+  await admin.unsafe(`do $$ begin if not exists (select 1 from pg_roles where rolname = 'astro_admin') then create role astro_admin login password 'astro_admin'; end if; end $$`);
   await admin.unsafe("create role grants_owner login password 'Owner123' createrole");
   await admin.unsafe(`create database ${DB} owner grants_owner`);
   const asRoot = postgres(at(new URL(url).username, decodeURIComponent(new URL(url).password)), { max: 1, onnotice: () => {} });
@@ -53,5 +54,14 @@ describe("runtime grants on a Neon-style database", () => {
              has_table_privilege('astro_web', 'public.playing_with_neon', 'SELECT') as other`;
     await db.end();
     expect(row).toEqual({ app: true, limits: true, other: false });
+  });
+
+  it("gives astro_admin nothing on a table it doesn't own", async () => {
+    const db = postgres(at("grants_owner", "Owner123"), { max: 1, onnotice: () => {} });
+    const [row] = await db<{ other: boolean; staff: boolean }[]>`
+      select has_table_privilege('astro_admin', 'public.playing_with_neon', 'SELECT') as other,
+             has_table_privilege('astro_admin', 'public.staff_role', 'SELECT') as staff`;
+    await db.end();
+    expect(row).toEqual({ other: false, staff: true });
   });
 });

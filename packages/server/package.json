@@ -1,0 +1,29 @@
+{
+  "name": "@astro/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests",
+    "test:db": "vitest run --config vitest.db.config.ts"
+  },
+  "dependencies": {
+    "@astro/db": "workspace:*",
+    "better-auth": "^1.7.28",
+    "resend": "^6.40.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@astro/config": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.15.0",
+    "otpauth": "^9.6.0",
+    "typescript": "~6.0.0",
+    "vitest": "^5.1.1"
+  }
+}

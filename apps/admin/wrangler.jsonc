@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "astro-admin",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "workers_dev": false,
+  "preview_urls": false,
+  // A route (not a custom domain): it takes precedence over astro-landing's custom domain for /admin only.
+  "routes": [{ "pattern": "astro.midnightpoetry.studio/admin*", "zone_name": "midnightpoetry.studio" }],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // The Hyperdrive configuration astro-admin (docs/DEPLOYMENT.md). Not secret. Replace when it exists.
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgres://astro_admin:astro_admin@127.0.0.1:5432/astro_dev"
+    }
+  ],
+  "vars": {
+    "ADMIN_URL": "https://astro.midnightpoetry.studio/admin",
+    "APP_URL": "https://astroapp.midnightpoetry.studio",
+    "EMAIL_FROM": "Astro <astro-noreply@app.midnightpoetry.studio>",
+    "MAIL_DRIVER": "resend",
+    "TURNSTILE_MODE": "on",
+    "HIBP_CHECK": "on",
+    "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAGT4jVGbsgfhz3rb",
+    "AI_GATEWAY_URL": "https://gateway.ai.cloudflare.com/v1/2aab3eb46d0159d86b34e505e249f6db/astro",
+    "OWNER_ALERTS": "on"
+  },
+  "observability": { "enabled": true },
+  "dev": { "ip": "127.0.0.1", "port": 8791, "host": "127.0.0.1:8791", "local_protocol": "http", "upstream_protocol": "http" }
+}

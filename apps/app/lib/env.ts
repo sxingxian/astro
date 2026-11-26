@@ -12,7 +12,11 @@ const schema = z.object({
   TURNSTILE_MODE: onOff,
   TURNSTILE_SECRET_KEY: z.string().optional(),
   PUBLIC_TURNSTILE_SITE_KEY: z.string(),
-  HIBP_CHECK: onOff
+  HIBP_CHECK: onOff,
+  /** The admin portal, linked after a staff invitation is accepted. */
+  ADMIN_URL: z.url().optional(),
+  /** How long each Worker isolate trusts its last read of maintenance mode. Tests set 1. */
+  MAINTENANCE_CACHE_SECONDS: z.coerce.number().int().min(0).max(300).default(60)
 });
 
 export type Env = z.infer<typeof schema> & { HYPERDRIVE: Hyperdrive; GUEST_DRAWS: RateLimit };
