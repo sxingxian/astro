@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeMaintenanceCheck } from "@/lib/maintenance";
+import { describeDbError, makeMaintenanceCheck } from "@/lib/maintenance";
 
 describe("maintenance check", () => {
   it("shares one read between requests that arrive together", async () => {
@@ -41,5 +41,12 @@ describe("maintenance check", () => {
   it("treats a failed first read as off", async () => {
     const check = makeMaintenanceCheck(() => Promise.reject(new Error("down")));
     expect(await check(60, 50)).toBe(false);
+  });
+});
+
+describe("describeDbError", () => {
+  it("adds the database's own reason and leaves out the parameters", () => {
+    const e = new Error("Failed query: select 1\nparams: secret-ish", { cause: Object.assign(new Error('password authentication failed for user "astro_web"'), { code: "28P01" }) });
+    expect(describeDbError(e)).toBe('Failed query: select 1 | cause: 28P01 password authentication failed for user "astro_web"');
   });
 });
