@@ -17,7 +17,8 @@ export function StepUpDialog({
   description,
   confirmLabel,
   onConfirm,
-  onCancel
+  onCancel,
+  messages
 }: {
   open: boolean;
   title?: string;
@@ -26,6 +27,8 @@ export function StepUpDialog({
   /** Returns an error code from the server, or null on success. */
   onConfirm: (code: string) => Promise<string | null>;
   onCancel: () => void;
+  /** Extra error codes this screen's routes return, with what to tell the person. */
+  messages?: Record<string, string>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +50,7 @@ export function StepUpDialog({
     setBusy(true);
     const err = await onConfirm(code);
     setBusy(false);
-    if (err) setError(MESSAGES[err] ?? "Something went wrong. Please try again.");
+    if (err) setError(messages?.[err] ?? MESSAGES[err] ?? "Something went wrong. Please try again.");
   }
 
   return (

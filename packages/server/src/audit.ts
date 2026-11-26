@@ -11,6 +11,10 @@ export const AUDIT_ACTIONS = {
   "team.role": ["email", "from", "to"],
   "team.remove": ["email", "role"],
   "team.accept": ["role"],
+  "user.find": ["email", "found"],
+  "user.disable": ["email"],
+  "user.enable": ["email"],
+  "user.reset_2fa": ["email"],
   "audit.export": ["rows"]
 } as const satisfies Record<string, readonly string[]>;
 

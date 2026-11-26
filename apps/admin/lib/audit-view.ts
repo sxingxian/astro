@@ -63,6 +63,14 @@ export function describe(e: Pick<AuditRow, "action" | "summary">): { what: strin
       return { what: "Removed from the team", details: `${s.email} · was ${role(s.role)}` };
     case "team.accept":
       return { what: "Joined the team", details: role(s.role) };
+    case "user.find":
+      return { what: "Looked up an account", details: `${s.email}${s.found ? "" : " · no match"}` };
+    case "user.disable":
+      return { what: "Disabled an account", details: String(s.email) };
+    case "user.enable":
+      return { what: "Enabled an account", details: String(s.email) };
+    case "user.reset_2fa":
+      return { what: "Reset 2-step sign-in", details: String(s.email) };
     case "audit.export":
       return { what: "Downloaded the audit log", details: `${s.rows} entries` };
     default:
