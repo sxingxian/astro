@@ -36,6 +36,7 @@ export function parseEnv(raw: Record<string, unknown>): AdminEnvVars {
     if (env.HIBP_CHECK === "off") throw new Error("HIBP_CHECK=off is not allowed in production");
     if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is required in production");
     if (!env.TURNSTILE_SECRET_KEY) throw new Error("TURNSTILE_SECRET_KEY is required in production");
+    if (!env.AI_GATEWAY_URL.startsWith("https://")) throw new Error("AI_GATEWAY_URL must be https in production");
   }
   if (env.TURNSTILE_MODE === "on" && !env.TURNSTILE_SECRET_KEY) throw new Error("TURNSTILE_SECRET_KEY is required when TURNSTILE_MODE=on");
   return env;

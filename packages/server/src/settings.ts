@@ -14,7 +14,10 @@ export const SETTINGS = {
   social_links: { schema: z.array(httpsUrl).max(6), default: [] as string[], action: "settings.edit" },
   disclaimer_note: { schema: z.string().trim().max(500), default: "For reflection and entertainment. Readings are not a substitute for medical, legal or financial advice.", action: "settings.edit" },
   ai_daily_cap_usd: { schema: z.number().min(0).max(1000), default: 20, action: "ai.edit" },
-  ai_per_person_per_day: { schema: z.number().int().min(0).max(50), default: 5, action: "ai.edit" }
+  ai_per_person_per_day: { schema: z.number().int().min(0).max(50), default: 5, action: "ai.edit" },
+  ai_max_tokens: { schema: z.number().int().min(100).max(4000), default: 1200, action: "ai.edit" },
+  ai_temperature: { schema: z.number().min(0).max(1), default: 0.7, action: "ai.edit" },
+  ai_timeout_seconds: { schema: z.union([z.literal(30), z.literal(45), z.literal(60)]), default: 30, action: "ai.edit" }
 } as const satisfies Record<string, { schema: z.ZodType; default: unknown; action: Action }>;
 
 export type SettingKey = keyof typeof SETTINGS;

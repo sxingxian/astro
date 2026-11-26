@@ -12,3 +12,6 @@ export * from "./limits";
 export * from "./invite";
 export * from "./audit";
 export * from "./settings";
+export * from "./ai/crypto";
+export * from "./ai/roles";
+export * from "./ai/providers";

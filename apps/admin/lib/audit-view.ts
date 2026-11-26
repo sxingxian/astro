@@ -11,7 +11,10 @@ export const SETTING_LABEL: Record<string, string> = {
   social_links: "Social links",
   disclaimer_note: "Reading disclaimer",
   ai_daily_cap_usd: "AI daily spending limit",
-  ai_per_person_per_day: "AI readings per person per day"
+  ai_per_person_per_day: "AI readings per person per day",
+  ai_max_tokens: "Longest AI reading (tokens)",
+  ai_temperature: "AI creativity",
+  ai_timeout_seconds: "Move to the next AI service after (s)"
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -84,6 +87,16 @@ export function describe(e: Pick<AuditRow, "action" | "summary">): { what: strin
       return { what: "Reset 2-step sign-in", details: String(s.email) };
     case "settings.change":
       return { what: "Changed a setting", details: `${SETTING_LABEL[String(s.setting)] ?? s.setting} → ${s.value}` };
+    case "ai.service_add":
+      return { what: "Added an AI service", details: `${s.name} · ${s.company} · ${s.model}` };
+    case "ai.service_update":
+      return { what: "Changed an AI service", details: `${s.name} · ${s.company} · ${s.model}${s.enabled === false ? " · turned off" : ""}` };
+    case "ai.key_change":
+      return { what: "Replaced an AI key", details: `${s.provider} · key ending ${s.last4} · owner emailed` };
+    case "ai.test":
+      return { what: "Tested an AI connection", details: s.ok ? `Passed in ${(Number(s.ms) / 1000).toFixed(1)} s` : `Failed · ${s.failure}` };
+    case "ai.roles":
+      return { what: "Changed AI roles", details: `${s.companies} companies${s.warning ? " · fragile" : ""}` };
     case "audit.export":
       return { what: "Downloaded the audit log", details: `${s.rows} entries` };
     default:

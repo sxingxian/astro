@@ -22,7 +22,8 @@ const prod = {
   RESEND_API_KEY: "re_x",
   TURNSTILE_MODE: "on",
   TURNSTILE_SECRET_KEY: "s",
-  HIBP_CHECK: "on"
+  HIBP_CHECK: "on",
+  AI_GATEWAY_URL: "https://gateway.ai.cloudflare.com/v1/acct/astro"
 };
 
 describe("admin parseEnv", () => {
@@ -39,6 +40,7 @@ describe("admin parseEnv", () => {
     expect(() => parseEnv({ ...prod, TURNSTILE_MODE: "off" })).toThrow(/TURNSTILE/);
     expect(() => parseEnv({ ...prod, HIBP_CHECK: "off" })).toThrow(/HIBP/);
     expect(() => parseEnv({ ...prod, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY/);
+    expect(() => parseEnv({ ...prod, AI_GATEWAY_URL: "http://127.0.0.1:8799/gateway" })).toThrow(/AI_GATEWAY_URL/);
   });
 
   it("requires a 64-character hex AI key encryption key", () => {

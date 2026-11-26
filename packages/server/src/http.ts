@@ -33,12 +33,18 @@ interface MutationConfig<U> {
  * Better Auth errors and HttpErrors come back as their status with a safe code; anything else is a 500 with no detail.
  */
 export function createMutation<U>({ allowedOrigin, getUser }: MutationConfig<U>) {
-  return function mutation<S extends z.ZodType>(schema: S, handler: (ctx: { request: Request; user: U; body: z.infer<S> }) => Promise<Response>) {
+  return function mutation<S extends z.ZodType>(
+    schema: S,
+    handler: (ctx: { request: Request; user: U; body: z.infer<S> }) => Promise<Response>,
+    /** Runs before the body is read, so someone without permission learns nothing about the inputs. Throw to refuse. */
+    authorize?: (user: U) => void
+  ) {
     return async (request: Request): Promise<Response> => {
       try {
         assertSameOrigin(request, allowedOrigin());
         const user = await getUser(request.headers);
         if (!user) return fail(401, "signed_out");
+        authorize?.(user);
         const parsed = schema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return fail(400, "invalid_input");
         return await handler({ request, user, body: parsed.data });

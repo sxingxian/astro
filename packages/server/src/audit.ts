@@ -16,6 +16,11 @@ export const AUDIT_ACTIONS = {
   "user.enable": ["email"],
   "user.reset_2fa": ["email"],
   "settings.change": ["setting", "value"],
+  "ai.service_add": ["serviceId", "provider", "name", "company", "model"],
+  "ai.service_update": ["serviceId", "provider", "name", "company", "model", "enabled"],
+  "ai.key_change": ["serviceId", "provider", "last4"],
+  "ai.test": ["serviceId", "ok", "ms", "failure"],
+  "ai.roles": ["companies", "warning"],
   "audit.export": ["rows"]
 } as const satisfies Record<string, readonly string[]>;
 
