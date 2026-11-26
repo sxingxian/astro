@@ -14,7 +14,7 @@ The owner runs Astro without a developer for day-to-day changes. That means:
 
 Paid AI readings (Plan 4) need all of this first, so the admin portal comes before payments.
 
-**Success:** at launch the owner can change any sentence a visitor sees and have it live within about two minutes, set up the AI provider and key without touching Cloudflare, and nothing in the portal can be reached by anyone who wasn't invited.
+**Success:** at launch the owner can change any sentence a visitor sees (app wording live within about a minute, landing page wording within about five), set up the AI provider and key without touching Cloudflare, and nothing in the portal can be reached by anyone who wasn't invited.
 
 ## Goals
 
@@ -23,7 +23,7 @@ Paid AI readings (Plan 4) need all of this first, so the admin portal comes befo
 3. **Text editing:**
    - all wording on the landing page, in the app and in emails;
    - the card meanings (owner only);
-   - each change saved as a draft, which can be previewed, published, and restored from history.
+   - each change saved as a draft, which can be checked, published, and restored from history.
 4. **AI settings:**
    - the provider: Anthropic, OpenAI, Google Gemini, or any service with an OpenAI-compatible API;
    - the model;
@@ -49,12 +49,12 @@ Paid AI readings (Plan 4) need all of this first, so the admin portal comes befo
 - Anything typed in the portal running as code on the live site. All text is plain text, inserted escaped.
 - The AI key readable by anyone, including the owner, after it's saved, or present in logs, the browser, or a database dump on its own.
 - A way into the portal or a role without an invitation, or a portal action without 2-step sign-in.
-- The landing page becoming noticeably slower, or breaking when the text store is unavailable.
+- The landing page running a Worker on each visit, becoming slower, or ever showing old wording because something was unreachable.
 - Staff being able to read users' journal notes or check-in notes.
 
 ## Constraints
 
-- **Hosting:** Workers Free (10 ms CPU per request, 100,000 requests per day across the account; KV allows 100,000 reads and 1,000 writes per day). Static asset requests are free and unlimited.
+- **Hosting:** Workers Free (10 ms CPU per request, 100,000 Worker requests per day across the account). Static asset requests are free and unlimited, so the landing page must stay pure static files (owner, 26 Nov).
 - **Deploy:** browser-only (`docs/DEPLOYMENT.md`). New Cloudflare pieces must be creatable in the dashboard.
 - **Release process:** as before. Workers Builds deploys and migrates; migrations are expand-then-contract; GitHub holds no secrets.
 - **Security:**
@@ -66,15 +66,16 @@ Paid AI readings (Plan 4) need all of this first, so the admin portal comes befo
 
 ## Approaches considered
 
-How edited text reaches live pages:
+How edited text reaches live pages. The landing page must stay pure static files with no Worker on each visit (owner, 26 Nov), so the landing page and the app are handled differently:
 
 | | Approach | Trade-off | |
 | --- | --- | --- | --- |
-| **A** | The landing page stays pre-built. Its Worker swaps in published text from Cloudflare KV as the page is served. The app reads the same KV copy. | Landing stays fast and never needs the database; falls back to built-in wording if KV is unreachable. Every landing page view now runs the Worker (counts toward 100,000 requests a day). | **Chosen by the owner** |
-| B | The landing page becomes server-rendered and reads text from the database. | A large rewrite of a finished page; the landing Worker would need database access, and each visit uses more CPU. | Rejected |
-| C | The browser fetches text after the page loads. | Visitors see the old wording flash; search engines may index the old wording. | Rejected |
+| **Rebuild on publish** | Publishing landing text triggers Cloudflare to rebuild the landing page with the new wording built in (a Workers Builds Deploy Hook). The app reads published text from the database in requests it already serves. | Landing stays free, unlimited and as fast as today; landing changes take about 5 minutes to go live. App changes go live within a minute at no extra cost. | **Chosen** |
+| Swap text in as the landing page is served | The landing Worker inserts published text from KV on each visit. | Every landing visit would run a Worker and count toward 100,000 requests a day. | Rejected by the owner |
+| Server-built landing page | The landing page reads text from the database on each visit. | Same Worker cost, plus a rewrite and database access for the landing page. | Rejected |
+| Text loaded in the browser | The page fetches wording after it loads. | Old wording flashes; search engines may index it. | Rejected |
 
-Also decided: text is edited live, not by republishing (owner, 26 Nov). AI keys are entered in the portal, not as Cloudflare secrets (owner, 26 Nov), with the safeguards below.
+Also decided: AI keys are entered in the portal, not as Cloudflare secrets (owner, 26 Nov), with the safeguards below.
 
 ## Design
 
@@ -154,40 +155,40 @@ On publish, each override is validated:
 - within the maximum length;
 - exactly the same placeholders as the default.
 
-**Storage.**
+**Storage (database only, no KV).**
 
-- Database:
-  - `text_override(key, value, updated_by, updated_at)` holds drafts;
-  - `text_version(id, kind ('site'|'meanings'), snapshot_json, published_by, published_at, note)` holds every published version.
-- KV namespace `ASTRO_TEXT`:
-  - `site:published` and `meanings:published` hold the current published snapshot (only overrides, with a version id);
-  - `preview:<random 128-bit id>` holds a draft snapshot for 30 minutes.
+- `text_override(key, value, updated_by, updated_at)` holds drafts.
+- `text_version(id, kind ('landing'|'app'|'meanings'), snapshot_json, published_by, published_at, note)` holds every published version. A snapshot holds only overrides.
 
-**Publishing.** Validate, write a `text_version` row, write the KV key, audit-log it. **Restore** publishes an older version's snapshot as a new version.
+**Publishing.** Validate, write a `text_version` row, audit-log it. **Restore** publishes an older version's snapshot as a new version.
 
-**Serving the landing page.**
+**Landing page: rebuilt on publish.**
 
-- `astro-landing` gains a small Worker script that runs first for HTML pages only (`run_worker_first` for `/`). CSS, JS, fonts and images stay plain static assets, which are free.
-- The pre-built HTML marks each editable element with `data-copy="landing.hero.title"`.
-- The Worker fetches the page from its assets and reads `site:published` from KV, keeping a copy in the Cache API for 60 seconds per location. It then uses `HTMLRewriter` to replace the text of each marked element with `setInnerContent(value, { html: false })`.
-- If KV fails or times out (300 ms), the page is served with its built-in wording.
-- The Worker sets the same security headers as `_headers` and keeps the hashed-script CSP. Only text changes, never scripts.
+- The landing page stays pure static files. No Worker runs when someone visits.
+- `astro-landing` gets a **Deploy Hook** (Cloudflare dashboard → the Worker → Settings → Builds → Deploy Hooks, branch `main`). Its URL is stored as the Worker secret `LANDING_DEPLOY_HOOK_URL` on `astro-admin` only. The URL itself is the credential: anyone with it can trigger a build, so it's never shown in the portal.
+- Publishing landing text calls that URL. Cloudflare rebuilds the landing page, which takes about 5 minutes, and the portal says so.
+- **The build reads the published wording** from a public, read-only endpoint on the app: `GET https://astroapp.midnightpoetry.studio/api/copy/landing`. That wording is public anyway once published. The endpoint returns the latest landing snapshot and its version id, and is rate-limited and cacheable.
+  - The build writes the wording into the pre-built pages.
+  - Every build does this, including normal code deploys, so a code change never reverts published wording.
+- **If the endpoint can't be reached,** the build fails and the current landing page keeps serving. It never silently falls back to default wording. An empty response ("nothing published yet") is fine: the defaults are used.
+  - For the very first landing build before the app exists, the build variable `COPY_SOURCE=defaults` allows building with defaults. It's removed once the app is live.
+- **Publishing is limited** to once every 2 minutes, to group edits and stay well within Cloudflare's build limits.
+- The portal shows when landing text was last published and the deploy hook's response. The landing page's footer carries the text version id, so you can see which version is live.
 
-**Serving the app.** Server components read the published snapshot through a cached helper (`getCopy()`, 60-second cache). Client components receive their strings as props. Emails read the snapshot when sent.
+**App and emails: live.**
 
-**Preview.**
+- App pages already run the app Worker, so reading wording in the same request adds no Worker requests.
+- Server components read the published app snapshot through a cached helper (`getCopy()`, cached in memory for 60 seconds). Client components receive their strings as props.
+- Emails read the snapshot when sent.
 
-- The editor's "Preview" button writes the draft snapshot to `preview:<id>` and opens the landing page or app with `?astro-preview=<id>`.
-- Pages rendered from a preview id send `Cache-Control: no-store` and `X-Robots-Tag: noindex`, and show a "Preview, not live" bar.
-- The random id is the only key to a preview, and it expires after 30 minutes.
+**Checking before publishing.**
 
-**Card meanings.** Same mechanism with its own snapshot (`meanings:published`). Only the owner can publish. The Card library screen shows the default beside the override for each field.
+- **App text:** "Preview" saves the draft as a preview with a random 128-bit id, valid for 30 minutes. It opens the app with `?astro-preview=<id>`. Those pages send `Cache-Control: no-store` and `X-Robots-Tag: noindex`, and show a "Preview, not live" bar.
+- **Landing text:** there's no Worker to render a draft, so the editor shows each landing string in a simple version of its section, at phone and desktop widths, with character counts. After publishing, the live page updates in about 5 minutes. Restore is one click if it doesn't read well.
 
-**Workers Free budget.**
+**Card meanings.** Same mechanism with their own snapshot kind, `meanings`, read live by the app. Only the owner can publish. The Card library screen shows the default beside the override for each field.
 
-- KV reads: about one per location per minute for each of the landing page and the app.
-- KV writes: one per publish or preview.
-- Worker requests: each landing page view counts toward 100,000 a day across the account. At launch traffic this is far below the limit. Cloudflare's Workers analytics shows the daily count, and Workers Paid removes the limit if traffic grows.
+**Workers Free budget.** No extra Worker requests: the landing page stays static, and the app reads wording within requests it already serves. Each landing publish uses one Workers Builds build.
 
 ### 4. AI settings and the encrypted key
 
@@ -273,8 +274,8 @@ The plan is delivered in two pull requests, each tested and mergeable on its own
 2. **3b: text editing.**
    - `@astro/copy` catalogue;
    - extracting app and email strings;
-   - landing `data-copy` markers and the HTMLRewriter Worker;
-   - KV, publish, preview and restore;
+   - landing wording built from the published snapshot, the Deploy Hook and the `/api/copy/landing` endpoint;
+   - publish, preview (app) and restore;
    - Text and Card library screens.
 
 ## Left to the builder
@@ -290,8 +291,9 @@ These are decided by Claude during planning, as long as they stay within the des
 ## Calls Claude made (owner may check)
 
 - The admin sign-in shares accounts and `BETTER_AUTH_SECRET` with the app, kept apart by session surface.
-- A preview link works through an unguessable id that expires in 30 minutes, instead of a signed token. This avoids another secret.
+- An app preview link works through an unguessable id that expires in 30 minutes, instead of a signed token. This avoids another secret.
 - The first owner is set with one SQL statement in Neon's SQL Editor, guarded by a one-owner index.
 - The Users screen searches by exact email only.
-- KV timeouts fall back to built-in wording after 300 ms.
+- A landing build fails, rather than using default wording, if the published wording can't be fetched.
+- Landing publishes are limited to once every 2 minutes.
 - Whether the AI Gateway requires its own access token (an "authenticated gateway") is settled in Plan 4, when readings are generated. Plan 3's test calls are rare and rate-limited.
