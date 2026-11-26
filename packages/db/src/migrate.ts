@@ -22,6 +22,25 @@ export async function runMigrations(connectionString: string): Promise<number> {
   }
 }
 
+const hidePasswords = (text: string) => text.replace(/(postgres(?:ql)?:\/\/[^:/@\s]+):[^@\s]+@/gi, "$1:[hidden]@");
+
+/**
+ * Turns a migration error into one readable line for the build log: the failed query, Postgres's own reason
+ * (drizzle keeps it in `cause`), and a fix for the usual permission gap. Passwords in addresses are hidden.
+ */
+export function describeMigrationError(err: unknown): string {
+  if (!(err instanceof Error)) return hidePasswords(String(err));
+  const parts = [err.message.replace(/\s*params:\s*$/, "").trim()];
+  const cause = err.cause as { message?: unknown; code?: unknown } | undefined;
+  if (cause && typeof cause.message === "string") {
+    parts.push(`Postgres says: ${cause.message}${typeof cause.code === "string" ? ` (${cause.code})` : ""}`);
+    if (cause.code === "42501" && /CREATE SCHEMA/i.test(err.message)) {
+      parts.push('Fix: in Neon\'s SQL Editor run GRANT CREATE ON DATABASE neondb TO migrator; (docs/DEPLOYMENT.md, step 4), then retry the build.');
+    }
+  }
+  return hidePasswords(parts.join("\n"));
+}
+
 async function main() {
   const url = process.env.DATABASE_URL_MIGRATOR;
   if (!url) {
@@ -34,7 +53,7 @@ async function main() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((err: unknown) => {
-    console.error("migration failed:", err instanceof Error ? err.message : err);
+    console.error(`migration failed: ${describeMigrationError(err)}`);
     process.exit(1);
   });
 }
