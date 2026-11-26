@@ -12,8 +12,8 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      // The Hyperdrive configuration astro-admin (docs/DEPLOYMENT.md). Not secret. Replace when it exists.
-      "id": "00000000000000000000000000000000",
+      // The Hyperdrive configuration astro-admin (docs/DEPLOYMENT.md step 5). Not secret.
+      "id": "18eb9498901c42c583b497e85f2e8547",
       "localConnectionString": "postgres://astro_admin:astro_admin@127.0.0.1:5432/astro_dev"
     }
   ],

@@ -259,7 +259,7 @@ Emails come from `astro-noreply@app.midnightpoetry.studio` (set in step 8). Rese
 
 None of these is secret. You only need this step again if you recreate the Hyperdrive configuration or the Turnstile widget, or change the sending address.
 
-**Admin portal** *(plan 3)*: `apps/admin/wrangler.jsonc` still has a placeholder Hyperdrive ID (`00000000000000000000000000000000`). Send Claude the `astro-admin` Hyperdrive ID from step 5, or replace the placeholder yourself as below. The portal's Turnstile site key and sending address are already set to the same values as the app's.
+**Admin portal** *(plan 3)*: **done (27 Nov).** `apps/admin/wrangler.jsonc` holds the `astro-admin` Hyperdrive ID `18eb9498901c42c583b497e85f2e8547`. Its Turnstile site key and sending address are the same as the app's.
 
 To change them later, send the new values to Claude, or edit the file on github.com:
 
