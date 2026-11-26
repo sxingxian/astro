@@ -251,9 +251,9 @@ Emails come from `astro-noreply@app.midnightpoetry.studio` (set in step 8). Rese
 
 ## 8. GitHub: Hyperdrive ID, Turnstile site key and sending address
 
-**Done (26 Nov).** `apps/app/wrangler.jsonc` now holds:
+**Done (27 Nov; Hyperdrive re-created).** `apps/app/wrangler.jsonc` now holds:
 
-- Hyperdrive ID `a8972b247bd840468e460b7110605f0a`;
+- Hyperdrive ID `4d9c841ffad3409481d1af745953ef02`;
 - Turnstile site key `0x4AAAAAAGT4jVGbsgfhz3rb`;
 - sending address `Astro <astro-noreply@app.midnightpoetry.studio>`.
 

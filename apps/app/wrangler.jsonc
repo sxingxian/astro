@@ -13,7 +13,7 @@
     {
       "binding": "HYPERDRIVE",
       // The Hyperdrive configuration astro-web (docs/DEPLOYMENT.md, step 5). Not secret.
-      "id": "a8972b247bd840468e460b7110605f0a",
+      "id": "4d9c841ffad3409481d1af745953ef02",
       "localConnectionString": "postgres://astro_web:astro_web@127.0.0.1:5432/astro_dev"
     }
   ],
