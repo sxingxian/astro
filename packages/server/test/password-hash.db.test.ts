@@ -1,7 +1,7 @@
 import { createDb } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createPasswordHasher, HASH_PREFIX } from "@/lib/password-hash";
+import { createPasswordHasher, HASH_PREFIX } from "../src/password-hash";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

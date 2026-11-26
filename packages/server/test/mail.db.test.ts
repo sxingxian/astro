@@ -1,6 +1,6 @@
 import { createDb, eq, schema } from "@astro/db";
 import { describe, expect, it } from "vitest";
-import { createMailer } from "@/lib/mail";
+import { createMailer } from "../src/mail";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

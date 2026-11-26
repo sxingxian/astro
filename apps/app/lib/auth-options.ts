@@ -1,21 +1,14 @@
-import { schema, type Db } from "@astro/db";
 import { isTimeZone } from "@astro/draw";
+import { buildAuthOptions, type AuthDeps } from "@astro/server";
 import type { BetterAuthOptions } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";
-import { captcha, haveIBeenPwned, twoFactor } from "better-auth/plugins";
 import type { parseEnv } from "./env";
-import type { Mail } from "./mail";
 import { alreadyRegistered, resetPassword, verifyEmail } from "./mail-templates";
-import { createPasswordHasher } from "./password-hash";
 
 type AppEnv = ReturnType<typeof parseEnv>;
 
-export interface AuthDeps {
-  db: Db;
-  sendMail: (mail: Mail) => Promise<void>;
-  waitUntil: (p: Promise<unknown>) => void;
-}
+export type { AuthDeps } from "@astro/server";
+export { CAPTCHA_ENDPOINTS } from "@astro/server";
 
 /**
  * Better Auth endpoints the app never calls from the browser. Each is reached only through the app's own
@@ -52,43 +45,18 @@ export const DISABLED_PATHS = [
 
 const cleanZone = (tz: unknown) => (typeof tz === "string" && isTimeZone(tz) ? tz : "UTC");
 
-/** Turnstile protects the endpoints a bot would hammer. */
-export const CAPTCHA_ENDPOINTS = ["/sign-up/email", "/sign-in/email", "/request-password-reset"];
-
-/** Better Auth options for Astro. Pure, so the rules can be unit-tested without a database. */
-export function authOptions(env: AppEnv, { db, sendMail, waitUntil }: AuthDeps) {
-  const plugins = [
-    twoFactor({ issuer: "Astro" }),
-    ...(env.TURNSTILE_MODE === "on" ? [captcha({ provider: "cloudflare-turnstile", secretKey: env.TURNSTILE_SECRET_KEY ?? "", endpoints: CAPTCHA_ENDPOINTS })] : []),
-    ...(env.HIBP_CHECK === "on" ? [haveIBeenPwned({ customPasswordCompromisedMessage: "This password has appeared in a data breach. Please choose a different one." })] : [])
-  ];
-
-  return {
-    appName: "Astro",
-    secret: env.BETTER_AUTH_SECRET,
+/** Better Auth options for the app: the shared Astro rules plus the app's own fields, hooks and closed endpoints. */
+export function authOptions(env: AppEnv, deps: AuthDeps) {
+  const base = buildAuthOptions(env, deps, {
+    name: "app",
     baseURL: env.APP_URL,
     basePath: "/api/auth",
-    trustedOrigins: [env.APP_URL],
-    database: drizzleAdapter(db, { provider: "pg", schema: schema.authSchema }),
-    emailAndPassword: {
-      enabled: true,
-      requireEmailVerification: true,
-      minPasswordLength: 12,
-      maxPasswordLength: 128,
-      revokeSessionsOnPasswordReset: true,
-      resetPasswordTokenExpiresIn: 3600,
-      // bcrypt runs in Postgres so the Worker stays under the Workers Free plan's 10 ms CPU per request.
-      password: createPasswordHasher(db),
-      sendResetPassword: async ({ user, url }) => sendMail(resetPassword(user.email, url)),
-      onExistingUserSignUp: async ({ user }) => sendMail(alreadyRegistered(user.email, `${env.APP_URL}/sign-in`))
-    },
-    emailVerification: {
-      sendOnSignUp: true,
-      sendOnSignIn: true,
-      autoSignInAfterVerification: true,
-      expiresIn: 3600,
-      sendVerificationEmail: async ({ user, url }) => sendMail(verifyEmail(user.email, url))
-    },
+    cookiePrefix: "astro",
+    sessionHours: 24 * 30,
+    templates: { verifyEmail, resetPassword, alreadyRegistered }
+  });
+  return {
+    ...base,
     user: {
       additionalFields: {
         timeZone: { type: "string", required: false, defaultValue: "UTC", input: true },
@@ -120,15 +88,6 @@ export function authOptions(env: AppEnv, { db, sendMail, waitUntil }: AuthDeps) 
           }
         }
       }
-    },
-    session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 },
-    rateLimit: { enabled: true, storage: "database", modelName: "rateLimit" },
-    advanced: {
-      cookiePrefix: "astro",
-      useSecureCookies: env.APP_URL.startsWith("https://"),
-      ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
-      backgroundTasks: { handler: waitUntil }
-    },
-    plugins
+    }
   } satisfies BetterAuthOptions;
 }
