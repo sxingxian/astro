@@ -32,5 +32,33 @@ export function clearPendingInvite(): void {
   }
 }
 
-/** Where to go after signing in: back to a pending invite, or Today. */
-export const afterSignIn = () => (pendingInvite() ? "/invite" : "/today");
+const OFFER_KEY = "astro-offer";
+
+/** Remembers, across signing in, that the person opened a role offer link (the offer itself is tied to their account). */
+export function savePendingOffer(): void {
+  try {
+    localStorage.setItem(OFFER_KEY, String(Date.now()));
+  } catch {
+    /* storage can be unavailable; the email link still works when opened again */
+  }
+}
+
+export function clearPendingOffer(): void {
+  try {
+    localStorage.removeItem(OFFER_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+function hasPendingOffer(): boolean {
+  try {
+    const at = Number(localStorage.getItem(OFFER_KEY));
+    return at > 0 && Date.now() - at < TTL;
+  } catch {
+    return false;
+  }
+}
+
+/** Where to go after signing in: back to a pending invite or role offer, or Today. */
+export const afterSignIn = () => (pendingInvite() ? "/invite" : hasPendingOffer() ? "/offer" : "/today");

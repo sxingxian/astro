@@ -75,7 +75,7 @@ describe("admin portal tables", () => {
     await expect(as("astro_web", (tx) => tx`insert into staff_role (user_id, role) values ('x', 'admin')`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_web", (tx) => tx`select token_hash from invite`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_web", (tx) => tx`update invite set accepted_at = now()`)).rejects.toThrow(/permission denied/i);
-    const [r] = await as("astro_web", (tx) => tx<{ r: string }[]>`select accept_invite(${Buffer.alloc(32)}, 'nobody') as r`);
+    const [r] = await as("astro_web", (tx) => tx<{ r: string }[]>`select accept_invite(${Buffer.alloc(32)}, 'nobody', 0) as r`);
     expect(r?.r).toBe("invalid");
   });
 
@@ -87,6 +87,11 @@ describe("admin portal tables", () => {
     await as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values ('app', '{}')`);
     await expect(as("astro_admin", (tx) => tx`update text_version set note = 'x'`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_admin", (tx) => tx`delete from text_version`)).rejects.toThrow(/permission denied/i);
+  });
+
+  it("stores Terms, Privacy and Reader guidelines as their own published kinds", async () => {
+    for (const kind of ["terms", "privacy", "guidelines"]) await as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values (${kind}, '{}')`);
+    await expect(as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values ('cookies', '{}')`)).rejects.toThrow(/check/i);
   });
 
   it("gives astro_admin no way to create accounts, overwrite passwords or read people's cards", async () => {

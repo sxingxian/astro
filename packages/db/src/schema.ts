@@ -187,7 +187,9 @@ export const mailOutbox = pgTable("mail_outbox", {
 
 const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({ dataType: () => "bytea" });
 
-export const STAFF_ROLES = ["owner", "admin", "moderator", "reader"] as const;
+export const STAFF_ROLES = ["owner", "admin", "moderator"] as const;
+/** What an invite can carry: a portal role or the reader role (readers work in the app). */
+export const INVITE_ROLES = ["admin", "moderator", "reader"] as const;
 
 /** One active role per person. Exactly one active owner (unique partial index). */
 export const staffRole = pgTable(
@@ -200,7 +202,7 @@ export const staffRole = pgTable(
     revokedAt: ts("revoked_at")
   },
   (t) => [
-    check("staff_role_role_check", sql`${t.role} in ('owner', 'admin', 'moderator', 'reader')`),
+    check("staff_role_role_check", sql`${t.role} in ('owner', 'admin', 'moderator')`),
     uniqueIndex("staff_role_one_owner_uq").on(sql`(true)`).where(sql`${t.role} = 'owner' and ${t.revokedAt} is null`)
   ]
 );
@@ -210,7 +212,7 @@ export const invite = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email").notNull(),
-    role: text("role", { enum: STAFF_ROLES }).notNull(),
+    role: text("role", { enum: INVITE_ROLES }).notNull(),
     tokenHash: bytea("token_hash").notNull().unique(),
     invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -219,6 +221,76 @@ export const invite = pgTable(
     revokedAt: ts("revoked_at")
   },
   (t) => [check("invite_role_check", sql`${t.role} in ('admin', 'moderator', 'reader')`), index("invite_email_idx").on(sql`lower(${t.email})`)]
+);
+
+/** The reader role, held alone or beside a portal role. Active while revoked_at is null; never deleted. */
+export const readerRole = pgTable("reader_role", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  grantedBy: text("granted_by").references(() => user.id, { onDelete: "set null" }),
+  grantedAt: ts("granted_at").notNull().defaultNow(),
+  revokedAt: ts("revoked_at")
+});
+
+/** A role offered to an existing account: the reader role, a portal role, or both. Accepted only by that account. */
+export const roleOffer = pgTable(
+  "role_offer",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    reader: boolean("reader").notNull(),
+    portalRole: text("portal_role", { enum: ["admin", "moderator"] }),
+    offeredBy: text("offered_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    expiresAt: ts("expires_at").notNull(),
+    acceptedAt: ts("accepted_at"),
+    revokedAt: ts("revoked_at")
+  },
+  (t) => [
+    check("role_offer_portal_role_check", sql`${t.portalRole} in ('admin', 'moderator')`),
+    check("role_offer_something_check", sql`${t.reader} or ${t.portalRole} is not null`),
+    index("role_offer_user_idx").on(t.userId)
+  ]
+);
+
+/** Which published version of the reader guidelines each reader accepted (0 = the built-in default). */
+export const guidelineAcceptance = pgTable(
+  "guideline_acceptance",
+  {
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    version: bigint("version", { mode: "number" }).notNull(),
+    acceptedAt: ts("accepted_at").notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })]
+);
+
+/**
+ * A reader's private record of a reading done outside the app. Only the app's database user can reach it, and every
+ * query is filtered by the signed-in reader with an active reader role. Deleted with the account.
+ */
+export const readerLogEntry = pgTable(
+  "reader_log_entry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    readerId: text("reader_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    readOn: date("read_on", { mode: "string" }).notNull(),
+    place: text("place", { enum: ["in_person", "online", "event"] }).notNull(),
+    name: text("name").notNull(),
+    question: text("question"),
+    notes: text("notes"),
+    consent: boolean("consent").notNull(),
+    spread: text("spread", { enum: ["one", "three_any", "three_pairs"] }).notNull(),
+    cards: jsonb("cards").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow()
+  },
+  (t) => [
+    check("reader_log_entry_place_check", sql`${t.place} in ('in_person', 'online', 'event')`),
+    check("reader_log_entry_spread_check", sql`${t.spread} in ('one', 'three_any', 'three_pairs')`),
+    check("reader_log_entry_name_check", sql`char_length(${t.name}) between 1 and 60`),
+    check("reader_log_entry_question_check", sql`char_length(${t.question}) <= 280`),
+    check("reader_log_entry_notes_check", sql`char_length(${t.notes}) <= 4000`),
+    index("reader_log_entry_reader_idx").on(t.readerId, sql`${t.readOn} desc`)
+  ]
 );
 
 /** Append-only: a trigger rejects UPDATE and DELETE, and runtime roles may only INSERT. */
@@ -288,7 +360,7 @@ export const aiRoleSlot = pgTable(
 export const authSchema = { user, session, account, verification, twoFactor, rateLimit };
 
 // Text editing (plan 3, part B). Drafts per key, published snapshots per kind, and short-lived previews.
-export const TEXT_KINDS = ["landing", "app", "meanings"] as const;
+export const TEXT_KINDS = ["landing", "app", "meanings", "terms", "privacy", "guidelines"] as const;
 export type TextKind = (typeof TEXT_KINDS)[number];
 
 /** A draft override for one key (catalogue key, or "<card>.<field>" for meanings). Live only once published. */
@@ -301,7 +373,7 @@ export const textOverride = pgTable(
     updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
-  (t) => [check("text_override_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+  (t) => [check("text_override_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`)]
 );
 
 /** A published set of overrides for one kind. The newest row per kind is live; older rows are history. */
@@ -315,7 +387,7 @@ export const textVersion = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
     note: text("note")
   },
-  (t) => [check("text_version_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`), index("text_version_kind_idx").on(t.kind, t.id)]
+  (t) => [check("text_version_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`), index("text_version_kind_idx").on(t.kind, t.id)]
 );
 
 /** A draft snapshot the app shows for 30 minutes to whoever has the id (?astro-preview=<id>). */
@@ -327,5 +399,5 @@ export const textPreview = pgTable(
     snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
   },
-  (t) => [check("text_preview_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+  (t) => [check("text_preview_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`)]
 );

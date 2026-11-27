@@ -1,12 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as OTPAuth from "otpauth";
 import { expect } from "@playwright/test";
-import { lastMail, linkIn, PASSWORD, signUp, sql, test, uniqueEmail } from "./helpers";
+import { lastMail, linkIn, ownerId, PASSWORD, signUp, sql, test, uniqueEmail } from "./helpers";
 
 async function seedInvite(email: string, role: "admin" | "moderator" | "reader") {
   const token = randomBytes(32).toString("base64url");
   const hash = createHash("sha256").update(token).digest();
-  await sql`insert into invite (email, role, token_hash, expires_at) values (${email}, ${role}, ${hash}, now() + interval '72 hours')`;
+  await sql`insert into invite (email, role, token_hash, invited_by, expires_at) values (${email}, ${role}, ${hash}, ${await ownerId()}, now() + interval '72 hours')`;
   return token;
 }
 
@@ -37,9 +37,15 @@ test("an invitation is accepted in the app: account, then authenticator, then th
 
   await page.goto("/invite");
   await page.getByRole("button", { name: "Accept invitation" }).click();
+  // A reader invite asks for the reader guidelines first, and can't be accepted until the person agrees.
+  await expect(page.getByText("Readers agree to the reader guidelines")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Reader guidelines" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept invitation" })).toBeDisabled();
+  await page.getByLabel("I've read the reader guidelines and agree to them").check();
+  await page.getByRole("button", { name: "Accept invitation" }).click();
   await expect(page.getByRole("heading", { name: "You're on the team" })).toBeVisible();
-  const [row] = await sql<{ role: string }[]>`select s.role from staff_role s join "user" u on u.id = s.user_id where u.email = ${email}`;
-  expect(row?.role).toBe("reader");
+  const [row] = await sql<{ n: number }[]>`select count(*)::int as n from reader_role r join "user" u on u.id = r.user_id where u.email = ${email} and r.revoked_at is null`;
+  expect(row?.n).toBe(1);
   const [logged] = await sql<{ actor_role: string }[]>`select a.actor_role from audit_log a join "user" u on u.id = a.actor_id where u.email = ${email} and a.action = 'team.accept'`;
   expect(logged?.actor_role).toBe("reader");
 });

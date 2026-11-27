@@ -58,8 +58,8 @@ export function SignUpForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: str
         <label className="flex items-start gap-3 text-sm leading-relaxed text-haze">
           <input type="checkbox" name="terms" required className="mt-0.5 size-5 flex-none accent-gold" />
           <span>
-            {t("app.sign_up.agree_before")} <a href="https://astro.midnightpoetry.studio/terms">{t("app.sign_up.agree_terms")}</a> {t("app.sign_up.agree_and")}{" "}
-            <a href="https://astro.midnightpoetry.studio/privacy">{t("app.sign_up.agree_privacy")}</a>.
+            {t("app.sign_up.agree_before")} <a href="/terms">{t("app.sign_up.agree_terms")}</a> {t("app.sign_up.agree_and")}{" "}
+            <a href="/privacy">{t("app.sign_up.agree_privacy")}</a>.
           </span>
         </label>
         <FormError message={error} />

@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { cache } from "react";
 import { getDb } from "./db";
 
-type Kind = "app" | "meanings";
+export type Kind = "app" | "meanings" | "terms" | "privacy" | "guidelines";
 export type T = (key: AppKey | EmailKey, values?: Readonly<Record<string, string>>) => string;
 
 const TTL_MS = 60_000;

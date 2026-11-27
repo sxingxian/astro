@@ -1,3 +1,4 @@
+import { canGrant } from "@astro/server";
 import { NoAccess } from "@/components/NoAccess";
 import { PageHeader } from "@/components/PageHeader";
 import { UsersClient } from "@/components/users/UsersClient";
@@ -12,7 +13,7 @@ export default async function UsersPage() {
   return (
     <>
       <PageHeader title="Users" lede="Find someone by their exact email to help them. There's no list to browse." />
-      <UsersClient />
+      <UsersClient me={{ id: staff.id, role: staff.role }} offerable={(["moderator", "admin"] as const).filter((r) => canGrant(staff.role, r))} />
     </>
   );
 }

@@ -11,6 +11,10 @@ export function textError(res: ApiResult): string {
       return "That's longer than this text allows.";
     case "placeholders":
       return "Keep every {placeholder} from the default, and add no new ones.";
+    case "invisible_chars":
+      return "Remove hidden or direction-changing characters.";
+    case "links":
+      return "Emails can't contain web addresses; links are added by Astro.";
     case "line_breaks":
       return "This text has to stay on one line.";
     case "not_found":

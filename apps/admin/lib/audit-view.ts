@@ -59,6 +59,7 @@ export function queryString(q: AuditQuery, extra: Record<string, string> = {}): 
 
 const ROLE: Record<string, string> = { owner: "Owner", admin: "Admin", moderator: "Moderator", reader: "Reader" };
 const role = (r: unknown) => ROLE[String(r)] ?? String(r ?? "");
+const offered = (s: Record<string, unknown>) => [s.portalRole ? role(s.portalRole) : null, s.reader ? "Reader" : null].filter(Boolean).join(" + ");
 const day = (iso: unknown) => new Date(String(iso)).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 /** "What" and "Details" for one entry, in plain words. Unknown actions fall back to their code. */
@@ -77,6 +78,18 @@ export function describe(e: Pick<AuditRow, "action" | "summary">): { what: strin
       return { what: "Removed from the team", details: `${s.email} · was ${role(s.role)}` };
     case "team.accept":
       return { what: "Joined the team", details: role(s.role) };
+    case "reader.offer":
+      return { what: "Offered a role", details: `${offered(s)} · ${s.email} · expires ${day(s.expiresAt)}` };
+    case "reader.revoke_offer":
+      return { what: "Withdrew an offer", details: `${offered(s)} · ${s.email}` };
+    case "reader.add":
+      return { what: "Added the reader role", details: String(s.email) };
+    case "reader.remove":
+      return { what: "Removed the reader role", details: String(s.email) };
+    case "reader.accept":
+      return { what: "Accepted a role", details: offered(s) };
+    case "reader.log_export":
+      return { what: "A reader downloaded their log", details: `${s.rows} entries` };
     case "user.find":
       return { what: "Looked up an account", details: `${s.email}${s.found ? "" : " · no match"}` };
     case "user.disable":

@@ -1,6 +1,6 @@
 import { majors } from "@astro/cards";
 import { expect, type Page } from "@playwright/test";
-import { newVisitor, signUpVerified, test, uniqueEmail } from "./helpers";
+import { newVisitor, pickCard, signUpVerified, sql, test, uniqueEmail } from "./helpers";
 
 const FINGERPRINT = /^[0-9a-f]{4}( [0-9a-f]{4}){7}$/;
 
@@ -10,7 +10,7 @@ async function drawGuestCard(page: Page) {
   await expect(page).toHaveURL(/\/draw\/one/);
   const fp = page.getByTestId("fingerprint").first();
   await expect(fp).toHaveText(FINGERPRINT);
-  await page.getByRole("button", { name: "Card 13 of 78" }).click();
+  await pickCard(page, 13, 78);
   await page.getByRole("button", { name: "Turn the card" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -29,6 +29,19 @@ test("a guest draws today's card, once", async ({ page }) => {
   await expect(page).toHaveURL(readingUrl);
 });
 
+test("a reversed card is shown upside down, with \"Reversed\" underneath", async ({ page }) => {
+  await sql`update app_setting set value = '1'::jsonb where key = 'reversal_rate'`;
+  try {
+    await drawGuestCard(page);
+  } finally {
+    await sql`update app_setting set value = '0.3'::jsonb where key = 'reversal_rate'`;
+  }
+  const card = page.getByRole("img", { name: /, reversed$/ });
+  await expect(card).toBeVisible();
+  await expect(card).toHaveCSS("transform", /matrix\(-1, .*-1, 0, 0\)/);
+  await expect(page.getByText("Reversed", { exact: true }).first()).toBeVisible();
+});
+
 test("a member draws three pairs in two stages", async ({ page }) => {
   await signUpVerified(page, uniqueEmail("three"));
   await page.goto("/today");
@@ -43,9 +56,9 @@ test("a member draws three pairs in two stages", async ({ page }) => {
     expect(html).not.toContain(`"${c.id}"`);
   }
 
-  for (const n of [2, 9, 17]) await page.getByRole("button", { name: `Card ${n} of 22` }).click();
+  for (const n of [2, 9, 17]) await pickCard(page, n, 22);
   await page.getByRole("button", { name: "Next: choose clarifiers" }).click();
-  for (const n of [5, 30, 44]) await page.getByRole("button", { name: `Card ${n} of 56` }).click();
+  for (const n of [5, 30, 44]) await pickCard(page, n, 56);
   await page.getByRole("button", { name: "Turn all six cards" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   for (const pos of ["Past", "Present", "Future"]) await expect(page.getByRole("heading", { name: pos, exact: true })).toBeVisible();
@@ -87,7 +100,7 @@ test("draw screens fit a 360 px phone and calm motion is respected", async ({ br
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   }
-  await page.getByRole("button", { name: "Card 3 of 78" }).click();
+  await pickCard(page, 3, 78);
   await page.getByRole("button", { name: "Turn the card" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);

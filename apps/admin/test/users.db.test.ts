@@ -37,7 +37,7 @@ afterAll(async () => {
 describe("findUser", () => {
   it("matches the exact email in any case and returns only the support facts", async () => {
     const u = await findUser(db, "seeker@example.COM");
-    expect(Object.keys(u ?? {}).sort()).toEqual(["createdAt", "disabledAt", "email", "emailVerified", "id", "lastSignInAt", "readingCount", "twoFactorEnabled"]);
+    expect(Object.keys(u ?? {}).sort()).toEqual(["createdAt", "disabledAt", "email", "emailVerified", "id", "lastSignInAt", "reader", "readingCount", "staffRole", "twoFactorEnabled"]);
     expect(u?.readingCount).toBe(2);
     expect(u?.lastSignInAt).toBeInstanceOf(Date);
     expect(JSON.stringify(u)).not.toContain("private note");

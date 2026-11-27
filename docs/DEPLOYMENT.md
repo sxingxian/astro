@@ -5,8 +5,10 @@ Every step below is done on a website, in your browser: **Cloudflare**, **GitHub
 | Address | Serves | Cloudflare Worker | Status |
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
-| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | **Built (plan 2)** |
-| `astro.midnightpoetry.studio/admin` | Admin portal: text, card meanings, team, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3)** |
+| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts; Ask (coming soon), Terms, Privacy, reader guidelines, Desk and My log for readers | `astro-app` | **Built (plan 2; plan 4 · part 1)** |
+| `astro.midnightpoetry.studio/admin` | Admin portal: text and legal pages, card meanings, team and readers, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3; plan 4 · part 1)** |
+
+**Plan 4 · Part 1** (fan picker, reversed cards, desktop layout, legal pages, readers and their private log) needs no new Worker, setting or secret. It ships with the next `astro-app` and `astro-admin` deploys; the checks are in step 15.
 
 Sections marked *(plan N)* are for parts that aren't built yet. They're here so the whole setup is planned in one place.
 
@@ -298,7 +300,7 @@ Then **Settings → Variables and Secrets → Add**, choosing type **Secret** fo
 | `BETTER_AUTH_SECRET` | a new 64-character value from your password manager, letters and numbers |
 | `TURNSTILE_SECRET_KEY` | Turnstile secret key (step 6) |
 | `RESEND_API_KEY` | Resend API key (step 7) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 4)* |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | from step 11 *(plan 4 · part 2)* |
 
 AI company keys are **not** Cloudflare secrets. You add them in the admin portal (step 12), where they're encrypted before they're stored.
 
@@ -329,8 +331,9 @@ Cloudflare updates the database structure on every `astro-app` deploy (`pnpm db:
 - Every update is written so the current version and the new one both work during the switch.
 - Before a big change, Claude will say so. Make a restore point first: Neon → **Branches → Create branch** from `main`.
 - The admin Worker (`astro-admin`) never changes the database structure. Only `astro-app` does, so deploy order matters once: see step 14.
+- Plan 4 · Part 1 moves readers to their own table and adds the reader's log. While the previous app version is still serving, team invitations for portal roles keep working; reader invitations wait until the new version is live (a minute or two), because they now include the reader guidelines.
 
-## 11. Stripe *(plan 4)*
+## 11. Stripe *(plan 4 · part 2)*
 
 At **dashboard.stripe.com**:
 
@@ -463,10 +466,25 @@ All of these are done in a browser.
 - [ ] **Card library** (owner): change one card's summary, publish with your code; within a minute that card's reveal in the app shows it. Signed in as an admin, the screen has no editing buttons.
 - [ ] **Audit log** lists "Text published" entries, with the rebuild's response for landing publishes. The Deploy Hook address appears nowhere in the portal.
 
-**Paid readings** *(plan 4)*:
+**Readers and legal pages** *(plan 4 · part 1)*:
+
+- [ ] **Before public launch:** portal → **Text → Legal**. Replace the placeholder **Terms of use**, **Privacy notice** and **Reader guidelines** with your real wording (have them reviewed), and publish each. Within a minute `https://astroapp.midnightpoetry.studio/terms`, `/privacy` and `/reader-guidelines` show them with "Last updated".
+- [ ] The privacy notice says that readers' logs are kept in Astro's database, that only the reader can see them in the app, and that deleted entries can stay in the database provider's restore history for a while (see the note below).
+- [ ] The app's sign-up page links to the app's own Terms and Privacy pages, and no app page links to the landing site.
+- [ ] **Invite a reader:** portal → **Team and roles → Add someone → Invite by email**, role **Reader**. Open the email's link, sign in or create the account, turn on an authenticator, and accept: the reader guidelines appear first, and **Accept** works only after ticking "I agree". The app now shows **Desk** (phones) or **Reader → My log** (desktop).
+- [ ] **Offer a role to an existing account:** portal → **Users**, find the account, **Offer a role** (or Team → **Existing account**). The email links to `/offer`; accepting there needs an authenticator and, for the reader role, the guidelines. Team lists the offer with **Withdraw offer** until it's accepted.
+- [ ] **Owner as a reader:** Team → your row → **Add reader role** (asks for your code). In the app, Desk asks you to agree to the guidelines before showing My log.
+- [ ] Signed in as an **admin**, Team doesn't offer **Add reader role** on staff rows, and an offer of Moderator + Reader is refused: only the owner gives staff the reader role.
+- [ ] **My log:** record a reading, open it again and edit the note, **Download CSV**, then delete it. The audit log shows "A reader downloaded their log" with a count and nothing else.
+- [ ] Re-publish the reader guidelines: a reader's Desk asks them to agree again.
+- [ ] Account → **Give up reader role**: Desk disappears straight away.
+- [ ] Neon → **SQL Editor**: `select has_table_privilege('astro_admin', 'reader_log_entry', 'SELECT');` returns `f`. The portal can't read readers' logs.
+
+**About readers' logs:** they're kept in an ordinary database table. Astro only shows each reader their own entries, in the app; the portal can't read them, and staff can't see them even if they're readers too. Anyone with direct access to the Neon project could, so keep Neon access to yourself. A deleted entry is gone from Astro straight away, but can remain in Neon's point-in-time restore history until that window passes (its length depends on your Neon plan).
+
+**Paid readings** *(plan 4 · part 2)*:
 
 - [ ] Buy an AI reading in Stripe test mode; it appears in the journal and the admin portal.
-- [ ] Have the privacy notice and terms reviewed before public launch (`/terms` and `/privacy` don't exist yet).
 
 ## 16. Rolling back
 

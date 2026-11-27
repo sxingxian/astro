@@ -6,8 +6,12 @@ import { seedPerson } from "./seed";
 const ROUTES: { path: string; body: Record<string, unknown>; deny: ("admin" | "moderator")[] }[] = [
   { path: "/admin/api/team/invite", body: { email: "x@example.com", role: "moderator", code: "000000" }, deny: ["moderator"] },
   { path: "/admin/api/team/revoke", body: { inviteId: crypto.randomUUID(), code: "000000" }, deny: ["moderator"] },
-  { path: "/admin/api/team/role", body: { userId: "nobody", role: "reader", code: "000000" }, deny: ["moderator"] },
-  { path: "/admin/api/team/remove", body: { userId: "nobody", code: "000000" }, deny: ["moderator"] }
+  { path: "/admin/api/team/role", body: { userId: "nobody", role: "moderator", code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/team/remove", body: { userId: "nobody", code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/readers/offer", body: { userId: "nobody", reader: true, portalRole: null, code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/readers/revoke-offer", body: { offerId: crypto.randomUUID(), code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/readers/add-self", body: { code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/readers/remove", body: { userId: "nobody", code: "000000" }, deny: ["moderator"] }
 ];
 
 for (const role of ["admin", "moderator"] as const) {
@@ -47,4 +51,8 @@ test("portal routes refuse other origins", async ({ context, baseURL }) => {
   await signInAs(context, baseURL, s.id);
   const res = await context.request.post("/admin/api/team/invite", { data: { email: "z@example.com", role: "reader", code: "000000" }, headers: { origin: "https://evil.example" } });
   expect(res.status()).toBe(403);
+  for (const r of ROUTES.filter((x) => x.path.includes("/readers/"))) {
+    const other = await context.request.post(r.path, { data: r.body, headers: { origin: "https://evil.example" } });
+    expect(other.status(), r.path).toBe(403);
+  }
 });

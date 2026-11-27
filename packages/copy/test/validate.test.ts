@@ -25,6 +25,17 @@ describe("validateOverride", () => {
     expect(validateOverride(entry({ default: "x", placeholders: [] }), "Subject\n")).toEqual({ ok: false, reason: "line_breaks" });
     expect(validateOverride(entry({ default: "x", placeholders: [] }), "Subject\rBcc: a@b.c")).toEqual({ ok: false, reason: "line_breaks" });
   });
+  it("refuses invisible and direction-changing characters anywhere", () => {
+    for (const c of ["\u200B", "\u200D", "\u202E", "\u2066", "\u2028", "\uFEFF", "\u0085"])
+      expect(validateOverride(entry({ default: "x", placeholders: [] }), `a${c}b`)).toEqual({ ok: false, reason: "invisible_chars" });
+  });
+  it("refuses web addresses in email wording only", () => {
+    const mail = entry({ key: "email.verify.line1", surface: "email", default: "x", max: 200, placeholders: [] });
+    for (const v of ["Go to https://evil.example", "visit www.evil.example", "see evil.example now"])
+      expect(validateOverride(mail, v)).toEqual({ ok: false, reason: "links" });
+    expect(validateOverride(mail, "This link expires in one hour.")).toEqual({ ok: true });
+    expect(validateOverride(entry({ default: "x", placeholders: [] }), "see astro.example")).toEqual({ ok: true });
+  });
   it("refuses empty text", () => {
     expect(validateOverride(entry({ default: "x", placeholders: [] }), "   ")).toEqual({ ok: false, reason: "empty" });
   });

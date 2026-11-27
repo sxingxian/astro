@@ -66,3 +66,20 @@ export const test = base.extend({
 export async function newVisitor(browser: Browser) {
   return browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomIp() } });
 }
+
+/** Picks a card from the fan by keyboard: focusing a card turns the fan to show it, Enter picks it. */
+export async function pickCard(page: Page, n: number, total: number) {
+  await page.getByRole("button", { name: `Card ${n} of ${total}` }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: `Card ${n} of ${total}` })).toHaveAttribute("aria-pressed", "true");
+}
+
+/** The active owner's id, creating an owner account if this test database has none. Invites and offers need a sender who may still grant. */
+export async function ownerId(): Promise<string> {
+  const [o] = await sql<{ user_id: string }[]>`select user_id from staff_role where role = 'owner' and revoked_at is null`;
+  if (o) return o.user_id;
+  const id = crypto.randomUUID();
+  await sql`insert into "user" (id, name, email, email_verified) values (${id}, 'Owner', ${uniqueEmail("owner")}, true)`;
+  await sql`insert into staff_role (user_id, role) values (${id}, 'owner')`;
+  return id;
+}

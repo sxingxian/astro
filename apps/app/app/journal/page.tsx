@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { JournalSwitch } from "@/components/journal/JournalSwitch";
-import { TabBar } from "@/components/TabBar";
+import { AppShell } from "@/components/AppShell";
 import { getCopy } from "@/lib/copy";
 import { getSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -26,7 +26,8 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const t = await getCopy();
 
   return (
-    <div className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8">
+    <AppShell current="journal">
+    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
       <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
       <JournalSwitch current="readings" />
       <nav aria-label={t("app.journal.filter_label")} className="flex flex-wrap gap-2">
@@ -37,7 +38,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
       {items.length === 0 ? (
         <p className="m-0 text-haze">{t("app.journal.empty_before")} <a href="/today">{t("app.journal.empty_link")}</a> {t("app.journal.empty_after")}</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0 lg:grid lg:grid-cols-2 lg:gap-4">
           {items.map((it) => (
             <li key={it.id}>
               <a href={`/reading/${it.id}`} className="panel flex items-center gap-3.5 p-3.5 text-moon no-underline">
@@ -53,7 +54,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
         </ul>
       )}
       {nextCursor ? <a className="btn-ghost" href={`/journal?${new URLSearchParams({ ...(filter === "all" ? {} : { filter }), cursor: nextCursor })}`}>{t("app.journal.older")}</a> : null}
-      <TabBar current="/journal" />
     </div>
+    </AppShell>
   );
 }

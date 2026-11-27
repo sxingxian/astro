@@ -9,7 +9,7 @@ describe("catalogue", () => {
     expect(new Set(entries.map((e) => e.key)).size).toBe(entries.length);
     for (const [k, e] of Object.entries(catalogue)) {
       expect(e.key, k).toBe(k);
-      expect(k).toMatch(/^(landing|app|email)\.[a-z0-9_.]+$/);
+      expect(k).toMatch(/^(landing|app|email|legal)\.[a-z0-9_.]+$/);
       expect(k.startsWith(`${e.surface}.`), k).toBe(true);
     }
   });

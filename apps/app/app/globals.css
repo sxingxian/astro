@@ -12,6 +12,7 @@
   --color-muted: #8C88A6;
   --color-haze: #B9B4CF;
   --color-error: #E26D6D;
+  --color-ok: #7FC8A0; /* same success green as the portal */
   --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
   --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
 }
@@ -53,21 +54,26 @@
 
 /* ---------- Draw: the fan of face-down cards ---------- */
 @layer components {
-  .fan { display: flex; overflow-x: auto; overscroll-behavior-x: contain; padding: 28px 20px 12px; scrollbar-width: thin; }
+  .fan-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .fan-stage { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
   .fan-card {
-    flex: none; width: 56px; height: 92px; margin-left: -26px; padding: 0; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
-    transition: transform var(--duration-hover) var(--ease-out);
+    position: absolute; left: 50%; width: 70px; height: 116px; margin-left: -35px; padding: 0; border: 0; border-radius: 8px;
+    background: transparent; will-change: transform;
   }
-  .fan-card:first-child { margin-left: 0; }
-  .fan-card .card-back { width: 100%; height: 100%; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45); }
-  .fan-card[aria-pressed="true"] { transform: translateY(-16px); }
-  .fan-card[aria-pressed="true"] .card-back { box-shadow: 0 0 0 2px var(--astro-gold), 0 12px 30px rgba(216, 180, 106, 0.35); }
-  .fan-card:disabled { cursor: default; }
-  .fan-card:focus-visible { outline: 2px solid var(--astro-moon); outline-offset: 2px; }
-  @media (hover: hover) and (pointer: fine) {
-    .fan-card:not(:disabled):hover { transform: translateY(-8px); }
-    .fan-card[aria-pressed="true"]:hover { transform: translateY(-16px); }
+  .fan-card .card-back { width: 100%; height: 100%; border-radius: 8px; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5); }
+  .fan-card[data-lifted] .card-back { box-shadow: 0 0 0 1px var(--astro-moon), 0 16px 34px rgba(0, 0, 0, 0.6); }
+  .fan-card[aria-pressed="true"] .card-back { box-shadow: 0 0 0 2px var(--astro-gold), 0 12px 28px rgba(216, 180, 106, 0.45); }
+  .fan-card:focus-visible { outline: 2px solid var(--astro-moon); outline-offset: 3px; }
+  .fan-edge {
+    position: absolute; top: 60px; bottom: 0; width: 80px; display: flex; align-items: center; color: var(--astro-gold);
+    pointer-events: none; opacity: 0; transition: opacity 200ms ease, background-color 150ms ease;
   }
+  .fan-edge[data-on] { opacity: 1; }
+  .fan-edge-left { left: 0; padding-left: 8px; background: linear-gradient(90deg, rgba(11, 11, 20, 0.85), transparent); }
+  .fan-edge-right { right: 0; justify-content: flex-end; padding-right: 8px; background: linear-gradient(270deg, rgba(11, 11, 20, 0.85), transparent); }
+  .fan-edge-left[data-sliding] { background: linear-gradient(90deg, rgba(216, 180, 106, 0.22), transparent); }
+  .fan-edge-right[data-sliding] { background: linear-gradient(270deg, rgba(216, 180, 106, 0.22), transparent); }
+  @media (prefers-reduced-motion: reduce) { .fan-edge { transition: none; } }
 
   /* The flip on reveal: 600 ms is a deliberate ritual moment (the spec's one exception to the 300 ms rule). */
   .flip { perspective: 900px; }

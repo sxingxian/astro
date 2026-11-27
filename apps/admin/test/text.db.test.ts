@@ -107,6 +107,24 @@ describe("publish", () => {
   });
 });
 
+describe("legal documents", () => {
+  const legal = (text: string) => JSON.stringify({ v: 1, blocks: [{ t: "h2", c: [{ t: "text", text }] }] });
+  it("saves only valid documents, publishes each page on its own, and previews them", async () => {
+    await expect(saveDraft(db, admin, "legal.terms", "<b>x</b>")).rejects.toThrow(/doc_invalid/);
+    expect(await saveDraft(db, admin, "legal.terms", legal("Our terms"))).toEqual({ kind: "terms" });
+    await saveDraft(db, admin, "legal.privacy", legal("Our privacy"));
+    const [before] = await db.$client<{ n: number }[]>`select count(*)::int as n from text_version where kind = 'app'`;
+    const r = await publish(db, admin, "terms", "", deps());
+    const [v] = await db.$client<{ snapshot: Record<string, string> }[]>`select snapshot from text_version where id = ${r.version}`;
+    expect(Object.keys(v!.snapshot)).toEqual(["legal.terms"]);
+    const [after] = await db.$client<{ n: number }[]>`select count(*)::int as n from text_version where kind = 'app'`;
+    expect(after!.n).toBe(before!.n);
+    const p = await createPreview(db, admin, "privacy", clock);
+    const [pv] = await db.$client<{ snapshot: Record<string, string> }[]>`select snapshot from text_preview where id = ${p.id}`;
+    expect(Object.keys(pv!.snapshot)).toEqual(["legal.privacy"]);
+  });
+});
+
 describe("restore and preview", () => {
   it("restoring publishes the old snapshot as a new version", async () => {
     const [old] = await db.$client<{ id: number }[]>`select id from text_version where kind = 'app' order by id limit 1`;

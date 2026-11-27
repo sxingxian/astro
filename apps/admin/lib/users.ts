@@ -13,6 +13,9 @@ export interface UserFacts {
   lastSignInAt: Date | null;
   readingCount: number;
   disabledAt: Date | null;
+  /** Their portal role, if any, and whether they hold the reader role: so the portal can offer roles. */
+  staffRole: string | null;
+  reader: boolean;
 }
 
 /** Exact, case-insensitive email match. No partial matches and no list, so staff can't browse people. */
@@ -26,7 +29,9 @@ export async function findUser(db: Db, email: string): Promise<UserFacts | null>
       twoFactorEnabled: schema.user.twoFactorEnabled,
       disabledAt: schema.user.disabledAt,
       lastSignInAt: sql<string | null>`(select max(created_at) from session s where s.user_id = "user".id)`,
-      readingCount: sql<number>`(select count(*)::int from draw_session d where d.user_id = "user".id and d.status = 'complete')`
+      readingCount: sql<number>`(select count(*)::int from draw_session d where d.user_id = "user".id and d.status = 'complete')`,
+      staffRole: sql<string | null>`(select role from staff_role s where s.user_id = "user".id and s.revoked_at is null)`,
+      reader: sql<boolean>`exists(select 1 from reader_role r where r.user_id = "user".id and r.revoked_at is null)`
     })
     .from(schema.user)
     .where(sql`lower(${schema.user.email}) = lower(${email.trim()})`);

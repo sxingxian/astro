@@ -27,6 +27,7 @@
     "@fontsource/inter": "^5.3.0",
     "@opennextjs/cloudflare": "^1.20.19",
     "better-auth": "^1.7.28",
+    "gsap": "^3.15.1",
     "next": "^16.4.6",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",

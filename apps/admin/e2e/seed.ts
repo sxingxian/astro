@@ -30,7 +30,8 @@ export async function seedPerson(opts: { email: string; role?: "owner" | "admin"
     await db.$client`insert into account (id, account_id, provider_id, user_id, password) values (${crypto.randomUUID()}, ${id}, 'credential', ${id}, ${hash})`;
     // There can only be one owner: a test that needs one takes over from any earlier test's owner.
     if (opts.role === "owner") await db.$client`delete from staff_role where role = 'owner'`;
-    if (opts.role) await db.$client`insert into staff_role (user_id, role) values (${id}, ${opts.role})`;
+    if (opts.role === "reader") await db.$client`insert into reader_role (user_id) values (${id})`;
+    else if (opts.role) await db.$client`insert into staff_role (user_id, role) values (${id}, ${opts.role})`;
     let totp: OTPAuth.TOTP | undefined;
     if (opts.twoStep) {
       const raw = crypto.randomUUID().replaceAll("-", "").slice(0, 32);

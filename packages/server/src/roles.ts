@@ -1,7 +1,9 @@
 export type Role = "owner" | "admin" | "moderator" | "reader";
+/** The roles staff_role holds. The reader role is its own grant (reader_role) and can sit beside one of these. */
+export type StaffRole = Exclude<Role, "reader">;
 
 /** Roles that can sign in to the admin portal. Readers work in the app. */
-export const PORTAL_ROLES: readonly Role[] = ["owner", "admin", "moderator"];
+export const PORTAL_ROLES: readonly StaffRole[] = ["owner", "admin", "moderator"];
 
 export const ACTIONS = [
   "dashboard.view",
@@ -38,4 +40,16 @@ export function canGrant(actor: Role, target: Role): boolean {
   if (actor === "owner") return true;
   if (actor === "admin") return target === "moderator" || target === "reader";
   return false;
+}
+
+/** Who may give the reader role. Only the owner gives it to staff (themselves included); admins only to ordinary accounts. */
+export function canOfferReader(actor: Role, targetIsStaff: boolean): boolean {
+  if (actor === "owner") return true;
+  return actor === "admin" && !targetIsStaff;
+}
+
+/** Who may remove someone's reader role. Anyone may give up their own. */
+export function canRemoveReader(actor: Role, targetIsStaff: boolean, isSelf: boolean): boolean {
+  if (isSelf || actor === "owner") return true;
+  return actor === "admin" && !targetIsStaff;
 }

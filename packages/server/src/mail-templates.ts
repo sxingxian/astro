@@ -42,6 +42,14 @@ export function inviteEmail(to: string, role: string, url: string, expiresAt: Da
   return { to, subject: t("email.invite.subject"), text: `${title}\n\n${lines.join("\n")}\n\n${url}\n`, html: layout(t, title, lines, { label: t("email.invite.button"), url }) };
 }
 
+/** Offers an existing account a role: the reader role, a portal role, or both. The link opens the app's /offer page. */
+export function roleOfferEmail(to: string, roles: { reader: boolean; portalRole: "admin" | "moderator" | null }, url: string, expiresAt: Date, t: EmailT = defaultEmailT): Mail {
+  const words = [roles.portalRole ? t(`email.offer.role_${roles.portalRole}`) : null, roles.reader ? t("email.offer.role_reader") : null].filter((w): w is string => Boolean(w));
+  const title = t("email.offer.title", { roles: words.join(` ${t("email.offer.and")} `) });
+  const lines = [t("email.offer.line1"), t("email.offer.line2", { date: formatDay(expiresAt) })];
+  return { to, subject: t("email.offer.subject"), text: `${title}\n\n${lines.join("\n")}\n\n${url}\n`, html: layout(t, title, lines, { label: t("email.offer.button"), url }) };
+}
+
 /** Tells the owner an AI service key changed. Never includes the key. */
 export function aiKeyChangedEmail(to: string, details: { service: string; last4: string; by: string; at: Date }, t: EmailT = defaultEmailT): Mail {
   const title = t("email.ai_key.title");

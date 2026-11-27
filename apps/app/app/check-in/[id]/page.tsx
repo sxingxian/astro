@@ -27,7 +27,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
     <div className="mx-auto flex min-h-dvh max-w-[560px] flex-col gap-6 px-5 pb-10 pt-6">
       <a href="/today" className="text-sm">{tr("app.draw.back_today")}</a>
       <div className="flex items-center gap-4">
-        <CardFace id={due.cardId} size="sm" reversed={t.reversed} />
+        <CardFace id={due.cardId} size="sm" reversed={t.reversed} reversedLabel={tr("app.card.reversed")} />
         <div className="flex flex-col gap-1.5">
           <p className="eyebrow">{tr("app.check_in.eyebrow", { date: when })}</p>
           <h1 className="m-0 font-display text-3xl font-medium leading-tight">{tr("app.check_in.title", { card: t.card.name })}</h1>
