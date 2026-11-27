@@ -1,6 +1,6 @@
 import { getCard } from "@astro/cards";
 import type { Suit } from "@astro/cards";
-import type { T } from "./copy";
+import type { T } from "@astro/copy";
 import type { Patterns, PatternRange } from "./patterns";
 
 export interface PatternsCopy {

@@ -1,6 +1,6 @@
 import { getCard } from "@astro/cards";
 import type { SessionUser } from "@/lib/auth";
-import type { T } from "@/lib/copy";
+import type { T } from "@astro/copy";
 import { getDb } from "@/lib/db";
 import { formValue } from "@/lib/log-form";
 import { listEntries, type Entry } from "@/lib/reader-log";

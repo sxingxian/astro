@@ -1,8 +1,9 @@
-import { catalogue, type AppKey, type EmailKey } from "@astro/copy";
+import { catalogue } from "@astro/copy";
 import { and, desc, eq, gt, schema, type AnyDb } from "@astro/db";
 
 export type Kind = "app" | "meanings" | "terms" | "privacy" | "guidelines";
-export type T = (key: AppKey | EmailKey, values?: Readonly<Record<string, string>>) => string;
+export type { T } from "@astro/copy";
+import type { T } from "@astro/copy";
 
 const TTL_MS = 60_000;
 /** After a failed read, the last wording is kept and the database is asked again this much later. */
@@ -40,6 +41,17 @@ export async function liveSnapshot(db: AnyDb, kind: Kind, useCache = true): Prom
 }
 
 /** A draft snapshot shown to whoever has a valid, unexpired preview id. Never cached. */
+/** Whether a preview link is current (any kind), so pages show the preview bar only while it is. */
+export async function previewLive(db: AnyDb, previewId: string | null | undefined): Promise<boolean> {
+  if (!previewId || !PREVIEW_ID.test(previewId)) return false;
+  try {
+    const rows = await withTimeout(db.select({ id: schema.textPreview.id }).from(schema.textPreview).where(and(eq(schema.textPreview.id, previewId), gt(schema.textPreview.expiresAt, new Date()))).limit(1), READ_TIMEOUT_MS);
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function previewSnapshot(db: AnyDb, kind: Kind, previewId: string | null | undefined): Promise<Record<string, string> | null> {
   if (!previewId || !PREVIEW_ID.test(previewId)) return null;
   try {
