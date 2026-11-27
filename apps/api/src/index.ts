@@ -1,4 +1,5 @@
 import { createHttpDb, type AnyDb } from "@astro/db";
+import { neonConfig } from "@neondatabase/serverless";
 import { PASS_COOKIE, PASS_TTL_S, readPass, securityHeaders, signPass } from "@astro/server";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -21,7 +22,12 @@ export interface Deps {
 }
 
 /** The data Worker (free-plan design, Stage 0): reads only, under /api/v2. */
-export function createApp({ db = (env) => createHttpDb(env.DATABASE_URL), now = Date.now }: Deps = {}) {
+function httpDb(env: Env): AnyDb {
+  if (env.NEON_FETCH_ENDPOINT) neonConfig.fetchEndpoint = env.NEON_FETCH_ENDPOINT;
+  return createHttpDb(env.DATABASE_URL);
+}
+
+export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
   const app = new Hono<{ Bindings: Partial<Env>; Variables: Vars }>().basePath("/api/v2");
 
   app.use("*", async (c, next) => {

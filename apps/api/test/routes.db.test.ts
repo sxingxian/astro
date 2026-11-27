@@ -137,3 +137,11 @@ describe("data Worker", () => {
     expect(await res.json()).toEqual({ error: "server_error" });
   });
 });
+
+describe("settings", () => {
+  it("ignores a local query endpoint unless the Worker itself runs locally", async () => {
+    const { checkEnv } = await import("../src/env");
+    expect(checkEnv({ ...env, APP_URL: "https://astroapp.midnightpoetry.studio", NEON_FETCH_ENDPOINT: "http://evil.example/sql" })?.NEON_FETCH_ENDPOINT).toBeUndefined();
+    expect(checkEnv({ ...env, APP_URL: "http://127.0.0.1:8791", NEON_FETCH_ENDPOINT: "http://127.0.0.1:4444/sql" })?.NEON_FETCH_ENDPOINT).toBe("http://127.0.0.1:4444/sql");
+  });
+});

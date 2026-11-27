@@ -50,6 +50,8 @@ jobs:
           psql "$DATABASE_URL_TEST" -c "create role astro_admin login password 'astro_admin'"
       - name: Database integration tests
         run: pnpm db:test
+      - name: CPU budget for the data Worker (Workers Free, 10 ms per request)
+        run: pnpm --filter @astro/api test:cpu
       - run: pnpm build
       - name: Local settings for wrangler dev (development values only)
         run: |
