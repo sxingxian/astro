@@ -61,7 +61,6 @@ $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION current_guidelines_version() FROM PUBLIC;--> statement-breakpoint
 REVOKE ALL ON FUNCTION grant_reader_role(text, text, bigint) FROM PUBLIC;--> statement-breakpoint
-DROP FUNCTION accept_invite(bytea, text);--> statement-breakpoint
 -- Accepting an invite, as one checked step (replaces 0003's version). A reader invite now writes reader_role, so the
 -- role can sit beside a portal role; only an invite sent by the owner may make staff a reader; and the person must
 -- have read the newest reader guidelines (p_guidelines is the version their page showed).
@@ -130,6 +129,14 @@ $$;
 CREATE OR REPLACE FUNCTION give_up_reader_role(p_user_id text) RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
   UPDATE reader_role SET revoked_at = now() WHERE user_id = p_user_id AND revoked_at IS NULL
+$$;
+--> statement-breakpoint
+-- The previous app version calls accept_invite(bytea, text) until the new one is live. Keep it working through the new
+-- checks, with no guidelines version, so reader invites are refused (they need the guidelines step) and portal invites
+-- still go through. Remove in a later migration once every Worker runs this version.
+CREATE OR REPLACE FUNCTION accept_invite(p_token_hash bytea, p_user_id text) RETURNS text
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT accept_invite(p_token_hash, p_user_id, -1::bigint)
 $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION accept_invite(bytea, text, bigint) FROM PUBLIC;--> statement-breakpoint

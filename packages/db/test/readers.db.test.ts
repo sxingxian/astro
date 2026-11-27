@@ -98,6 +98,18 @@ describe("what the app's database user may do", () => {
   });
 });
 
+describe("during the switch to migration 0006", () => {
+  it("keeps the previous app's accept_invite(bytea, text) working for portal roles, refusing reader invites", async () => {
+    await person("u-switch");
+    await person("u-switch-r");
+    const portal = await invite("u-switch@example.com", "moderator", "u-owner");
+    expect(await asWeb(async (tx) => (await tx<{ r: string }[]>`select accept_invite(${portal}, 'u-switch') as r`)[0]!.r)).toBe("ok:moderator");
+    const reader = await invite("u-switch-r@example.com", "reader", "u-owner");
+    expect(await asWeb(async (tx) => (await tx<{ r: string }[]>`select accept_invite(${reader}, 'u-switch-r') as r`)[0]!.r)).toBe("guidelines_changed");
+    expect(await activeReader("u-switch-r")).toBe(false);
+  });
+});
+
 describe("reader log table", () => {
   it("is out of the portal's reach entirely", async () => {
     await expect(
