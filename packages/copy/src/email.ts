@@ -35,6 +35,16 @@ export const email = {
   "email.invite.role_moderator": { group: "Team invitation", label: "Role words: moderator", where: "Inside the heading", default: "a moderator", max: S },
   "email.invite.role_reader": { group: "Team invitation", label: "Role words: reader", where: "Inside the heading", default: "a reader", max: S },
 
+  "email.offer.subject": { group: "Role offer", label: "Subject", where: "Inbox", default: "You've been offered a role on Astro", max: M },
+  "email.offer.title": { group: "Role offer", label: "Heading", where: "Top of the email", default: "You've been offered {roles}", max: M },
+  "email.offer.line1": { group: "Role offer", label: "First paragraph", where: "Email body", default: "Open Astro and sign in to this account to see the offer. You'll need 2-step sign-in with an authenticator app, and readers also agree to the reader guidelines. Nothing changes until you accept.", max: L },
+  "email.offer.line2": { group: "Role offer", label: "Second paragraph", where: "Email body", default: "This offer expires on {date}. If you weren't expecting it, you can ignore this email.", max: L },
+  "email.offer.button": { group: "Role offer", label: "Button", where: "Email body", default: "See the offer", max: S },
+  "email.offer.role_reader": { group: "Role offer", label: "Role words: reader", where: "Inside the heading", default: "the reader role", max: S },
+  "email.offer.role_moderator": { group: "Role offer", label: "Role words: moderator", where: "Inside the heading", default: "the moderator role", max: S },
+  "email.offer.role_admin": { group: "Role offer", label: "Role words: admin", where: "Inside the heading", default: "the admin role", max: S },
+  "email.offer.and": { group: "Role offer", label: "Joining word", where: "Between two roles in the heading", default: "and", max: S },
+
   "email.ai_key.subject": { group: "AI key changed", label: "Subject", where: "Owner's inbox", default: "Astro: an AI service key was changed", max: M },
   "email.ai_key.title": { group: "AI key changed", label: "Heading", where: "Top of the email", default: "An AI service key was changed", max: M },
   "email.ai_key.line1": { group: "AI key changed", label: "First paragraph", where: "Email body", default: "The key for {service} was replaced by {by} on {date}. It now ends in {last4}.", max: L },
