@@ -100,7 +100,7 @@ describe("data Worker", () => {
 describe("sign-in cookie name", () => {
   it("on the real https address, reads only Better Auth's __Secure- cookie", async () => {
     const p = await person();
-    const https = { ...env, APP_URL: "https://staging.example.com" };
+    const https = { ...env, APP_URL: "https://staging.example.com", GUEST_DRAWS: { limit: async () => ({ success: true }) } };
     const token = p.cookie.split("=")[1];
     expect((await app.request("/api/me", { headers: { cookie: `__Secure-astro.session_token=${token}` } }, https)).status).toBe(200);
     const ok = await app.request("/api/me", { headers: { cookie: `__Secure-astro.session_token=${token}` } }, https);
@@ -136,5 +136,13 @@ describe("settings", () => {
     const { checkEnv } = await import("../src/env");
     expect(checkEnv({ ...env, APP_URL: "https://staging.example.com", NEON_FETCH_ENDPOINT: "http://evil.example/sql" })?.NEON_FETCH_ENDPOINT).toBeUndefined();
     expect(checkEnv({ ...env, APP_URL: "http://127.0.0.1:8791", NEON_FETCH_ENDPOINT: "http://127.0.0.1:4444/sql" })?.NEON_FETCH_ENDPOINT).toBe("http://127.0.0.1:4444/sql");
+  });
+
+  it("refuses to run on a real address without the guest draw limit", async () => {
+    const { checkEnv } = await import("../src/env");
+    const live = { ...env, APP_URL: "https://app.example.com", MAIL_DRIVER: "resend", RESEND_API_KEY: "re_x", TURNSTILE_MODE: "on", TURNSTILE_SECRET_KEY: "t", HIBP_CHECK: "on" };
+    const limiter = { limit: async () => ({ success: true }) };
+    expect(checkEnv({ ...live, GUEST_DRAWS: limiter } as never)).not.toBeNull();
+    expect(checkEnv({ ...live } as never)).toBeNull();
   });
 });

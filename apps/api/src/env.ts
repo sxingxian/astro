@@ -35,8 +35,9 @@ export function checkEnv(raw: RawEnv | undefined): Env | null {
   try {
     const app = parseEnv(raw);
     const { DATABASE_URL, PASS_SECRET } = raw;
-    if (DATABASE_URL?.startsWith("postgres") && (PASS_SECRET?.length ?? 0) >= 32) {
-      const local = LOCAL.test(app.APP_URL);
+    const local = LOCAL.test(app.APP_URL);
+    // On a real address the guest draw limit must be bound: without it guests could draw without limit.
+    if (DATABASE_URL?.startsWith("postgres") && (PASS_SECRET?.length ?? 0) >= 32 && (local || raw.GUEST_DRAWS)) {
       env = {
         ...app,
         DATABASE_URL,

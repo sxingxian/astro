@@ -8,4 +8,4 @@ const LEGACY = [/^\/desk(\/|$)/, /^\/invite\/?$/, /^\/offer\/?$/, /^\/reader-gui
 export const isLegacy = (path: string) => LEGACY.some((re) => re.test(path));
 
 /** The same patterns for wrangler's `run_worker_first`, so these paths reach the Worker instead of the page files. */
-export const LEGACY_ROUTES = ["/desk", "/desk/*", "/invite", "/offer", "/reader-guidelines", "/_next/*", "/api/reader/*", "/api/invite/*", "/api/offer/*"];
+export const LEGACY_ROUTES = ["/desk", "/desk/*", "/invite", "/invite/", "/offer", "/offer/", "/reader-guidelines", "/reader-guidelines/", "/_next/*", "/api/reader/*", "/api/invite/*", "/api/offer/*"];

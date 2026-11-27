@@ -48,11 +48,13 @@ describe("reader pages forwarded to the old app", () => {
 describe("wrangler config", () => {
   it("sends every reader path to the Worker before the page files", async () => {
     const { readFileSync } = await import("node:fs");
-    const { LEGACY_ROUTES } = await import("../src/legacy");
+    const { LEGACY_ROUTES, isLegacy } = await import("../src/legacy");
     const text = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
     const config = JSON.parse(text.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"));
     const first: string[] = config.assets.run_worker_first;
     for (const r of LEGACY_ROUTES) expect(r.startsWith("/api/") ? first.includes("/api/*") : first.includes(r), r).toBe(true);
+    // A trailing slash must reach the old app too, not the pages' not-found screen.
+    for (const p of ["/invite/", "/offer/", "/reader-guidelines/"]) expect(isLegacy(p) && first.includes(p), p).toBe(true);
     expect(config.services).toEqual([{ binding: "LEGACY", service: "astro-app" }]);
   });
 });
