@@ -1,9 +1,8 @@
+import { dueCheckIns } from "@astro/app-core/check-ins";
+import { findToday } from "@astro/app-core/draw/service";
+import { listReadings } from "@astro/app-core/journal";
+import { readerStatus } from "@astro/app-core/readers";
 import type { AnyDb } from "@astro/db";
-// Stage 0 only: Today's existing data functions, reused unchanged. They move to a shared package in Stage 1.
-import { dueCheckIns } from "../../app/lib/check-ins";
-import { findToday } from "../../app/lib/draw/service";
-import { listReadings } from "../../app/lib/journal";
-import { readerStatus } from "../../app/lib/readers";
 
 /** What the Today screen shows for a signed-in person (the same calls the Today page makes now). */
 export async function todayFor(db: AnyDb, uid: string, timeZone: string) {

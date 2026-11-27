@@ -1,4 +1,4 @@
-import { eq, schema, sql, type Db } from "@astro/db";
+import { eq, schema, sql, type AnyDb } from "@astro/db";
 import { APIError, BASE_ERROR_CODES, type BetterAuthOptions } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -14,7 +14,7 @@ export interface BaseAuthEnv {
 }
 
 export interface AuthDeps {
-  db: Db;
+  db: AnyDb;
   sendMail: (mail: Mail) => Promise<void>;
   waitUntil: (p: Promise<unknown>) => void;
 }
@@ -54,7 +54,7 @@ export function acceptSession(session: { surface?: unknown }, user: { disabledAt
 /** The response Better Auth gives for a wrong password, so a refused sign-in looks exactly the same. */
 export const invalidCredentials = () => APIError.from("UNAUTHORIZED", BASE_ERROR_CODES.INVALID_EMAIL_OR_PASSWORD);
 
-async function isDisabled(db: Db, email: string): Promise<boolean> {
+async function isDisabled(db: AnyDb, email: string): Promise<boolean> {
   const rows = await db.select({ disabledAt: schema.user.disabledAt }).from(schema.user).where(sql`lower(${schema.user.email}) = lower(${email})`);
   return Boolean(rows[0]?.disabledAt);
 }

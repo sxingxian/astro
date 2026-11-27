@@ -15,13 +15,14 @@
     "test:cpu": "vitest run --config vitest.cpu.config.ts"
   },
   "dependencies": {
+    "@astro/app-core": "workspace:*",
     "@astro/cards": "workspace:*",
     "@astro/db": "workspace:*",
     "@astro/draw": "workspace:*",
     "@astro/server": "workspace:*",
     "@neondatabase/serverless": "^1.2.1",
-    "hono": "^4.13.14",
-    "@astro/app-core": "workspace:*"
+    "better-auth": "^1.7.28",
+    "hono": "^4.13.14"
   },
   "devDependencies": {
     "@astro/config": "workspace:*",

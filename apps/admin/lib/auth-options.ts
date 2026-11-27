@@ -1,4 +1,4 @@
-import { and, inArray, isNull, schema, sql } from "@astro/db";
+import { and, inArray, isNull, schema, sql, type Db } from "@astro/db";
 import { alreadyRegistered, audit, buildAuthOptions, burnSignInStep, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps } from "@astro/server";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
@@ -63,10 +63,10 @@ function auditSignIns(deps: AuthDeps, secret: string): BetterAuthPlugin {
             if (!s) return;
             const [r] = await deps.db.select({ role: schema.staffRole.role }).from(schema.staffRole).where(and(sql`${schema.staffRole.userId} = ${s.user.id}`, isNull(schema.staffRole.revokedAt)));
             // A code used to sign in can't also approve a sensitive action (a phished code is good for one thing).
-            if (SIGN_IN_PATHS[ctx.path] === "authenticator") await burnSignInStep(deps.db, s.user.id, new Date());
+            if (SIGN_IN_PATHS[ctx.path] === "authenticator") await burnSignInStep(deps.db as Db, s.user.id, new Date());
             const country = ctx.headers?.get("cf-ipcountry");
             await audit(
-              deps.db,
+              deps.db as Db,
               { actorId: s.user.id, actorRole: r?.role ?? null, action: "auth.sign_in", entity: "session", summary: { method: SIGN_IN_PATHS[ctx.path]!, ...(country && /^[A-Z]{2}$/.test(country) ? { country } : {}) }, ip: s.session.ipAddress },
               secret
             );

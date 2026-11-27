@@ -1,22 +1,57 @@
-/** The data Worker's settings: `APP_URL` from wrangler.jsonc, the rest Cloudflare secrets. */
-export interface Env {
-  DATABASE_URL: string;
-  BETTER_AUTH_SECRET: string;
-  PASS_SECRET: string;
-  APP_URL: string;
-  /**
-   * Local runs only (the CPU budget check): where Neon's HTTPS driver sends queries instead of Neon. Ignored unless
-   * APP_URL is a local address, so it can never redirect production queries.
-   */
+import { parseEnv, type AppVars } from "@astro/app-core/env";
+
+/** What the data Worker is given: the app's vars and secrets, plus its own. */
+export interface RawEnv extends Record<string, unknown> {
+  DATABASE_URL?: string;
+  PASS_SECRET?: string;
   NEON_FETCH_ENDPOINT?: string;
+  NEON_WS_PROXY?: string;
+  GUEST_DRAWS?: RateLimit;
+  LEGACY?: Fetcher;
+  ASSETS?: Fetcher;
 }
 
-/** The settings if all are present and the secrets long enough; otherwise null (the caller answers 500). */
-export function checkEnv(raw: Partial<Env> | undefined): Env | null {
-  if (!raw) return null;
-  const { DATABASE_URL, BETTER_AUTH_SECRET, PASS_SECRET, APP_URL } = raw;
-  if (!DATABASE_URL?.startsWith("postgres") || !APP_URL) return null;
-  if ((BETTER_AUTH_SECRET?.length ?? 0) < 32 || (PASS_SECRET?.length ?? 0) < 32) return null;
-  const local = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(APP_URL);
-  return { DATABASE_URL, BETTER_AUTH_SECRET: BETTER_AUTH_SECRET!, PASS_SECRET: PASS_SECRET!, APP_URL, NEON_FETCH_ENDPOINT: local ? raw.NEON_FETCH_ENDPOINT : undefined };
+export interface Env extends AppVars {
+  DATABASE_URL: string;
+  PASS_SECRET: string;
+  /**
+   * Local runs only (tests and the CPU budget check): where Neon's drivers send queries instead of Neon. Ignored
+   * unless APP_URL is a local address, so they can never redirect production queries.
+   */
+  NEON_FETCH_ENDPOINT?: string;
+  NEON_WS_PROXY?: string;
+  GUEST_DRAWS?: RateLimit;
+  LEGACY?: Fetcher;
 }
+
+const LOCAL = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
+const parsed = new WeakMap<object, Env | null>();
+
+/** The settings if all are present and valid; otherwise null (the caller answers 500 without saying which). */
+export function checkEnv(raw: RawEnv | undefined): Env | null {
+  if (!raw) return null;
+  if (parsed.has(raw)) return parsed.get(raw)!;
+  let env: Env | null = null;
+  try {
+    const app = parseEnv(raw);
+    const { DATABASE_URL, PASS_SECRET } = raw;
+    if (DATABASE_URL?.startsWith("postgres") && (PASS_SECRET?.length ?? 0) >= 32) {
+      const local = LOCAL.test(app.APP_URL);
+      env = {
+        ...app,
+        DATABASE_URL,
+        PASS_SECRET: PASS_SECRET!,
+        NEON_FETCH_ENDPOINT: local ? raw.NEON_FETCH_ENDPOINT : undefined,
+        NEON_WS_PROXY: local ? raw.NEON_WS_PROXY : undefined,
+        GUEST_DRAWS: raw.GUEST_DRAWS,
+        LEGACY: raw.LEGACY
+      };
+    }
+  } catch {
+    env = null;
+  }
+  parsed.set(raw, env);
+  return env;
+}
+
+export const isSecure = (env: Env) => env.APP_URL.startsWith("https://");

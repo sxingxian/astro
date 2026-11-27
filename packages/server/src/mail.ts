@@ -1,4 +1,4 @@
-import { schema, type Db } from "@astro/db";
+import { schema, type AnyDb } from "@astro/db";
 import { Resend } from "resend";
 
 export interface Mail {
@@ -16,7 +16,7 @@ interface MailerConfig {
   driver: "resend" | "outbox";
   from: string;
   apiKey?: string;
-  db: Db;
+  db: AnyDb;
 }
 
 /** `resend` sends through Resend. `outbox` (development and tests only) stores the message in `mail_outbox`. */
