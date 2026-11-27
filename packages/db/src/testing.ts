@@ -42,3 +42,24 @@ export function neonFetchOverPostgres(url: string): { fetch: typeof fetch; calls
   }) as unknown as typeof fetch;
   return { fetch: fake, calls: () => calls, end: () => sql.end({ timeout: 1 }) };
 }
+
+/**
+ * Tests only: a WebSocket server that pipes Neon's Postgres-over-WebSocket frames to the local Postgres, so the real
+ * Neon WebSocket driver runs in tests. Use its `address` as `createWsDb(url, { wsProxy })`.
+ */
+export async function neonWsOverPostgres(pgHost = "127.0.0.1", pgPort = 5432): Promise<{ address: string; close: () => Promise<void> }> {
+  const { WebSocketServer } = await import("ws");
+  const net = await import("node:net");
+  const wss = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  wss.on("connection", (socket) => {
+    const pg = net.connect(pgPort, pgHost);
+    pg.on("data", (chunk) => socket.readyState === socket.OPEN && socket.send(chunk));
+    pg.on("close", () => socket.close());
+    pg.on("error", () => socket.close());
+    socket.on("message", (data) => pg.write(data as Buffer));
+    socket.on("close", () => pg.end());
+  });
+  await new Promise<void>((r) => wss.once("listening", () => r()));
+  const { port } = wss.address() as { port: number };
+  return { address: `127.0.0.1:${port}/v2`, close: () => new Promise((r) => wss.close(() => r())) };
+}
