@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleStep, baseAngle, cardLift, edgeVelocity, geometryFor, indexAt, keepVisible, maxRotation } from "@/lib/draw/fan-geometry";
+import { angleStep, baseAngle, cardAngle, cardLift, coastStep, DESKTOP_FAN, dragDegrees, edgeVelocity, geometryFor, indexAt, keepVisible, maxRotation, PHONE_FAN } from "@/lib/draw/fan-geometry";
 
 describe("fan geometry", () => {
   it("spaces the cards as approved: 3° for 78, 3.3° for 56, 5.5° for 22", () => {
@@ -68,5 +68,30 @@ describe("fan geometry", () => {
         expect(centre + g.cardW / 2, `${w} px, card ${i}`).toBeLessThanOrEqual(w);
       }
     }
+  });
+
+  it("finds the card that is drawn under the finger while a lifted card has nudged its neighbours apart", () => {
+    const at = (deg: number) => [250 * Math.sin((deg * Math.PI) / 180), -250 * Math.cos((deg * Math.PI) / 180)] as const;
+    // 78 cards, card 40 (index 39) lifted: index 41 is drawn at 9.9°, index 40 at 5.7°.
+    expect(cardAngle(41, 78, 0, 39)).toBeCloseTo(9.9);
+    expect(indexAt(...at(9.6), 0, 78, PHONE_FAN, 39)).toBe(41);
+    expect(indexAt(...at(6), 0, 78, PHONE_FAN, 39)).toBe(40);
+    // With nothing lifted the resting positions are used, as before.
+    expect(indexAt(...at(9.6), 0, 78, PHONE_FAN)).toBe(42);
+  });
+
+  it("turns the fan with the finger: dragging left turns it left by the distance moved along the cards", () => {
+    expect(dragDegrees(-100, PHONE_FAN)).toBeCloseTo((-100 / 198) * (180 / Math.PI));
+    expect(dragDegrees(100, PHONE_FAN)).toBeGreaterThan(0);
+    // The larger desktop fan turns less for the same distance.
+    expect(Math.abs(dragDegrees(100, DESKTOP_FAN))).toBeLessThan(dragDegrees(100, PHONE_FAN));
+  });
+
+  it("lets a flicked fan coast to a stop at the same pace on any screen refresh rate", () => {
+    expect(coastStep(2, 1)).toBeCloseTo(2 * 0.94);
+    expect(coastStep(-2, 1)).toBeCloseTo(-2 * 0.94);
+    // Two half-length frames (120 Hz) slow it as much as one full frame (60 Hz).
+    expect(coastStep(coastStep(2, 0.5), 0.5)).toBeCloseTo(coastStep(2, 1));
+    expect(coastStep(0.01, 1)).toBe(0);
   });
 });

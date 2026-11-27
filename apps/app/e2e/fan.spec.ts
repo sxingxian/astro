@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Browser, type Page } from "@playwright/test";
 import { newVisitor, signUpVerified, test, uniqueEmail } from "./helpers";
 
 const stage = (page: Page) => page.getByTestId("fan-stage");
@@ -108,5 +108,88 @@ test("phone: everything needed to pick fits on a 390 × 844 screen above the tab
   const button = (await page.getByRole("button", { name: "Turn the card" }).boundingBox())!;
   const tabs = (await page.getByRole("navigation", { name: "App" }).boundingBox())!;
   expect(button.y + button.height).toBeLessThanOrEqual(tabs.y);
+  await ctx.close();
+});
+
+/** A phone: touch input, as on iOS and Android. */
+async function phone(browser: Browser) {
+  const ctx = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 }, extraHTTPHeaders: { "cf-connecting-ip": `10.7.${Math.floor(Math.random() * 250)}.${1 + Math.floor(Math.random() * 250)}` } });
+  const page = await ctx.newPage();
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type: "touchStart" | "touchMove" | "touchEnd", x: number, y: number) =>
+    cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+  /** A finger swipe from x0 to x1 across the fan, lasting about `ms`. */
+  const swipe = async (x0: number, x1: number, y: number, ms = 160) => {
+    await touch("touchStart", x0, y);
+    for (let k = 1; k <= 10; k++) {
+      await page.waitForTimeout(ms / 10);
+      await touch("touchMove", x0 + ((x1 - x0) * k) / 10, y);
+    }
+    await touch("touchEnd", x1, y);
+  };
+  return { ctx, page, swipe };
+}
+
+/** The fan's turn, read every 25 ms for `ms`. */
+async function track(page: Page, ms: number) {
+  const seen: number[] = [];
+  for (let t = 0; t < ms; t += 25) {
+    seen.push(Number(await stage(page).getAttribute("data-rot")));
+    await page.waitForTimeout(25);
+  }
+  return seen;
+}
+
+for (const dir of [-1, 1]) {
+  test(`phone: a finger swipe ${dir < 0 ? "left" : "right"} turns the fan the same way, then it coasts to a stop with no jump back`, async ({ browser }) => {
+    const { ctx, page, swipe } = await phone(browser);
+    await openOneCard(page);
+    const box = (await stage(page).boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const y = box.y + box.height * 0.45;
+    await swipe(cx - dir * 80, cx + dir * 80, y);
+    const seen = await track(page, 1200);
+    // Moved the way the finger went, and only ever further that way while coasting.
+    expect(seen[0]! * dir).toBeGreaterThan(5);
+    for (let k = 1; k < seen.length; k++) expect((seen[k]! - seen[k - 1]!) * dir).toBeGreaterThanOrEqual(-0.05);
+    // Settled, and a swipe is not a tap: nothing picked.
+    expect(seen.at(-1)).toBe(seen.at(-2));
+    await expect(page.locator('[aria-pressed="true"]')).toHaveCount(0);
+
+    // Swiping on reaches the end of the deck and stays there.
+    for (let k = 0; k < 6; k++) await swipe(cx - dir * 120, cx + dir * 120, y, 120);
+    const end = await track(page, 1000);
+    const last = end.at(-1)!;
+    for (let k = 1; k < end.length; k++) expect((end[k]! - end[k - 1]!) * dir).toBeGreaterThanOrEqual(-0.05);
+    await page.waitForTimeout(300);
+    expect(Number(await stage(page).getAttribute("data-rot"))).toBe(last);
+    await ctx.close();
+  });
+}
+
+test("phone: a tap still picks the card under the finger", async ({ browser }) => {
+  const { ctx, page } = await phone(browser);
+  await openOneCard(page);
+  const box = (await stage(page).boundingBox())!;
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.35);
+  await expect(page.locator('[aria-pressed="true"]')).toHaveCount(1);
+  await ctx.close();
+});
+
+test("desktop mouse: dragging the fan turns it and picks nothing", async ({ browser }) => {
+  const ctx = await newVisitor(browser);
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openOneCard(page);
+  const box = (await stage(page).boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const y = box.y + box.height * 0.4;
+  await page.mouse.move(cx + 100, y);
+  await page.mouse.down();
+  await page.mouse.move(cx - 100, y, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+  expect(Number(await stage(page).getAttribute("data-rot"))).toBeLessThan(-5);
+  await expect(page.locator('[aria-pressed="true"]')).toHaveCount(0);
   await ctx.close();
 });
