@@ -24,17 +24,44 @@ const ok = (s: number) => s >= 200 && s < 300;
 
 /** "Live now": the published version, and for the landing page what the last rebuild request got back. */
 export function LivePanel({ live, landing }: { live: Live | null; landing?: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // A failed request, or none recorded (the portal stopped before it got an answer): offer to try again.
+  const unconfirmed = landing && live !== null && (live.rebuildStatus === null || !ok(live.rebuildStatus));
+
+  async function again() {
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    const res = await postJson<{ rebuild: { status: number } }>("/api/text/rebuild", {});
+    setBusy(false);
+    if (!res.ok) return setError(textError(res));
+    if (ok(res.data.rebuild.status)) setMessage("Rebuild started. It's usually live in about 5 minutes.");
+    else setError("The rebuild still didn't start. Try again in 2 minutes, or start a build in the Cloudflare dashboard.");
+    router.refresh();
+  }
+
   return (
     <section className="panel flex flex-col gap-2 px-5 py-4" aria-labelledby="live-h">
       <h2 id="live-h" className="m-0 text-base font-semibold">Live now</h2>
       {live ? (
         <>
           <span className="text-sm">Version {live.id} · published <LocalTime iso={live.publishedAt} /></span>
-          {landing && live.rebuildStatus !== null ? (
-            <span className={`text-[13px] ${ok(live.rebuildStatus) ? "text-ok" : "text-warn"}`}>
-              {ok(live.rebuildStatus) ? `Rebuild started · the page footer shows "v${live.id}" once it's live` : "The rebuild didn't start. Publish again in 2 minutes, or start a build in the Cloudflare dashboard."}
-            </span>
+          {landing && live.rebuildStatus !== null && ok(live.rebuildStatus) ? (
+            <span className="text-[13px] text-ok">Rebuild started · the page footer shows &quot;v{live.id}&quot; once it&apos;s live</span>
           ) : null}
+          {unconfirmed ? (
+            <>
+              <span className="text-[13px] text-warn">
+                {live.rebuildStatus === null ? "The rebuild wasn't confirmed, so this version may not be on the landing page yet." : "The rebuild didn't start, so this version isn't on the landing page yet."}
+              </span>
+              <button type="button" className="btn self-start" disabled={busy} onClick={again}>Start the rebuild again</button>
+            </>
+          ) : null}
+          {message ? <p role="status" className="m-0 text-[13px] text-ok">{message}</p> : null}
+          <FormError message={error} />
         </>
       ) : (
         <span className="text-sm text-muted">Nothing published yet: visitors see the default wording.</span>

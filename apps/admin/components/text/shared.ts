@@ -11,6 +11,10 @@ export function textError(res: ApiResult): string {
       return "That's longer than this text allows.";
     case "placeholders":
       return "Keep every {placeholder} from the default, and add no new ones.";
+    case "line_breaks":
+      return "This text has to stay on one line.";
+    case "not_found":
+      return "Nothing has been published yet.";
     case "control_chars":
       return "Use plain text only (no tabs or hidden characters).";
     case "empty":
@@ -32,12 +36,12 @@ const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/g;
 const CONTROL = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F]/;
 
 /** The checks the editor shows as you type. The server checks again on save and publish. */
-export function checkText(value: string, max: number, placeholders: readonly string[]) {
+export function checkText(value: string, max: number, placeholders: readonly string[], multiline = true) {
   const used = [...new Set([...value.matchAll(PLACEHOLDER)].map((m) => m[1]!))];
   const missing = placeholders.filter((p) => !used.includes(p));
   const extra = used.filter((p) => !placeholders.includes(p));
   const length = value.length;
-  const plain = !CONTROL.test(value);
+  const plain = !CONTROL.test(value) && (multiline || !/[\r\n]/.test(value));
   const empty = value.trim() === "";
   return { length, tooLong: length > max, plain, missing, extra, empty, ok: !empty && length <= max && plain && missing.length === 0 && extra.length === 0 };
 }

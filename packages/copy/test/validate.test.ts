@@ -19,7 +19,11 @@ describe("validateOverride", () => {
   });
   it("refuses control characters but allows line breaks", () => {
     expect(validateOverride(entry({ default: "x", placeholders: [] }), "\u0007")).toEqual({ ok: false, reason: "control_chars" });
-    expect(validateOverride(entry({ default: "x", placeholders: [] }), "line one\nline two")).toEqual({ ok: true });
+    expect(validateOverride(entry({ default: "x\ny", placeholders: [] }), "line one\nline two")).toEqual({ ok: true });
+  });
+  it("allows line breaks only where the default has one (no newlines in subjects or buttons)", () => {
+    expect(validateOverride(entry({ default: "x", placeholders: [] }), "Subject\n")).toEqual({ ok: false, reason: "line_breaks" });
+    expect(validateOverride(entry({ default: "x", placeholders: [] }), "Subject\rBcc: a@b.c")).toEqual({ ok: false, reason: "line_breaks" });
   });
   it("refuses empty text", () => {
     expect(validateOverride(entry({ default: "x", placeholders: [] }), "   ")).toEqual({ ok: false, reason: "empty" });

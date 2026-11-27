@@ -75,7 +75,7 @@ export function CardsClient({ cards, group, card, fields, pending, live, history
   const edited = fields.filter((f) => values[f.key] !== current(f));
   const invalid = edited.find((f) => {
     const v = values[f.key] ?? "";
-    return v.trim() !== "" && v !== f.default && !checkText(v, f.max, []).ok;
+    return v.trim() !== "" && v !== f.default && !checkText(v, f.max, [], f.default.includes("\n")).ok;
   });
 
   async function save() {
@@ -121,7 +121,7 @@ export function CardsClient({ cards, group, card, fields, pending, live, history
             {pending.length ? `Publish ${changes(pending.length)}` : "Nothing to publish"}
           </button>
           {notice ? <p role="status" className="m-0 text-sm text-ok">{notice}</p> : null}
-          <FormError message={error ?? (invalid ? `${invalid.label}: check the length and use plain text only.` : null)} />
+          <FormError message={error ?? (invalid ? `${invalid.label}: check the length, and use plain text (line breaks only in the meanings).` : null)} />
         </div>
       ) : null}
 

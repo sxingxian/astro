@@ -69,8 +69,8 @@ export function TextClient({ tab, items, pending, live, history, appUrl }: Props
   }, [items, query]);
 
   if (!item) return null;
-  const check = checkText(value, item.max, item.placeholders);
   const multiline = item.default.includes("\n");
+  const check = checkText(value, item.max, item.placeholders, multiline);
 
   function pick(i: Item) {
     setSelected(i.key);
@@ -187,7 +187,7 @@ export function TextClient({ tab, items, pending, live, history, appUrl }: Props
               <span aria-hidden="true">{check.tooLong ? "✗" : "✓"}</span> {check.length} of {item.max} characters
             </li>
             <li className={check.plain ? undefined : "text-[#F0A0A0]"}>
-              <span aria-hidden="true">{check.plain ? "✓" : "✗"}</span> Plain text only
+              <span aria-hidden="true">{check.plain ? "✓" : "✗"}</span> {multiline ? "Plain text only" : "Plain text on one line"}
             </li>
             <li className={check.missing.length || check.extra.length ? "text-[#F0A0A0]" : undefined}>
               <span aria-hidden="true">{check.missing.length || check.extra.length ? "✗" : "✓"}</span>{" "}

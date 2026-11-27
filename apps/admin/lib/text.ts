@@ -74,17 +74,22 @@ export async function useDefault(db: Db, actor: Actor, key: string): Promise<{ k
   return { kind: found.kind };
 }
 
-/** Every saved override of a kind, checked again. Keys no longer in the catalogue are left out. */
-async function draftSnapshot(db: Db, kind: TextKind): Promise<Record<string, string>> {
-  const rows = await db.select({ key: schema.textOverride.key, value: schema.textOverride.value }).from(schema.textOverride).where(eq(schema.textOverride.kind, kind));
+/** Checks wording against today's catalogue: keys no longer in it are left out, anything that no longer fits refuses. */
+function checkedSnapshot(kind: TextKind, entries: Iterable<[string, string]>): Record<string, string> {
   const snapshot: Record<string, string> = {};
-  for (const { key, value } of rows) {
+  for (const [key, value] of entries) {
     const found = entryFor(key);
     if (!found || found.kind !== kind) continue;
     if (!validateOverride(found.entry, value).ok) throw new HttpError(422, "invalid_override");
     snapshot[key] = value;
   }
   return snapshot;
+}
+
+/** Every saved override of a kind, checked again. */
+async function draftSnapshot(db: Db, kind: TextKind): Promise<Record<string, string>> {
+  const rows = await db.select({ key: schema.textOverride.key, value: schema.textOverride.value }).from(schema.textOverride).where(eq(schema.textOverride.kind, kind));
+  return checkedSnapshot(kind, rows.map((r) => [r.key, r.value]));
 }
 
 /** Takes the landing publish slot: at most once every 2 minutes. Inside the publish transaction, so a failed publish frees it. */
@@ -110,10 +115,20 @@ async function rebuildLanding(deps: PublishDeps): Promise<{ status: number }> {
   }
 }
 
-async function publishSnapshot(db: Db, actor: Actor, kind: TextKind, snapshot: Record<string, string>, note: string, deps: PublishDeps, entry: (version: number) => LogEntry) {
+async function publishSnapshot(
+  db: Db,
+  actor: Actor,
+  kind: TextKind,
+  snapshot: Record<string, string>,
+  note: string,
+  deps: PublishDeps,
+  entry: (version: number) => LogEntry,
+  alsoInTx?: (tx: Db) => Promise<void>
+) {
   const version = await db.transaction(async (txRaw) => {
     const tx = txRaw as unknown as Db;
     if (kind === "landing") await takeLandingSlot(tx, deps.now);
+    await alsoInTx?.(tx);
     const [row] = await tx
       .insert(schema.textVersion)
       .values({ kind, snapshot, publishedBy: actor.id, publishedAt: deps.now, note: note.trim() || null })
@@ -123,9 +138,22 @@ async function publishSnapshot(db: Db, actor: Actor, kind: TextKind, snapshot: R
   });
   if (kind !== "landing") return { kind, version, rebuild: null };
   // After the commit, so the build reads the new version. The publish stands even if the hook fails.
+  return { kind, version, rebuild: await rebuildAndLog(db, version, deps) };
+}
+
+async function rebuildAndLog(db: Db, version: number, deps: PublishDeps): Promise<{ status: number }> {
   const rebuild = await rebuildLanding(deps);
   await deps.log({ action: "text.rebuild", entity: "text_version", entityId: String(version), summary: { version, status: rebuild.status } }, db);
-  return { kind, version, rebuild };
+  return rebuild;
+}
+
+/** Asks Cloudflare to rebuild the landing page again with the live version, when the last request failed or went unanswered. */
+export async function rebuildAgain(db: Db, actor: Actor, deps: PublishDeps): Promise<{ version: number; rebuild: { status: number } }> {
+  requireKind(actor, "landing", "publish");
+  const live = await liveOf(db, "landing");
+  if (!live) throw new HttpError(404, "not_found");
+  await db.transaction((tx) => takeLandingSlot(tx as unknown as Db, deps.now));
+  return { version: live.id, rebuild: await rebuildAndLog(db, live.id, deps) };
 }
 
 /** Publishes every draft of a kind as a new version. Landing publishes also rebuild the landing page. */
@@ -140,17 +168,26 @@ export async function publish(db: Db, actor: Actor, kind: TextKind, note: string
   }));
 }
 
-/** Publishes an older version's wording again, as a new version. The drafts are left as they are. */
+/**
+ * Publishes an older version's wording again, as a new version, checked against today's catalogue. The drafts of
+ * that kind are reset to it too, so the next publish doesn't bring back what the restore undid.
+ */
 export async function restore(db: Db, actor: Actor, versionId: number, deps: PublishDeps) {
   const [old] = await db.select({ kind: schema.textVersion.kind, snapshot: schema.textVersion.snapshot }).from(schema.textVersion).where(eq(schema.textVersion.id, versionId));
   if (!old) throw new HttpError(404, "not_found");
   requireKind(actor, old.kind, "publish");
-  return publishSnapshot(db, actor, old.kind, old.snapshot, `Restored version ${versionId}`, deps, (version) => ({
+  const snapshot = checkedSnapshot(old.kind, Object.entries(old.snapshot));
+  const resetDrafts = async (tx: Db) => {
+    await tx.delete(schema.textOverride).where(eq(schema.textOverride.kind, old.kind));
+    const rows = Object.entries(snapshot).map(([key, value]) => ({ key, kind: old.kind, value, updatedBy: actor.id }));
+    if (rows.length) await tx.insert(schema.textOverride).values(rows);
+  };
+  return publishSnapshot(db, actor, old.kind, snapshot, `Restored version ${versionId}`, deps, (version) => ({
     action: "text.restore",
     entity: "text_version",
     entityId: String(version),
     summary: { kind: old.kind, version, from: versionId }
-  }));
+  }), resetDrafts);
 }
 
 /** Saves the current drafts as a preview the app shows for 30 minutes with ?astro-preview=<id>. App wording and meanings only. */

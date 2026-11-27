@@ -19,6 +19,18 @@ afterAll(async () => {
 });
 
 describe("loadCopy", () => {
+  it("falls back to the default wording when the database can't be read, instead of failing the page", async () => {
+    const down = createDb("postgres://nobody:nothing@127.0.0.1:1/none");
+    try {
+      const t = await loadCopy(down, fresh);
+      expect(t("app.today.title")).toBe(catalogue["app.today.title"].default);
+      expect((await loadMeanings(down, fresh))("the-star").upright.summary).toBe(getMeaning("the-star").upright.summary);
+      expect(await loadCopy(down, { previewId: "live-preview-id-000000", cache: false })).toBeTypeOf("function");
+    } finally {
+      await down.$client.end();
+    }
+  });
+
   it("uses the catalogue default when nothing is published", async () => {
     const t = await loadCopy(db, fresh);
     expect(t("app.today.title")).toBe(catalogue["app.today.title"].default);

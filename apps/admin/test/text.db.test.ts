@@ -1,7 +1,7 @@
 import { createDb } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createPreview, emailT, publish, restore, saveDraft, useDefault, type PublishDeps } from "@/lib/text";
+import { createPreview, emailT, publish, rebuildAgain, restore, saveDraft, useDefault, type PublishDeps } from "@/lib/text";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
@@ -119,7 +119,38 @@ describe("restore and preview", () => {
     await expect(restore(db, admin, (await db.$client<{ id: number }[]>`select id from text_version where kind = 'meanings' limit 1`)[0]!.id, deps())).rejects.toThrow(/forbidden/);
   });
 
+  it("restoring also resets that kind's drafts, so the next publish doesn't bring back what was undone", async () => {
+    const [old] = await db.$client<{ id: number; snapshot: Record<string, string> }[]>`select id, snapshot from text_version where kind = 'app' order by id limit 1`;
+    await saveDraft(db, admin, "app.today.title", "A bad heading");
+    await publish(db, admin, "app", "", deps());
+    await restore(db, admin, old!.id, deps());
+    const rows = await db.$client<{ key: string; value: string }[]>`select key, value from text_override where kind = 'app'`;
+    expect(Object.fromEntries(rows.map((r) => [r.key, r.value]))).toEqual(old!.snapshot);
+  });
+
+  it("restoring refuses a version whose wording no longer fits the catalogue, and drops keys that left it", async () => {
+    const [bad] = await db.$client<{ id: number }[]>`insert into text_version (kind, snapshot) values ('app', ${JSON.stringify({ "app.patterns.checked_in": "No placeholders" })}::jsonb) returning id`;
+    await expect(restore(db, admin, bad!.id, deps())).rejects.toThrow(/invalid_override/);
+    const [gone] = await db.$client<{ id: number }[]>`insert into text_version (kind, snapshot) values ('app', ${JSON.stringify({ "app.removed.key": "x", "app.today.title": "Kept" })}::jsonb) returning id`;
+    const r = await restore(db, admin, gone!.id, deps());
+    const [v] = await db.$client<{ snapshot: Record<string, string> }[]>`select snapshot from text_version where id = ${r.version}`;
+    expect(v?.snapshot).toEqual({ "app.today.title": "Kept" });
+  });
+
+  it("the landing rebuild can be started again, within the same 2-minute limit, without exposing the hook", async () => {
+    clock = new Date(clock.getTime() + 10 * 60_000);
+    const r = await rebuildAgain(db, admin, deps());
+    expect(r).toMatchObject({ rebuild: { status: 200 } });
+    expect(calls).toEqual([HOOK]);
+    expect(JSON.stringify([r, logged])).not.toContain("secret-hook-token");
+    expect(logged).toContainEqual(expect.objectContaining({ action: "text.rebuild" }));
+    await expect(rebuildAgain(db, admin, deps())).rejects.toThrow(/too_soon/);
+    await expect(rebuildAgain(db, moderator, deps())).rejects.toThrow(/forbidden/);
+    expect(calls).toHaveLength(1);
+  });
+
   it("a preview holds the current drafts for 30 minutes under an unguessable id", async () => {
+    await saveDraft(db, admin, "app.today.title", "Changed again");
     const { id, expiresAt } = await createPreview(db, admin, "app", clock);
     expect(id).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(expiresAt.getTime() - clock.getTime()).toBe(30 * 60_000);
