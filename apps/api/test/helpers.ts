@@ -21,7 +21,7 @@ export const env = {
   TURNSTILE_MODE: "off",
   HIBP_CHECK: "off",
   PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
-  MAINTENANCE_CACHE_SECONDS: "0"
+  MAINTENANCE_CACHE_SECONDS: "60"
 };
 
 export const admin = postgres(url, { max: 1, onnotice: () => {} });

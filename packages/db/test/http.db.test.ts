@@ -55,3 +55,17 @@ describe("rowsOf", () => {
     expect(rowsOf(undefined)).toEqual([]);
   });
 });
+
+describe("runBatch", () => {
+  it("runs several queries in one HTTPS request on Neon's driver, and in parallel on postgres.js", async () => {
+    const { runBatch } = await import("../src/index");
+    const before = fake.calls();
+    const [a, b] = await runBatch(http, [http.execute(sql`select 1 as one`), http.execute(sql`select 2 as two`)] as const);
+    expect(fake.calls()).toBe(before + 1);
+    expect(rowsOf(a)).toEqual([{ one: 1 }]);
+    expect(rowsOf(b)).toEqual([{ two: 2 }]);
+    const [c, d] = await runBatch(tcp, [tcp.execute(sql`select 1 as one`), tcp.execute(sql`select 2 as two`)] as const);
+    expect(rowsOf(c)).toEqual([{ one: 1 }]);
+    expect(rowsOf(d)).toEqual([{ two: 2 }]);
+  });
+});

@@ -1,5 +1,5 @@
 import { majors, minors, allCards } from "@astro/cards";
-import { and, desc, eq, schema, sql, type AnyDb } from "@astro/db";
+import { and, desc, eq, getTableColumns, schema, sql, type AnyDb } from "@astro/db";
 import { createDeck, isTimeZone, localDay, nextLocalMidnight, type Orientation } from "@astro/draw";
 import { getSetting } from "@astro/server";
 import { DrawError } from "./errors";
@@ -77,6 +77,15 @@ async function decksFor(db: Pick<AnyDb, "select">, sessionId: string): Promise<D
   return rows.sort((a, b) => stageRank(a.stage) - stageRank(b.stage));
 }
 
+/** The session's decks inside the same query (one round trip), as JSON rows. */
+type DeckJson = { session_id: string; stage: Stage; order: string[]; orientations: string[]; salt: string; fingerprint: string; picks: number[] | null };
+const decksJson = sql<DeckJson[]>`coalesce((select json_agg(d) from draw_deck d where d.session_id = ${schema.drawSession.id}), '[]'::json)`;
+const toDecks = (rows: DeckJson[]): DeckRow[] =>
+  rows
+    .map((d) => ({ sessionId: d.session_id, stage: d.stage, order: d.order, orientations: d.orientations, salt: d.salt, fingerprint: d.fingerprint, picks: d.picks ?? [] }))
+    .sort((a, b) => stageRank(a.stage) - stageRank(b.stage));
+const withDecks = { ...getTableColumns(schema.drawSession), decks: decksJson };
+
 function startResult(s: SessionRow, decks: DeckRow[]): StartResult {
   return { sessionId: s.id, spread: s.spread, status: s.status, timeZone: s.timeZone, decks: decks.map(deckView) };
 }
@@ -108,10 +117,22 @@ async function takeGuestSlot(db: Exec, ipHash: string, now: Date) {
   if ((row?.count ?? 0) > (await getSetting(db, "guest_daily_cap"))) throw new DrawError("rate_limited");
 }
 
-/** Today's reading for this spread if one exists, without creating anything. */
+/** The query behind `findToday` (the latest reading for this spread, with its decks), for batching. */
+export function findTodayQuery(db: AnyDb, actor: Actor, spread: Spread) {
+  const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread)) : ownerFilter(actor);
+  return db.select(withDecks).from(schema.drawSession).where(where).orderBy(desc(schema.drawSession.createdAt)).limit(1);
+}
+
+/** Today's reading from `findTodayQuery`'s rows: the latest one, if it still counts as today in its own timezone. */
+export function findTodayShape(rows: (SessionRow & { decks: DeckJson[] })[], now: Date = new Date()): StartResult | null {
+  const latest = rows[0];
+  if (!latest || localDay(now, latest.timeZone) !== latest.localDay) return null;
+  return startResult(latest, toDecks(latest.decks));
+}
+
+/** Today's reading for this spread if one exists, without creating anything. One query. */
 export async function findToday(db: AnyDb, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult | null> {
-  const s = await todays(db, actor, spread, now);
-  return s ? startResult(s, await decksFor(db, s.id)) : null;
+  return findTodayShape(await findTodayQuery(db, actor, spread), now);
 }
 
 /**
@@ -228,9 +249,17 @@ export async function pick(db: AnyDb, actor: Actor, sessionId: string, stage: St
 }
 
 /** A reading as its owner may see it. Orders, orientations and salts appear only once it is complete. */
-export async function getReading(db: AnyDb, actor: Actor, sessionId: string, _now: Date = new Date()): Promise<Reading> {
-  const s = await owned(db, actor, sessionId);
-  const decks = await decksFor(db, s.id);
+/** The query behind `getReading` (the session, if it is the actor's, with its decks), for batching. */
+export function getReadingQuery(db: AnyDb, actor: Actor, sessionId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(sessionId)) throw new DrawError("not_found");
+  return db.select(withDecks).from(schema.drawSession).where(and(eq(schema.drawSession.id, sessionId), ownerFilter(actor))).limit(1);
+}
+
+/** The reading from `getReadingQuery`'s rows; `not_found` if it isn't there (or isn't theirs). */
+export function getReadingShape(rows: (SessionRow & { decks: DeckJson[] })[]): Reading {
+  const s = rows[0];
+  if (!s) throw new DrawError("not_found");
+  const decks = toDecks(s.decks);
   const base: Reading = {
     ...startResult(s, decks),
     localDay: s.localDay,
@@ -240,5 +269,10 @@ export async function getReading(db: AnyDb, actor: Actor, sessionId: string, _no
   };
   if (s.status !== "complete") return base;
   return { ...base, reveal: decks.map((d) => ({ stage: d.stage, order: d.order, orientations: d.orientations as Orientation[], salt: d.salt })) };
+}
+
+/** A reading the actor owns, with everything the reading page shows. One query. */
+export async function getReading(db: AnyDb, actor: Actor, sessionId: string, _now: Date = new Date()): Promise<Reading> {
+  return getReadingShape(await getReadingQuery(db, actor, sessionId));
 }
 

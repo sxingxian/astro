@@ -1,5 +1,5 @@
 import { catalogue } from "@astro/copy";
-import { createDb, sql } from "@astro/db";
+import { createDb, rowsOf, sql, type AnyDb } from "@astro/db";
 
 export interface MaintenanceState {
   on: boolean;
@@ -59,14 +59,21 @@ export function makeMaintenanceCheck<V = boolean>(read: () => Promise<V>, initia
 }
 
 /** Reads the flag and the notice's published wording in one query, with a short-lived client. */
+/** Whether the owner has paused the app, with the notice to show, read through a client the caller already has. */
+export async function readMaintenanceWith(db: AnyDb): Promise<MaintenanceState> {
+  const [row] = rowsOf<{ flag: unknown; title: string | null; body: string | null }>(
+    await db.execute(sql`
+      select (select value from app_setting where key = 'maintenance_mode') as flag,
+             v.snapshot->>'app.maintenance.title' as title, v.snapshot->>'app.maintenance.body' as body
+      from (select 1) one left join lateral (select snapshot from text_version where kind = 'app' order by id desc limit 1) v on true`)
+  );
+  return { on: row?.flag === true, title: row?.title ?? NOT_PAUSED.title, body: row?.body ?? NOT_PAUSED.body };
+}
+
 export async function readMaintenance(connectionString: string): Promise<MaintenanceState> {
   const db = createDb(connectionString);
   try {
-    const [row] = await db.execute<{ flag: unknown; title: string | null; body: string | null }>(sql`
-      select (select value from app_setting where key = 'maintenance_mode') as flag,
-             v.snapshot->>'app.maintenance.title' as title, v.snapshot->>'app.maintenance.body' as body
-      from (select 1) one left join lateral (select snapshot from text_version where kind = 'app' order by id desc limit 1) v on true`);
-    return { on: row?.flag === true, title: row?.title ?? NOT_PAUSED.title, body: row?.body ?? NOT_PAUSED.body };
+    return await readMaintenanceWith(db);
   } finally {
     await db.$client.end({ timeout: 1 }).catch(() => {});
   }

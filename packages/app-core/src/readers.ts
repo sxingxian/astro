@@ -9,13 +9,21 @@ export interface ReaderStatus {
   accepted: boolean;
 }
 
-export async function readerStatus(db: AnyDb, userId: string): Promise<ReaderStatus> {
-  const [r] = rowsOf<{ reader: boolean; version: string; accepted: boolean }>(await db.execute(sql`
+/** The query behind `readerStatus`, for batching. */
+export const readerStatusQuery = (db: AnyDb, userId: string) =>
+  db.execute(sql`
     select exists(select 1 from reader_role where user_id = ${userId} and revoked_at is null) as reader,
            v.version,
            exists(select 1 from guideline_acceptance a where a.user_id = ${userId} and a.version = v.version) as accepted
-    from (select coalesce(max(id), 0) as version from text_version where kind = 'guidelines') v`));
+    from (select coalesce(max(id), 0) as version from text_version where kind = 'guidelines') v`);
+
+export function readerStatusShape(result: unknown): ReaderStatus {
+  const [r] = rowsOf<{ reader: boolean; version: string; accepted: boolean }>(result);
   return { reader: Boolean(r?.reader), guidelinesVersion: Number(r?.version ?? 0), accepted: Boolean(r?.reader && r?.accepted) };
+}
+
+export async function readerStatus(db: AnyDb, userId: string): Promise<ReaderStatus> {
+  return readerStatusShape(await readerStatusQuery(db, userId));
 }
 
 /** Records that a reader accepted the guidelines — only the newest version, so nobody accepts wording they weren't shown. */

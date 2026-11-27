@@ -1,5 +1,5 @@
 import { getCard } from "@astro/cards";
-import { and, desc, eq, inArray, isNotNull, lt, or, schema, sql, type AnyDb } from "@astro/db";
+import { and, desc, eq, isNotNull, lt, or, schema, sql, type AnyDb } from "@astro/db";
 
 export type JournalFilter = "all" | "one" | "three";
 
@@ -31,12 +31,23 @@ function decodeCursor(cursor?: string): { at: Date; id: string } | null {
   return Number.isNaN(at.getTime()) || !id || !/^[0-9a-f-]{36}$/i.test(id) ? null : { at, id };
 }
 
-/** Completed readings for the journal, newest first, 20 at a time. */
-export async function listReadings(db: AnyDb, userId: string, { filter = "all", cursor, limit = 20 }: { filter?: JournalFilter; cursor?: string; limit?: number }): Promise<{ items: JournalItem[]; nextCursor: string | null }> {
+type ListDeck = { order: string[]; orientations: string[]; picks: number[] | null };
+
+/** The query behind `listReadings` (each reading with its first-stage deck, in one round trip), for batching. */
+export function listReadingsQuery(db: AnyDb, userId: string, { filter = "all", cursor, limit = 20 }: { filter?: JournalFilter; cursor?: string; limit?: number }) {
   const s = schema.drawSession;
   const after = decodeCursor(cursor);
-  const rows = await db
-    .select({ id: s.id, localDay: s.localDay, spread: s.spread, private: s.private, completedAt: s.completedAt, note: schema.readingNote.body })
+  return db
+    .select({
+      id: s.id,
+      localDay: s.localDay,
+      spread: s.spread,
+      private: s.private,
+      completedAt: s.completedAt,
+      note: schema.readingNote.body,
+      deck: sql<ListDeck | null>`(select json_build_object('order', d."order", 'orientations', d.orientations, 'picks', d.picks) from draw_deck d
+        where d.session_id = ${s.id} and d.stage in ('single', 'majors') limit 1)`
+    })
     .from(s)
     .leftJoin(schema.readingNote, eq(schema.readingNote.sessionId, s.id))
     .where(
@@ -50,20 +61,25 @@ export async function listReadings(db: AnyDb, userId: string, { filter = "all", 
     )
     .orderBy(desc(s.completedAt), desc(s.id))
     .limit(limit + 1);
+}
 
+type ListRow = { id: string; localDay: string; spread: "one" | "three"; private: boolean; completedAt: Date | null; note: string | null; deck: ListDeck | null };
+
+export function listReadingsShape(rows: ListRow[], limit = 20): { items: JournalItem[]; nextCursor: string | null } {
   const page = rows.slice(0, limit);
-  const decks = page.length
-    ? await db.select({ sessionId: schema.drawDeck.sessionId, stage: schema.drawDeck.stage, order: schema.drawDeck.order, orientations: schema.drawDeck.orientations, picks: schema.drawDeck.picks }).from(schema.drawDeck).where(inArray(schema.drawDeck.sessionId, page.map((r) => r.id)))
-    : [];
-
   const items = page.map((r): JournalItem => {
-    const deck = decks.find((d) => d.sessionId === r.id && (d.stage === "single" || d.stage === "majors"));
+    const deck = r.deck;
     const cardNames = (deck?.picks ?? []).map((p) => `${getCard(deck!.order[p] as string).name}${deck!.orientations[p] === "reversed" ? ", reversed" : ""}`);
     const note = r.note?.trim() ? r.note.trim() : null;
     return { id: r.id, localDay: r.localDay, spread: r.spread, cardNames, hasNote: Boolean(note), note: note && note.length > 80 ? `${note.slice(0, 79)}…` : note, private: r.private };
   });
   const last = page.at(-1);
-  return { items, nextCursor: rows.length > limit && last?.completedAt ? encodeCursor(last.completedAt, last.id) : null };
+  return { items, nextCursor: rows.length > limit && last?.completedAt ? encodeCursor(new Date(last.completedAt), last.id) : null };
+}
+
+/** Completed readings for the journal, newest first, 20 at a time. One query. */
+export async function listReadings(db: AnyDb, userId: string, opts: { filter?: JournalFilter; cursor?: string; limit?: number }): Promise<{ items: JournalItem[]; nextCursor: string | null }> {
+  return listReadingsShape(await listReadingsQuery(db, userId, opts), opts.limit ?? 20);
 }
 
 async function assertOwner(db: AnyDb, userId: string, sessionId: string) {
@@ -85,6 +101,16 @@ export async function setNote(db: AnyDb, userId: string, sessionId: string, body
     .insert(schema.readingNote)
     .values({ sessionId, body: text })
     .onConflictDoUpdate({ target: schema.readingNote.sessionId, set: { body: text, updatedAt: sql`now()` } });
+}
+
+/** The note on a reading the person owns (null if none or not theirs), for batching with the reading. */
+export function noteQuery(db: AnyDb, userId: string, sessionId: string) {
+  return db
+    .select({ body: schema.readingNote.body })
+    .from(schema.readingNote)
+    .innerJoin(schema.drawSession, eq(schema.drawSession.id, schema.readingNote.sessionId))
+    .where(and(eq(schema.readingNote.sessionId, sessionId), eq(schema.drawSession.userId, userId)))
+    .limit(1);
 }
 
 export async function getNote(db: AnyDb, userId: string, sessionId: string): Promise<string | null> {

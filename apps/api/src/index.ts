@@ -4,8 +4,8 @@ import { authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
 import { drawRoutes } from "./routes/draw";
+import { maintenance, readRoutes } from "./routes/reads";
 import { writeRoutes } from "./routes/writes";
-import { todayFor } from "./today";
 
 /** The data Worker: the app's API under /api (the pages themselves are static files). */
 export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {}) {
@@ -44,19 +44,24 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // While paused, everything but health, the landing build's wording and the session read answers 503.
+  const ALWAYS_ON = new Set(["/api/health", "/api/copy/landing", "/api/session"]);
+  app.use("*", async (c, next) => {
+    if (ALWAYS_ON.has(c.req.path)) return next();
+    const state = await maintenance(c);
+    if (!state.on) return next();
+    c.header("retry-after", "300");
+    return c.json({ error: "maintenance" }, 503);
+  });
   authRoutes(app);
   drawRoutes(app);
   writeRoutes(app);
+  readRoutes(app);
 
   app.get("/me", async (c) => {
     const w = await who(c);
     return w ? c.json({ user: { id: w.uid, reader: w.reader } }) : c.json({ user: null }, 401);
-  });
-
-  app.get("/today", async (c) => {
-    const w = await who(c);
-    if (!w) return c.json({ error: "signed_out" }, 401);
-    return c.json(await todayFor(c.get("db")(), w.uid, w.tz));
   });
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
