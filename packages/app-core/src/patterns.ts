@@ -1,4 +1,4 @@
-import { sql, type Db } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 import type { Suit } from "@astro/cards";
 
 export type PatternRange = "30d" | "90d" | "all";
@@ -31,10 +31,10 @@ type Row = {
 };
 
 /** Patterns over a person's completed, non-private readings. All counting happens in SQL. */
-export async function computePatterns(db: Db, userId: string, range: PatternRange, now: Date = new Date()): Promise<Patterns> {
+export async function computePatterns(db: AnyDb, userId: string, range: PatternRange, now: Date = new Date()): Promise<Patterns> {
   const since = range === "all" ? null : new Date(now.getTime() - (range === "30d" ? 30 : 90) * DAY).toISOString();
   const weekAgo = new Date(now.getTime() - 7 * DAY).toISOString();
-  const rows = await db.execute<Row>(sql`
+  const rows = rowsOf<Row>(await db.execute(sql`
     with s as (
       select id, completed_at from draw_session
       where user_id = ${userId} and status = 'complete' and not private
@@ -60,7 +60,7 @@ export async function computePatterns(db: Db, userId: string, range: PatternRang
         from check_in ci join s on s.id = ci.session_id) as outcomes,
       (select count(*) from check_in ci join s on s.id = ci.session_id where ci.outcome <> 'skipped')::int as done,
       (select count(*) from s where completed_at <= ${weekAgo}::timestamptz)::int as eligible
-  `);
+  `));
   const r = rows[0] as Row;
   const elements = SUITS.map((suit) => ({ suit, count: Number(r.suits[suit] ?? 0) })).sort((a, b) => b.count - a.count || SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit));
   return {

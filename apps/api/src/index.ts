@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
+import { drawRoutes } from "./routes/draw";
+import { writeRoutes } from "./routes/writes";
 import { todayFor } from "./today";
 
 /** The data Worker: the app's API under /api (the pages themselves are static files). */
@@ -43,6 +45,8 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
 
   app.get("/health", (c) => c.json({ ok: true }));
   authRoutes(app);
+  drawRoutes(app);
+  writeRoutes(app);
 
   app.get("/me", async (c) => {
     const w = await who(c);

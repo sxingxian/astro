@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, lte, schema, type Db, type AnyDb } from "@astro/db";
+import { and, asc, eq, gte, inArray, isNull, lte, schema, type AnyDb } from "@astro/db";
 import type { Orientation } from "@astro/draw";
 
 export type Outcome = "fit" | "partly" | "not" | "skipped";
@@ -54,7 +54,7 @@ export async function dueCheckIns(db: AnyDb, userId: string, now: Date = new Dat
 }
 
 /** Records how a reading turned out. Once per reading; never before it is 7 days old. */
-export async function saveCheckIn(db: Db, userId: string, sessionId: string, { outcome, note }: { outcome: Outcome; note?: string }, now: Date = new Date()): Promise<void> {
+export async function saveCheckIn(db: AnyDb, userId: string, sessionId: string, { outcome, note }: { outcome: Outcome; note?: string }, now: Date = new Date()): Promise<void> {
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) throw new CheckInError("not_found");
   const text = note?.trim() || null;
   if (text && text.length > NOTE_MAX) throw new CheckInError("too_long");
@@ -70,6 +70,6 @@ export async function saveCheckIn(db: Db, userId: string, sessionId: string, { o
 }
 
 /** One due check-in for the check-in page, or null if it isn't due for this person. */
-export async function findDue(db: Db, userId: string, sessionId: string, now: Date = new Date()): Promise<DueCheckIn | null> {
+export async function findDue(db: AnyDb, userId: string, sessionId: string, now: Date = new Date()): Promise<DueCheckIn | null> {
   return (await dueCheckIns(db, userId, now, 50)).find((d) => d.sessionId === sessionId) ?? null;
 }

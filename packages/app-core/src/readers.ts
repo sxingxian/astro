@@ -1,4 +1,4 @@
-import { sql, type Db, type AnyDb, rowsOf } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 import { HttpError } from "@astro/server";
 
 export interface ReaderStatus {
@@ -19,7 +19,7 @@ export async function readerStatus(db: AnyDb, userId: string): Promise<ReaderSta
 }
 
 /** Records that a reader accepted the guidelines — only the newest version, so nobody accepts wording they weren't shown. */
-export async function acceptGuidelines(db: Db, userId: string, version: number): Promise<void> {
+export async function acceptGuidelines(db: AnyDb, userId: string, version: number): Promise<void> {
   const s = await readerStatus(db, userId);
   if (!s.reader) throw new HttpError(403, "not_reader");
   if (version !== s.guidelinesVersion) throw new HttpError(409, "guidelines_changed");
@@ -34,15 +34,15 @@ export interface PendingOffer {
 }
 
 /** The newest offer made to this account that is still open. */
-export async function pendingOffer(db: Db, userId: string): Promise<PendingOffer | null> {
-  const [o] = await db.execute<{ id: string; reader: boolean; portal_role: "admin" | "moderator" | null; expires_at: string }>(sql`
+export async function pendingOffer(db: AnyDb, userId: string): Promise<PendingOffer | null> {
+  const [o] = rowsOf<{ id: string; reader: boolean; portal_role: "admin" | "moderator" | null; expires_at: string }>(await db.execute(sql`
     select id, reader, portal_role, expires_at from role_offer
     where user_id = ${userId} and accepted_at is null and revoked_at is null and expires_at > now()
-    order by created_at desc limit 1`);
+    order by created_at desc limit 1`));
   return o ? { id: o.id, reader: o.reader, portalRole: o.portal_role, expiresAt: new Date(o.expires_at) } : null;
 }
 
 /** A reader giving up their own role. Their log is locked, not deleted. */
-export async function giveUpReaderRole(db: Db, userId: string): Promise<void> {
+export async function giveUpReaderRole(db: AnyDb, userId: string): Promise<void> {
   await db.execute(sql`select give_up_reader_role(${userId})`);
 }

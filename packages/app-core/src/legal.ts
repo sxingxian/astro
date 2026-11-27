@@ -1,5 +1,5 @@
 import { catalogue, parseDoc, type Doc } from "@astro/copy";
-import { and, desc, eq, gt, schema, type Db } from "@astro/db";
+import { and, desc, eq, gt, schema, type AnyDb } from "@astro/db";
 
 export type LegalPage = "terms" | "privacy" | "guidelines";
 
@@ -17,7 +17,7 @@ interface Published {
 const withTimeout = <V>(p: Promise<V>, ms: number) =>
   Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms))]);
 
-async function published(db: Db, page: LegalPage, useCache: boolean): Promise<Published> {
+async function published(db: AnyDb, page: LegalPage, useCache: boolean): Promise<Published> {
   const hit = live.get(page);
   if (useCache && hit && Date.now() - hit.at < TTL_MS) return hit.value;
   try {
@@ -34,7 +34,7 @@ async function published(db: Db, page: LegalPage, useCache: boolean): Promise<Pu
   }
 }
 
-async function preview(db: Db, page: LegalPage, previewId: string | null | undefined): Promise<string | null> {
+async function preview(db: AnyDb, page: LegalPage, previewId: string | null | undefined): Promise<string | null> {
   if (!previewId || !PREVIEW_ID.test(previewId)) return null;
   try {
     const [row] = await withTimeout(
@@ -53,7 +53,7 @@ const defaultDoc = (page: LegalPage): Doc => (parseDoc(catalogue[`legal.${page}`
  * A legal page's document: a valid preview, else the newest published version, else the default. A stored value
  * that fails the document checks is never shown; the default is used instead.
  */
-export async function loadLegalPage(db: Db, page: LegalPage, previewId?: string | null, opts: { cache?: boolean } = {}): Promise<{ doc: Doc; version: number; publishedAt: Date | null }> {
+export async function loadLegalPage(db: AnyDb, page: LegalPage, previewId?: string | null, opts: { cache?: boolean } = {}): Promise<{ doc: Doc; version: number; publishedAt: Date | null }> {
   const draft = await preview(db, page, previewId);
   const pub = await published(db, page, opts.cache ?? true);
   const raw = draft ?? pub.value;

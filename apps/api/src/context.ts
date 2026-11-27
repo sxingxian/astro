@@ -10,6 +10,7 @@ import { lookupSession, sessionToken } from "./session";
 
 export interface Who {
   uid: string;
+  sid: string;
   reader: boolean;
   tz: string;
   email: string;
@@ -61,7 +62,7 @@ export async function who(c: C): Promise<Who | null> {
   const pass = await readPass(getCookie(c, PASS_COOKIE), token, env.PASS_SECRET, now);
   if (pass) {
     c.header("x-astro-pass", "hit");
-    return { uid: pass.uid, reader: pass.reader, tz: pass.tz, email: pass.email, emailVerified: pass.ev, twoFactor: pass.tf };
+    return { uid: pass.uid, sid: pass.sid, reader: pass.reader, tz: pass.tz, email: pass.email, emailVerified: pass.ev, twoFactor: pass.tf };
   }
   return refreshWho(c, token);
 }
@@ -86,5 +87,5 @@ async function refreshWho(c: C, token: string): Promise<Who | null> {
   const fresh = await signPass({ uid: s.uid, sid: s.sid, reader: s.reader, tz: s.timeZone, email: s.email, ev: s.emailVerified, tf: s.twoFactor }, token, env.PASS_SECRET, c.get("now")());
   setCookie(c, PASS_COOKIE, fresh, { ...passOptions(env), maxAge: PASS_TTL_S });
   c.header("x-astro-pass", "refresh");
-  return { uid: s.uid, reader: s.reader, tz: s.timeZone, email: s.email, emailVerified: s.emailVerified, twoFactor: s.twoFactor };
+  return { uid: s.uid, sid: s.sid, reader: s.reader, tz: s.timeZone, email: s.email, emailVerified: s.emailVerified, twoFactor: s.twoFactor };
 }

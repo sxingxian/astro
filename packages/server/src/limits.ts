@@ -1,4 +1,4 @@
-import { schema, sql, type Db } from "@astro/db";
+import { schema, sql, type AnyDb } from "@astro/db";
 
 const ATTEMPT_WINDOW = 15 * 60_000;
 export const MAX_PASSWORD_ATTEMPTS = 5;
@@ -7,7 +7,7 @@ export const MAX_PASSWORD_ATTEMPTS = 5;
  * Counts one password check for a signed-in person (delete account, 2-step on/off, password change).
  * Better Auth's own limits don't cover server-side calls, so a stolen session can't be used to guess the password.
  */
-export async function takePasswordAttempt(db: Db, userId: string, now: Date = new Date()): Promise<boolean> {
+export async function takePasswordAttempt(db: AnyDb, userId: string, now: Date = new Date()): Promise<boolean> {
   const key = `astro-pw:${userId}`;
   const nowMs = now.getTime();
   const windowStart = nowMs - ATTEMPT_WINDOW;

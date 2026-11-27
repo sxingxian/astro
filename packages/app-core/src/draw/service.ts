@@ -1,5 +1,5 @@
 import { majors, minors, allCards } from "@astro/cards";
-import { and, desc, eq, schema, sql, type Db, type AnyDb } from "@astro/db";
+import { and, desc, eq, schema, sql, type AnyDb } from "@astro/db";
 import { createDeck, isTimeZone, localDay, nextLocalMidnight, type Orientation } from "@astro/draw";
 import { getSetting } from "@astro/server";
 import { DrawError } from "./errors";
@@ -51,7 +51,7 @@ const STAGES: Record<Spread, { stage: Stage; cards: readonly string[]; count: nu
 
 type SessionRow = typeof schema.drawSession.$inferSelect;
 /** The database or a transaction on it. */
-type Exec = Pick<Db, "select" | "insert" | "update" | "delete" | "execute">;
+type Exec = Pick<AnyDb, "select" | "insert" | "update" | "delete" | "execute">;
 type DeckRow = typeof schema.drawDeck.$inferSelect;
 
 const zoneOf = (actor: Actor) => (isTimeZone(actor.timeZone) ? actor.timeZone : "UTC");
@@ -121,7 +121,7 @@ export async function findToday(db: AnyDb, actor: Actor, spread: Spread, now: Da
  * The check and the insert run under a per-person advisory lock, so parallel requests (two tabs, or
  * a guest sending several timezones at once) can never create two readings for one day.
  */
-export async function startDraw(db: Db, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult> {
+export async function startDraw(db: AnyDb, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult> {
   if (actor.kind === "guest" && spread !== "one") throw new DrawError("guest_spread");
 
   const timeZone = zoneOf(actor);
@@ -175,7 +175,7 @@ export async function startDraw(db: Db, actor: Actor, spread: Spread, now: Date 
   });
 }
 
-async function owned(db: Db, actor: Actor, sessionId: string): Promise<SessionRow> {
+async function owned(db: AnyDb, actor: Actor, sessionId: string): Promise<SessionRow> {
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) throw new DrawError("not_found");
   const [s] = await db.select().from(schema.drawSession).where(and(eq(schema.drawSession.id, sessionId), ownerFilter(actor))).limit(1);
   if (!s) throw new DrawError("not_found");
@@ -185,7 +185,7 @@ async function owned(db: Db, actor: Actor, sessionId: string): Promise<SessionRo
 const sameList = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /** Reveals the cards at the chosen positions. Repeating the same pick returns the same cards. */
-export async function pick(db: Db, actor: Actor, sessionId: string, stage: Stage, positions: number[], now: Date = new Date()): Promise<{ cards: DrawnCard[]; status: "picking" | "complete" }> {
+export async function pick(db: AnyDb, actor: Actor, sessionId: string, stage: Stage, positions: number[], now: Date = new Date()): Promise<{ cards: DrawnCard[]; status: "picking" | "complete" }> {
   const session = await owned(db, actor, sessionId);
   const plan = STAGES[session.spread];
   const stageIndex = plan.findIndex((p) => p.stage === stage);
@@ -228,7 +228,7 @@ export async function pick(db: Db, actor: Actor, sessionId: string, stage: Stage
 }
 
 /** A reading as its owner may see it. Orders, orientations and salts appear only once it is complete. */
-export async function getReading(db: Db, actor: Actor, sessionId: string, _now: Date = new Date()): Promise<Reading> {
+export async function getReading(db: AnyDb, actor: Actor, sessionId: string, _now: Date = new Date()): Promise<Reading> {
   const s = await owned(db, actor, sessionId);
   const decks = await decksFor(db, s.id);
   const base: Reading = {

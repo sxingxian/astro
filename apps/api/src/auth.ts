@@ -85,8 +85,9 @@ export function authRoutes(app: App) {
       ctx = undefined; // tests call the app without one
     }
     const res = await current.run(ctx, () => auth.handler(c.req.raw));
-    // Signing out ends the pass too, so a pass can never outlive the sign-in it came from.
-    if (!c.req.path.endsWith("/sign-out")) return res;
+    // Signing out ends the pass too, so a pass can never outlive the sign-in it came from; a two-step change
+    // ends it so the next request reads the new state.
+    if (!c.req.path.endsWith("/sign-out") && !c.req.path.includes("/two-factor/")) return res;
     const headers = new Headers(res.headers);
     headers.append(
       "set-cookie",

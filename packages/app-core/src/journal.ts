@@ -1,5 +1,5 @@
 import { getCard } from "@astro/cards";
-import { and, desc, eq, inArray, isNotNull, lt, or, schema, sql, type Db, type AnyDb } from "@astro/db";
+import { and, desc, eq, inArray, isNotNull, lt, or, schema, sql, type AnyDb } from "@astro/db";
 
 export type JournalFilter = "all" | "one" | "three";
 
@@ -66,14 +66,14 @@ export async function listReadings(db: AnyDb, userId: string, { filter = "all", 
   return { items, nextCursor: rows.length > limit && last?.completedAt ? encodeCursor(last.completedAt, last.id) : null };
 }
 
-async function assertOwner(db: Db, userId: string, sessionId: string) {
+async function assertOwner(db: AnyDb, userId: string, sessionId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) throw new JournalError("not_found");
   const [row] = await db.select({ id: schema.drawSession.id }).from(schema.drawSession).where(and(eq(schema.drawSession.id, sessionId), eq(schema.drawSession.userId, userId))).limit(1);
   if (!row) throw new JournalError("not_found");
 }
 
 /** Saves the note on a reading; an empty note removes it. */
-export async function setNote(db: Db, userId: string, sessionId: string, body: string): Promise<void> {
+export async function setNote(db: AnyDb, userId: string, sessionId: string, body: string): Promise<void> {
   await assertOwner(db, userId, sessionId);
   const text = body.trim();
   if (text.length > NOTE_MAX) throw new JournalError("too_long");
@@ -87,14 +87,14 @@ export async function setNote(db: Db, userId: string, sessionId: string, body: s
     .onConflictDoUpdate({ target: schema.readingNote.sessionId, set: { body: text, updatedAt: sql`now()` } });
 }
 
-export async function getNote(db: Db, userId: string, sessionId: string): Promise<string | null> {
+export async function getNote(db: AnyDb, userId: string, sessionId: string): Promise<string | null> {
   await assertOwner(db, userId, sessionId);
   const [row] = await db.select({ body: schema.readingNote.body }).from(schema.readingNote).where(eq(schema.readingNote.sessionId, sessionId)).limit(1);
   return row?.body ?? null;
 }
 
 /** Private readings stay in the journal but are left out of Patterns. */
-export async function setPrivate(db: Db, userId: string, sessionId: string, value: boolean): Promise<void> {
+export async function setPrivate(db: AnyDb, userId: string, sessionId: string, value: boolean): Promise<void> {
   await assertOwner(db, userId, sessionId);
   await db.update(schema.drawSession).set({ private: value }).where(eq(schema.drawSession.id, sessionId));
 }
