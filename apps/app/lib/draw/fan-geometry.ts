@@ -74,13 +74,38 @@ export function cardLift(i: number, focus: number, picked: boolean, g: FanGeomet
   return near + (picked ? Math.round(g.lift * 0.3) : 0);
 }
 
-/** The card under a point (relative to the pivot), or -1 when the point is off the fan. */
-export function indexAt(px: number, py: number, rot: number, size: number, g: FanGeometry = PHONE_FAN): number {
+/**
+ * The card drawn under a point (relative to the pivot), or -1 when the point is off the fan. With a card lifted
+ * (`focus`), its neighbours sit nudged apart, so the nearest drawn card is chosen rather than the resting slot.
+ */
+export function indexAt(px: number, py: number, rot: number, size: number, g: FanGeometry = PHONE_FAN, focus = -1): number {
   const dist = Math.hypot(px, py);
   if (dist < g.inner || dist > g.outer) return -1;
   const angle = (Math.atan2(px, -py) * 180) / Math.PI - rot;
-  const i = Math.round((angle + spreadOf(size) / 2) / angleStep(size));
-  return i < 0 || i > size - 1 ? -1 : i;
+  const step = angleStep(size);
+  const guess = Math.round((angle + spreadOf(size) / 2) / step);
+  if (focus < 0) return guess < 0 || guess > size - 1 ? -1 : guess;
+  let best = -1;
+  let bestDiff = Infinity;
+  for (let i = Math.max(0, guess - 4); i <= Math.min(size - 1, guess + 4); i++) {
+    const diff = Math.abs(cardAngle(i, size, 0, focus) - angle);
+    if (diff < bestDiff) [best, bestDiff] = [i, diff];
+  }
+  // Past either end of the deck by more than a card: off the fan.
+  return bestDiff > step ? -1 : best;
+}
+
+/** Degrees the fan turns when a finger drags `dx` px sideways: the cards' middles move with the finger. */
+export const dragDegrees = (dx: number, g: FanGeometry = PHONE_FAN) => (dx / (g.radius - g.cardH / 2)) * (180 / Math.PI);
+
+const COAST_FRICTION = 0.94;
+/**
+ * A flicked fan's speed (degrees per 60 Hz frame) after `frames` more frames, where `frames` is the elapsed time in
+ * 60 Hz frames (1 at 60 Hz, 0.5 at 120 Hz). Stops below 0.02°/frame.
+ */
+export function coastStep(v: number, frames: number): number {
+  const next = v * COAST_FRICTION ** frames;
+  return Math.abs(next) < 0.02 ? 0 : next;
 }
 
 /**
