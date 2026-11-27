@@ -4,7 +4,7 @@ import * as schema from "./schema";
 
 export { schema };
 // Neon's HTTPS client is on its own entry (`@astro/db/http`) so the Next.js apps never load its driver.
-export { rowsOf, type AnyDb } from "./rows";
+export { rowsOf, runBatch, type AnyDb } from "./rows";
 export type Db = ReturnType<typeof createDb>;
 
 /** A Drizzle client on postgres.js. On Workers, pass Hyperdrive's connection string. */
@@ -14,4 +14,4 @@ export function createDb(connectionString: string) {
 }
 
 // Query helpers from the same drizzle-orm copy as the schema, so apps never mix two copies.
-export { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, not, or, sql } from "drizzle-orm";
+export { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, not, or, sql } from "drizzle-orm";

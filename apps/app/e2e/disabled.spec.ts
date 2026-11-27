@@ -7,10 +7,15 @@ const disable = (email: string) => sql.begin(async (tx) => {
   await tx`delete from session where user_id = (select id from "user" where email = ${email})`;
 });
 
-test("someone disabled from the portal is signed out at once and can't sign in until re-enabled", async ({ page }) => {
+// Ordinary pages trust the 5-minute pass (approved in the free-plan design), so a disabled person is signed out when
+// it next expires. Clearing the pass here stands in for those 5 minutes passing.
+test("someone disabled from the portal is signed out when their pass expires and can't sign in until re-enabled", async ({ page }) => {
   const email = uniqueEmail("disabled-by-staff");
   await signUpVerified(page, email);
   await disable(email);
+  const keep = (await page.context().cookies()).filter((c) => c.name !== "astro.pass");
+  await page.context().clearCookies();
+  await page.context().addCookies(keep);
 
   // /today also works for guests, so check a page that needs an account.
   await page.goto("/account");

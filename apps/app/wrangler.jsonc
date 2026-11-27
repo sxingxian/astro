@@ -5,10 +5,11 @@
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  // Serve only the custom domain: no *.workers.dev address and no preview URLs.
+  // No address of its own (free-plan Stage 1): astro-api owns the app's domain and passes the reader pages here
+  // through its LEGACY service binding. No *.workers.dev address and no preview URLs.
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "astroapp.midnightpoetry.studio", "custom_domain": true }],
+  "routes": [],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",

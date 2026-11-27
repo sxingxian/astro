@@ -4,7 +4,7 @@ import { PASS_TTL_S, readPass, signPass } from "../src/pass";
 const SECRET = "a-test-secret-that-is-long-enough-123";
 const TOKEN = "session-token-abc";
 const NOW = 1_800_000_000_000;
-const who = { uid: "user-1", sid: "sess-1", reader: true, tz: "Asia/Singapore" };
+const who = { uid: "user-1", sid: "sess-1", reader: true, tz: "Asia/Singapore", email: "a@example.com", ev: true, tf: false };
 
 describe("pass", () => {
   it("round-trips, bound to the session token, valid for 300 s", async () => {
@@ -38,7 +38,7 @@ describe("pass", () => {
 
   it("refuses a well-signed pass with missing fields", async () => {
     // Sign a payload by hand that lacks `sid`: the signature is valid but the shape is not.
-    const cookie = await signPass({ uid: "u", sid: "", reader: false, tz: "UTC" }, TOKEN, SECRET, NOW);
+    const cookie = await signPass({ uid: "u", sid: "", reader: false, tz: "UTC", email: "u@example.com", ev: true, tf: false }, TOKEN, SECRET, NOW);
     expect(await readPass(cookie, TOKEN, SECRET, NOW)).toBeNull();
   });
 });

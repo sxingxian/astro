@@ -14,6 +14,11 @@ cp apps/app/.dev.vars.example apps/app/.dev.vars     # development values only (
 DATABASE_URL_MIGRATOR=postgres://migrator:migrator@127.0.0.1:5432/astro_dev pnpm db:migrate
 pnpm --filter @astro/app preview                     # OpenNext build + wrangler dev on http://127.0.0.1:8790
 
+pnpm --filter @astro/app build                       # once, for the reader pages behind the new Worker
+DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/api stack
+                                                     # the app as deployed (free plan): http://127.0.0.1:8792
+pnpm --filter @astro/web dev                         # the pages alone, with hot reload (no API)
+
 cp apps/admin/.dev.vars.example apps/admin/.dev.vars # portal: outbox mail, AI gateway stub address
 pnpm --filter @astro/admin preview                   # admin portal on http://127.0.0.1:8791/admin
 ```
@@ -26,6 +31,7 @@ The first local owner: sign up in the app, then `insert into staff_role (user_id
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm db:test              # database tests (run one at a time)
 DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm e2e   # landing, app and portal, one at a time (they share the test database)
+DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/api cpu   # CPU per request (Workers Free: 10 ms)
 pnpm cf:build:landing                                # the same build Cloudflare runs
 pnpm --filter @astro/landing preview                 # wrangler dev, applies _headers like production
 E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e
@@ -40,6 +46,12 @@ To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db gen
 - **Expand, then contract.** The old Worker serves traffic while a migration runs, so every migration must work with both the old and the new code. Add tables and nullable columns in one release; backfill; make them required or remove old ones in a later release.
 - **Grants.** `0001_grants_and_settings.sql` grants `astro_web` only `SELECT, INSERT, UPDATE, DELETE` on the app's tables; `0003_admin.sql` narrows `astro_web` on the staff and AI tables and grants `astro_admin` its own small set (never notes, never DDL). New tables must be granted explicitly in their migration. If a role was created after its migration ran, rerun that `DO $$ … $$` block as `migrator`.
 - Tell the owner before a risky migration so they can branch Neon `main` as a restore point.
+
+## The free-plan app (`apps/web` + `apps/api`)
+
+- `apps/web` is the app's pages, pre-built with Vite (React, react-router). It reuses `apps/app`'s components through the `@/` alias and shims `next/navigation`. No inline scripts: the CSP in `apps/web/public/_headers` has no nonce.
+- `apps/api` (`astro-api`) serves those files, the API under `/api` (Hono, Neon's HTTPS driver; the WebSocket driver only for the draw start's lock) and passes the reader pages (`src/legacy.ts`) to `astro-app` through the `LEGACY` service binding. The app's browser tests (`apps/app/e2e`) run against this stack.
+- The CPU check counts only time running code, not waiting for the database. Neon signs the WebSocket driver in with a plain password over TLS; to measure the draw start the same way locally, let `astro_web` use `password` (not `scram-sha-256`) for `astro_test` from 127.0.0.1 in `pg_hba.conf`. With SCRAM it reads about 15 ms higher.
 
 ## Notes
 

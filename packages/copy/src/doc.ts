@@ -28,34 +28,38 @@ export function safeHref(href: string): string | null {
   return null;
 }
 
-const Text = z
-  .object({
-    t: z.literal("text"),
-    text: z.string().min(1).max(RUN_MAX).refine((s) => !INVISIBLE.test(s)),
-    b: z.literal(true).optional(),
-    i: z.literal(true).optional(),
-    href: z.string().max(HREF_MAX).refine((h) => safeHref(h) !== null).optional()
-  })
-  .strict();
-const Inlines = z.array(Text).max(400);
-const textBlock = <T extends string>(t: T) => z.object({ t: z.literal(t), c: Inlines }).strict();
-const listBlock = <T extends string>(t: T) => z.object({ t: z.literal(t), items: z.array(Inlines).min(1).max(200) }).strict();
+/** Built on first use, so pages that only render documents don't ship the schema library. */
+function schema() {
+  const Text = z
+    .object({
+      t: z.literal("text"),
+      text: z.string().min(1).max(RUN_MAX).refine((s) => !INVISIBLE.test(s)),
+      b: z.literal(true).optional(),
+      i: z.literal(true).optional(),
+      href: z.string().max(HREF_MAX).refine((h) => safeHref(h) !== null).optional()
+    })
+    .strict();
+  const Inlines = z.array(Text).max(400);
+  const textBlock = <T extends string>(t: T) => z.object({ t: z.literal(t), c: Inlines }).strict();
+  const listBlock = <T extends string>(t: T) => z.object({ t: z.literal(t), items: z.array(Inlines).min(1).max(200) }).strict();
+  const Block = z.discriminatedUnion("t", [
+    textBlock("p"),
+    textBlock("h2"),
+    textBlock("h3"),
+    textBlock("quote"),
+    textBlock("callout"),
+    listBlock("ul"),
+    listBlock("ol"),
+    z.object({ t: z.literal("divider") }).strict()
+  ]);
+  return { Text, DocSchema: z.object({ v: z.literal(1), blocks: z.array(Block) }).strict() };
+}
+type Schema = ReturnType<typeof schema>;
+let built: Schema | undefined;
 
-const Block = z.discriminatedUnion("t", [
-  textBlock("p"),
-  textBlock("h2"),
-  textBlock("h3"),
-  textBlock("quote"),
-  textBlock("callout"),
-  listBlock("ul"),
-  listBlock("ol"),
-  z.object({ t: z.literal("divider") }).strict()
-]);
-const DocSchema = z.object({ v: z.literal(1), blocks: z.array(Block) }).strict();
-
-export type Doc = z.infer<typeof DocSchema>;
+export type Doc = z.infer<Schema["DocSchema"]>;
 export type Block = Doc["blocks"][number];
-export type Inline = z.infer<typeof Text>;
+export type Inline = z.infer<Schema["Text"]>;
 
 const inlinesOf = (b: Block): Inline[] => ("c" in b ? b.c : "items" in b ? b.items.flat() : []);
 
@@ -70,7 +74,7 @@ export function parseDoc(json: string): { ok: true; doc: Doc } | { ok: false; re
   }
   const blocks = (raw as { blocks?: unknown } | null)?.blocks;
   if (Array.isArray(blocks) && blocks.length > DOC_LIMITS.blocks) return { ok: false, reason: "doc_too_large" };
-  const parsed = DocSchema.safeParse(raw);
+  const parsed = (built ??= schema()).DocSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, reason: "doc_invalid" };
   const chars = parsed.data.blocks.reduce((n, b) => n + inlinesOf(b).reduce((m, r) => m + r.text.length, 0), 0);
   if (chars > DOC_LIMITS.chars) return { ok: false, reason: "doc_too_large" };

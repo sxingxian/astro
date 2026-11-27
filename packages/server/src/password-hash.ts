@@ -1,4 +1,4 @@
-import { sql, type Db } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 
 /** Marks hashes made by this scheme: bcrypt (in Postgres) over a SHA-256 of the password. */
 export const HASH_PREFIX = "bcrypt-sha256$";
@@ -25,10 +25,10 @@ function equalTime(a: string, b: string): boolean {
  * Password hashing that runs bcrypt inside Postgres (pgcrypto). The Worker only waits for the database,
  * which doesn't count towards Cloudflare's CPU limit, so sign-ins fit the Workers Free plan's 10 ms.
  */
-export function createPasswordHasher(db: Db) {
+export function createPasswordHasher(db: AnyDb) {
   const crypt = async (input: string, salt: string | null): Promise<string> => {
-    const rows = await db.execute<{ h: string }>(
-      salt === null ? sql`select crypt(${input}, gen_salt('bf', ${BCRYPT_COST}::int)) as h` : sql`select crypt(${input}, ${salt}) as h`
+    const rows = rowsOf<{ h: string }>(
+      await db.execute(salt === null ? sql`select crypt(${input}, gen_salt('bf', ${BCRYPT_COST}::int)) as h` : sql`select crypt(${input}, ${salt}) as h`)
     );
     return String(rows[0]?.h ?? "");
   };

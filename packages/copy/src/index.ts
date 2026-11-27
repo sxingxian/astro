@@ -10,6 +10,8 @@ export type AppKey = keyof typeof app;
 export type EmailKey = keyof typeof email;
 export type LegalKey = keyof typeof legal;
 export type CopyKey = LandingKey | AppKey | EmailKey | LegalKey;
+/** Looks up app or email wording by key, filling {placeholders}. */
+export type T = (key: AppKey | EmailKey, values?: Readonly<Record<string, string>>) => string;
 
 function build<K extends string>(surface: Surface, specs: Record<K, EntrySpec>): Record<K, CopyEntry> {
   return Object.fromEntries(

@@ -1,7 +1,7 @@
 import { getCard, type Card } from "@astro/cards";
 import type { Meaning } from "@astro/meanings";
 import type { Orientation } from "@astro/draw";
-import type { T } from "../copy";
+import type { T } from "@astro/copy";
 
 export interface CardText {
   card: Card;

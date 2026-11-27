@@ -67,5 +67,6 @@ test("every screen has the side menu on desktop and the bottom tabs on phones", 
   await expect(page.getByRole("link", { name: "Ask a question" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Waiting for you" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recent readings" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /The|Ace|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Page|Knight|Queen|King|Strength|Justice|Death|Temperance|Judgement/ }).first()).toBeVisible();
+  // The drawn card is random, so find the reading by its link, not its name.
+  await expect(page.getByRole("region", { name: "Recent readings" }).locator('a[href^="/reading/"]').first()).toBeVisible();
 });

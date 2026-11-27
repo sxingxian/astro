@@ -493,7 +493,7 @@ All of these are done in a browser.
 
 ## 17. Data Worker `astro-api` (free-plan Stage 0: measurement)
 
-> **Why:** on Workers Free each request may use 10 ms of processing time, and the Next.js app uses far more. The data Worker is the first piece of the fix (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). In this stage it only answers `astroapp.midnightpoetry.studio/api/v2/…`, so its real processing time can be read before any page changes. The app itself is untouched.
+> **Done; superseded by §18** (its settings, secrets and build steps still apply). **Why:** on Workers Free each request may use 10 ms of processing time, and the Next.js app uses far more. The data Worker is the first piece of the fix (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). In this stage it only answers `astroapp.midnightpoetry.studio/api/v2/…`, so its real processing time can be read before any page changes. The app itself is untouched.
 
 At **dash.cloudflare.com** → **Workers & Pages → Create → Import a repository** → `sxingxian/astro`:
 
@@ -529,6 +529,58 @@ Finally, **Deployments → Retry build**. The deploy creates the route `astroapp
 
 To remove it again: **astro-api → Settings → Delete**. The app is unaffected.
 
+## 18. Free-plan Stage 1: the app moves to `astro-api`
+
+> **Why:** the app's pages become pre-built files and its data comes from `astro-api`, so each request fits Workers Free's 10 ms (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). The reader pages (Desk, My log, invitations, role offers, reader guidelines) aren't rebuilt yet: `astro-api` passes them to `astro-app` unchanged. Nothing changes in the database, so going back is two clicks (below).
+
+**What people notice:** about a minute when the app doesn't load, while its address moves. Everyone stays signed in.
+
+### Before you say "merge"
+
+1. **astro-api → Settings → Variables and Secrets → Add**, type **Secret**, the same values as `astro-app`'s (from your password manager):
+
+   | Name | Value |
+   | --- | --- |
+   | `RESEND_API_KEY` | the same as `astro-app` |
+   | `TURNSTILE_SECRET_KEY` | the same as `astro-app` |
+
+   `DATABASE_URL`, `BETTER_AUTH_SECRET` and `PASS_SECRET` are already there from Stage 0. The other settings (sender address, Turnstile site key and so on) come with the code.
+2. **astro-api → Settings → Build → Build watch paths → Include:** replace the list with `apps/api/*`, `apps/web/*`, `apps/app/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`.
+3. Tell Claude these are done.
+
+### The move
+
+1. Say **"merge"**. Cloudflare builds both Workers (2–4 minutes). `astro-app` should keep serving the app until the address moves. **If the app stops loading and `astro-api`'s build isn't finished yet,** do step 2 of "Going back" below at once (it puts the address back on `astro-app`), then tell Claude.
+2. Open **astro-api → Deployments** and wait for the newest build to finish.
+   - **It says Success:** the address has moved by itself. Go to step 3.
+   - **It failed with a message about the domain being in use:** move it by hand (about 30 seconds without the app):
+     1. **astro-app → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
+     2. **astro-api → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
+     3. Later, **astro-api → Deployments → Retry build**. It should now say Success.
+3. **astro-app → Settings → Domains & Routes** should list no `astroapp…` address. If it still does, remove it (**⋯ → Remove**). `astro-app` keeps running with no address of its own; only `astro-api` can reach it.
+4. If **astro-api → Settings → Domains & Routes** still lists the Stage 0 route `astroapp.midnightpoetry.studio/api/v2/*`, remove it.
+
+### Check it
+
+In a private window:
+
+1. `https://astroapp.midnightpoetry.studio/api/health` shows `{"ok":true}`.
+2. `https://astroapp.midnightpoetry.studio/today` shows Today. Draw a guest card.
+3. Sign in. Draw today's one card and today's three cards. Open Today, the journal, a reading, Patterns and Account.
+4. Sign out, then sign in again. If your account uses two-step, sign in with it once.
+5. As a reader: open the Desk and My log (these still come from `astro-app`).
+6. Tell Claude. Claude reads each request's processing time in **astro-api → Observability**. The gate: ordinary requests under 6 ms; draw start, sign-in and the first page after a quiet spell under 10 ms; no "exceeded CPU" errors. **If any of those is regularly over 10 ms, or people see errors, go back** (below).
+
+### Going back (if something is wrong)
+
+Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers use the same sign-ins in Neon.
+
+1. **astro-api → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
+2. **astro-app → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
+3. **astro-api → Settings → Builds → Disable builds: on.** Otherwise the next change to the code (even an automatic package update) rebuilds `astro-api`, and its build takes the address back. Turn it off again once Claude has the fix.
+
+`astro-app` still has every page, so the app works as before. Then tell Claude.
+
 ## Release safety
 
 - GitHub holds no deploy or database passwords. Its only job is running tests on pull requests.
@@ -537,7 +589,8 @@ To remove it again: **astro-api → Settings → Delete**. The app is unaffected
 - Workers answer only on their real addresses (no `workers.dev` or preview addresses).
 - Non-production branch builds stay off for any Worker whose build holds the migrator password.
 - Development shortcuts (fake email, Turnstile off, leaked-password check off) are refused by the app on its real address.
-- Passwords are stored as bcrypt (strength 12) over a SHA-256 of the password, computed inside the database. The password travels only over the encrypted Hyperdrive connection.
+- Passwords are stored as bcrypt (strength 12) over a SHA-256 of the password, computed inside the database. The password travels only over encrypted connections (Neon's HTTPS endpoint from `astro-api`; Hyperdrive from the portal and `astro-app`).
+- Error logs record only the kind of error, never a failed query's values (password digests, hashes, tokens, emails).
 - Deck orders, orientations and salts never leave the server until a reading is complete; tests check for leaks.
 - Developer setup and commands are in `docs/DEVELOPMENT.md`; they aren't needed to deploy.
 - To do: pin GitHub Actions to exact commit SHAs.

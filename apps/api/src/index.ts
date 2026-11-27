@@ -1,92 +1,71 @@
-import type { AnyDb } from "@astro/db";
-import { createHttpDb } from "@astro/db/http";
-import { neonConfig } from "@neondatabase/serverless";
 import { securityHeaders } from "@astro/server/csp";
-import { PASS_COOKIE, PASS_TTL_S, readPass, signPass } from "@astro/server/pass";
-import { Hono, type Context } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { checkEnv, type Env } from "./env";
-import { lookupSession, sessionToken } from "./session";
-import { todayFor } from "./today";
+import { Hono } from "hono";
+import { authRoutes } from "./auth";
+import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
+import { checkEnv, type RawEnv } from "./env";
+import { isLegacy } from "./legacy";
+import { PASS_COOKIE } from "@astro/server/pass";
+import { drawRoutes } from "./routes/draw";
+import { maintenance, readRoutes } from "./routes/reads";
+import { writeRoutes } from "./routes/writes";
 
-interface Who {
-  uid: string;
-  reader: boolean;
-  tz: string;
-}
-type Vars = { env: Env; db: () => AnyDb };
-type C = Context<{ Bindings: Partial<Env>; Variables: Vars }>;
-
-export interface Deps {
-  /** The database client for a request (tests pass a client on a local Postgres). */
-  db?: (env: Env) => AnyDb;
-  now?: () => number;
-}
-
-/** The data Worker (free-plan design, Stage 0): reads only, under /api/v2. */
-// One HTTPS client per isolate: it holds no connection, and building it reads the whole schema.
-const clients = new Map<string, AnyDb>();
-function httpDb(env: Env): AnyDb {
-  if (env.NEON_FETCH_ENDPOINT) neonConfig.fetchEndpoint = env.NEON_FETCH_ENDPOINT;
-  let client = clients.get(env.DATABASE_URL);
-  if (!client) clients.set(env.DATABASE_URL, (client = createHttpDb(env.DATABASE_URL)));
-  return client;
-}
-
-export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
-  const app = new Hono<{ Bindings: Partial<Env>; Variables: Vars }>().basePath("/api/v2");
+/** The data Worker: the app's API under /api (the pages themselves are static files). */
+export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {}) {
+  const app = new Hono<AppEnv>().basePath("/api");
 
   app.use("*", async (c, next) => {
     await next();
     for (const [k, v] of Object.entries(securityHeaders)) c.res.headers.set(k, v);
     c.res.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-    c.res.headers.set("Cache-Control", "no-store");
+    c.res.headers.set("X-Robots-Tag", "noindex");
+    // Nothing is cached unless a route says so (only the public landing wording does).
+    if (!c.res.headers.has("Cache-Control")) c.res.headers.set("Cache-Control", "no-store");
   });
   app.use("*", async (c, next) => {
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") return c.json({ error: "method_not_allowed" }, 405);
     const env = checkEnv(c.env);
     if (!env) {
-      console.error("astro-api: missing or short settings");
+      console.error("astro-api: missing or invalid settings");
       return c.json({ error: "server_error" }, 500);
     }
     c.set("env", env);
-    let client: AnyDb | undefined;
+    c.set("now", now);
+    let client: ReturnType<typeof db> | undefined;
     c.set("db", () => (client ??= db(env)));
-    await next();
+    let tx: ReturnType<typeof txDb> | undefined;
+    c.set("txDb", () => (tx ??= txDb(env)).db);
+    try {
+      await next();
+    } finally {
+      if (tx) {
+        const end = tx.end().catch(() => {});
+        try {
+          c.executionCtx.waitUntil(end);
+        } catch {
+          await end; // tests call the app without an execution context
+        }
+      }
+    }
   });
 
-  /** Who is signed in: from the pass when it is genuine and current, otherwise from Neon (and a fresh pass). */
-  async function who(c: C): Promise<Who | null> {
-    const env = c.get("env");
-    const token = await sessionToken(c.req.header("cookie"), env.BETTER_AUTH_SECRET, env.APP_URL.startsWith("https://"));
-    if (!token) return null;
-    const pass = await readPass(getCookie(c, PASS_COOKIE), token, env.PASS_SECRET, now());
-    if (pass) {
-      c.header("x-astro-pass", "hit");
-      return { uid: pass.uid, reader: pass.reader, tz: pass.tz };
-    }
-    const s = await lookupSession(c.get("db")(), token);
-    if (!s) {
-      deleteCookie(c, PASS_COOKIE, { path: "/api", secure: true, httpOnly: true, sameSite: "Lax" });
-      return null;
-    }
-    const fresh = await signPass({ uid: s.uid, sid: s.sid, reader: s.reader, tz: s.timeZone }, token, env.PASS_SECRET, now());
-    setCookie(c, PASS_COOKIE, fresh, { path: "/api", secure: true, httpOnly: true, sameSite: "Lax", maxAge: PASS_TTL_S });
-    c.header("x-astro-pass", "refresh");
-    return { uid: s.uid, reader: s.reader, tz: s.timeZone };
-  }
-
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // While paused, everything but health, the landing build's wording and the session read answers 503.
+  const ALWAYS_ON = new Set(["/api/health", "/api/copy/landing", "/api/session"]);
+  app.use("*", async (c, next) => {
+    if (ALWAYS_ON.has(c.req.path)) return next();
+    const state = await maintenance(c);
+    if (!state.on) return next();
+    c.header("retry-after", "300");
+    return c.json({ error: "maintenance" }, 503);
+  });
+  authRoutes(app);
+  drawRoutes(app);
+  writeRoutes(app);
+  readRoutes(app);
 
   app.get("/me", async (c) => {
     const w = await who(c);
     return w ? c.json({ user: { id: w.uid, reader: w.reader } }) : c.json({ user: null }, 401);
-  });
-
-  app.get("/today", async (c) => {
-    const w = await who(c);
-    if (!w) return c.json({ error: "signed_out" }, 401);
-    return c.json(await todayFor(c.get("db")(), w.uid, w.tz));
   });
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
@@ -100,4 +79,21 @@ export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
 }
 
 const app = createApp();
-export default { fetch: app.fetch } satisfies ExportedHandler<Partial<Env>>;
+
+/** Reader pages go to the old app; everything else under /api to this Worker (pages are static files). */
+export function handle(request: Request, env: RawEnv, ctx: ExecutionContext): Response | Promise<Response> {
+  if (isLegacy(new URL(request.url).pathname)) return env.LEGACY ? forward(request, env) : new Response("Not found", { status: 404 });
+  return app.fetch(request, env, ctx);
+}
+
+/** A successful change there (giving up or taking on the reader role) may change what the pass says, so drop it. */
+async function forward(request: Request, env: RawEnv): Promise<Response> {
+  const res = await env.LEGACY!.fetch(request);
+  if (request.method !== "POST" || !res.ok) return res;
+  const out = new Response(res.body, res);
+  const secure = typeof env.APP_URL === "string" && env.APP_URL.startsWith("https://");
+  out.headers.append("set-cookie", `${PASS_COOKIE}=; Max-Age=0; Path=/api; HttpOnly${secure ? "; Secure" : ""}; SameSite=Lax`);
+  return out;
+}
+
+export default { fetch: handle } satisfies ExportedHandler<RawEnv>;

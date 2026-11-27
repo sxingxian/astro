@@ -1,5 +1,5 @@
 import type { LogFormValue } from "@/components/reader-log/LogForm";
-import type { T } from "./copy";
+import type { T } from "@astro/copy";
 import type { Entry } from "./reader-log";
 
 /** What the record form starts with: an existing entry, or a blank one-card reading dated today. */

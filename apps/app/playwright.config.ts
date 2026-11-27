@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 8790;
+// The free-plan app (astro-api on :8792, with this app behind it for the reader pages): docs/DEPLOYMENT.md §18.
+const PORT = 8792;
 const external = process.env.E2E_BASE_URL;
 
 export default defineConfig({
@@ -16,17 +17,14 @@ export default defineConfig({
     trace: "retain-on-failure"
   },
   projects: [{ name: "chrome", use: { ...devices["Desktop Chrome"], channel: "chrome" } }],
-  // Runs the OpenNext build under wrangler dev, against the test database through Hyperdrive's local connection.
+  // The local stack (apps/api/scripts/local-stack.ts): the new Worker, this app's OpenNext build behind it, and Neon
+  // stand-ins answering from the test database. Ready once a reader page answers through the binding.
   webServer: external
     ? undefined
     : {
-        // Maintenance mode is re-read every second under test (60 s in production).
-        command: "pnpm exec wrangler dev --var MAINTENANCE_CACHE_SECONDS:1",
-        url: `http://127.0.0.1:${PORT}/api/health`,
+        command: "pnpm --filter @astro/api stack",
+        url: `http://127.0.0.1:${PORT}/reader-guidelines`,
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-        env: {
-          CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: (process.env.DATABASE_URL_TEST ?? "").replace("migrator:migrator", "astro_web:astro_web")
-        }
+        timeout: 180_000
       }
 });
