@@ -1,3 +1,4 @@
+import { APP_SESSION_HOURS, APP_SESSION_UPDATE_HOURS } from "@astro/app-core/auth-options";
 import { rowsOf, sql, type AnyDb } from "@astro/db";
 
 // Better Auth names the cookie by the address: `__Secure-astro.session_token` on https, `astro.session_token` on
@@ -44,16 +45,37 @@ export interface SessionInfo {
   sid: string;
   reader: boolean;
   timeZone: string;
+  email: string;
+  emailVerified: boolean;
+  twoFactor: boolean;
 }
 
-/** The live app session for this token and its person, in one query; null if expired, portal, disabled or unknown. */
+/**
+ * The live app session for this token and its person, in one statement; null if expired, portal, disabled or
+ * unknown. Like Better Auth's own session read, it pushes the expiry out to 30 days when it was last set more than
+ * a day ago.
+ */
 export async function lookupSession(db: AnyDb, token: string): Promise<SessionInfo | null> {
-  const [row] = rowsOf<{ uid: string; sid: string; reader: boolean; time_zone: string | null }>(
+  const keepFor = sql.raw(`interval '${APP_SESSION_HOURS} hours'`);
+  const refreshWithin = sql.raw(`interval '${APP_SESSION_HOURS - APP_SESSION_UPDATE_HOURS} hours'`);
+  const [row] = rowsOf<{ uid: string; sid: string; reader: boolean; time_zone: string | null; email: string; email_verified: boolean; two_factor_enabled: boolean | null }>(
     await db.execute(sql`
-      select u.id as uid, s.id as sid, u.time_zone,
+      with refreshed as (
+        update session set expires_at = now() + ${keepFor}, updated_at = now()
+        where token = ${token} and surface = 'app' and expires_at > now() and expires_at < now() + ${refreshWithin}
+        returning id, user_id
+      ), current as (
+        select id, user_id from refreshed
+        union all
+        select id, user_id from session
+        where token = ${token} and surface = 'app' and expires_at > now() and not exists (select 1 from refreshed)
+      )
+      select u.id as uid, c.id as sid, u.time_zone, u.email, u.email_verified, u.two_factor_enabled,
              exists(select 1 from reader_role r where r.user_id = u.id and r.revoked_at is null) as reader
-      from session s join "user" u on u.id = s.user_id
-      where s.token = ${token} and s.surface = 'app' and s.expires_at > now() and u.disabled_at is null`)
+      from current c join "user" u on u.id = c.user_id
+      where u.disabled_at is null`)
   );
-  return row ? { uid: row.uid, sid: row.sid, reader: Boolean(row.reader), timeZone: row.time_zone ?? "UTC" } : null;
+  return row
+    ? { uid: row.uid, sid: row.sid, reader: Boolean(row.reader), timeZone: row.time_zone ?? "UTC", email: row.email, emailVerified: Boolean(row.email_verified), twoFactor: Boolean(row.two_factor_enabled) }
+    : null;
 }

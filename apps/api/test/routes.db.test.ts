@@ -97,7 +97,7 @@ describe("data Worker", () => {
   it("refuses another session's pass and checks the database instead", async () => {
     const a = await person();
     const b = await person();
-    const bPass = await signPass({ uid: b.uid, sid: "x", reader: true, tz: "UTC" }, b.token, env.PASS_SECRET, clock);
+    const bPass = await signPass({ uid: b.uid, sid: "x", reader: true, tz: "UTC", email: "b@example.com", ev: true, tf: false }, b.token, env.PASS_SECRET, clock);
     const res = await get("/api/v2/me", `${a.cookie}; astro.pass=${bPass}`);
     expect(res.headers.get("x-astro-pass")).toBe("refresh");
     expect(await res.json()).toEqual({ user: { id: a.uid, reader: false } });

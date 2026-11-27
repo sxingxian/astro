@@ -9,10 +9,13 @@ import { checkEnv, type Env } from "./env";
 import { lookupSession, sessionToken } from "./session";
 import { todayFor } from "./today";
 
-interface Who {
+export interface Who {
   uid: string;
   reader: boolean;
   tz: string;
+  email: string;
+  emailVerified: boolean;
+  twoFactor: boolean;
 }
 type Vars = { env: Env; db: () => AnyDb };
 type C = Context<{ Bindings: Partial<Env>; Variables: Vars }>;
@@ -63,17 +66,17 @@ export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
     const pass = await readPass(getCookie(c, PASS_COOKIE), token, env.PASS_SECRET, now());
     if (pass) {
       c.header("x-astro-pass", "hit");
-      return { uid: pass.uid, reader: pass.reader, tz: pass.tz };
+      return { uid: pass.uid, reader: pass.reader, tz: pass.tz, email: pass.email, emailVerified: pass.ev, twoFactor: pass.tf };
     }
     const s = await lookupSession(c.get("db")(), token);
     if (!s) {
       deleteCookie(c, PASS_COOKIE, { path: "/api", secure: true, httpOnly: true, sameSite: "Lax" });
       return null;
     }
-    const fresh = await signPass({ uid: s.uid, sid: s.sid, reader: s.reader, tz: s.timeZone }, token, env.PASS_SECRET, now());
+    const fresh = await signPass({ uid: s.uid, sid: s.sid, reader: s.reader, tz: s.timeZone, email: s.email, ev: s.emailVerified, tf: s.twoFactor }, token, env.PASS_SECRET, now());
     setCookie(c, PASS_COOKIE, fresh, { path: "/api", secure: true, httpOnly: true, sameSite: "Lax", maxAge: PASS_TTL_S });
     c.header("x-astro-pass", "refresh");
-    return { uid: s.uid, reader: s.reader, tz: s.timeZone };
+    return { uid: s.uid, reader: s.reader, tz: s.timeZone, email: s.email, emailVerified: s.emailVerified, twoFactor: s.twoFactor };
   }
 
   app.get("/health", (c) => c.json({ ok: true }));

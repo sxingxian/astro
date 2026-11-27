@@ -5,6 +5,10 @@ import type { AppVars } from "./env";
 
 type AppEnv = Omit<AppVars, "MAINTENANCE_CACHE_SECONDS">;
 
+/** How long an app sign-in lasts (30 days), refreshed at most daily (Better Auth's `updateAge`). */
+export const APP_SESSION_HOURS = 24 * 30;
+export const APP_SESSION_UPDATE_HOURS = Math.min(24, APP_SESSION_HOURS);
+
 /** The three account emails, already wired to the published wording by the caller. */
 export type AuthTemplates = MailTemplates;
 
@@ -54,7 +58,7 @@ export function authOptions(env: AppEnv, deps: AuthDeps, templates: AuthTemplate
     basePath: "/api/auth",
     homeURL: env.APP_URL,
     cookiePrefix: "astro",
-    sessionHours: 24 * 30,
+    sessionHours: APP_SESSION_HOURS,
     templates,
     // Clean the timezone before Better Auth sees the body, so new and duplicate sign-ups answer identically.
     before: async (ctx) => {
