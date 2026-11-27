@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { AppKey } from "@astro/copy";
 import { passwordHint } from "@/lib/password";
+import { useT } from "./CopyProvider";
 
 /**
  * A new password typed twice, with the strength hint on the first field. "The passwords don't match." shows while
@@ -9,7 +11,8 @@ import { passwordHint } from "@/lib/password";
  * message appearing then shifts the page under the pointer and the next click misses. Used by sign-up, the reset link
  * and Account → Change password, so all three behave the same.
  */
-export function useNewPassword({ label, confirmLabel, id }: { label: string; confirmLabel: string; id: string }) {
+export function useNewPassword({ label, confirmLabel, id }: { label: AppKey; confirmLabel: AppKey; id: string }) {
+  const t = useT();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [checking, setChecking] = useState(false);
@@ -20,12 +23,12 @@ export function useNewPassword({ label, confirmLabel, id }: { label: string; con
   const fields = (
     <>
       <div className="field">
-        <label htmlFor={id}>{label}</label>
+        <label htmlFor={id}>{t(label)}</label>
         <input id={id} type="password" autoComplete="new-password" required minLength={12} maxLength={128} className="input" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={`${id}-hint`} />
-        <p id={`${id}-hint`} className={`m-0 text-sm ${hint.ok ? "text-gold" : "text-muted"}`}>{hint.label}</p>
+        <p id={`${id}-hint`} className={`m-0 text-sm ${hint.ok ? "text-gold" : "text-muted"}`}>{t(hint.key, hint.values)}</p>
       </div>
       <div className="field">
-        <label htmlFor={`${id}-confirm`}>{confirmLabel}</label>
+        <label htmlFor={`${id}-confirm`}>{t(confirmLabel)}</label>
         <input
           ref={confirmRef}
           id={`${id}-confirm`}
@@ -39,7 +42,7 @@ export function useNewPassword({ label, confirmLabel, id }: { label: string; con
           aria-invalid={mismatch || undefined}
           aria-describedby={mismatch ? `${id}-mismatch` : undefined}
         />
-        {mismatch ? <p id={`${id}-mismatch`} className="error-text m-0 text-sm">The passwords don&apos;t match.</p> : null}
+        {mismatch ? <p id={`${id}-mismatch`} className="error-text m-0 text-sm">{t("app.common.passwords_differ")}</p> : null}
       </div>
     </>
   );

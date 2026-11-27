@@ -2,6 +2,7 @@
 
 import { CardBack } from "@astro/ui";
 import { useRef } from "react";
+import { useT } from "../CopyProvider";
 
 interface Props {
   size: number;
@@ -14,6 +15,7 @@ interface Props {
 
 /** Face-down cards as buttons: one tab stop for the group, arrow keys move between cards (roving tabindex). */
 export function Fan({ size, selected, limit, locked = false, label, onToggle }: Props) {
+  const t = useT();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const focusAt = (i: number) => refs.current[Math.max(0, Math.min(size - 1, i))]?.focus();
   const tabStop = selected[0] ?? 0;
@@ -28,7 +30,7 @@ export function Fan({ size, selected, limit, locked = false, label, onToggle }: 
             ref={(el) => { refs.current[i] = el; }}
             type="button"
             className="fan-card"
-            aria-label={`Card ${i + 1} of ${size}`}
+            aria-label={t("app.draw.card_n", { n: String(i + 1), total: String(size) })}
             aria-pressed={pressed}
             tabIndex={i === tabStop ? 0 : -1}
             disabled={locked}

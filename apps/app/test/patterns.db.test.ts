@@ -2,6 +2,7 @@ import { createDb, schema } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { computePatterns } from "@/lib/patterns";
+import { loadCopy } from "@/lib/copy";
 import { patternsCopy } from "@/lib/patterns-copy";
 
 const url = process.env.DATABASE_URL_TEST;
@@ -115,7 +116,7 @@ describe("patternsCopy", () => {
   it("names the leading element for the range", async () => {
     const u = await member("p-copy");
     for (let i = 0; i < 3; i++) await seed(u, ["two-of-cups"], { ago: i + 1 });
-    const copy = patternsCopy(await computePatterns(db, u, "30d", now), "30d");
+    const copy = patternsCopy(await computePatterns(db, u, "30d", now), "30d", await loadCopy(db, { cache: false }));
     expect(copy.elementsTitle).toBe("Water leads this month");
     expect(copy.repeatsTitle).toBe("Two of Cups has come up three times");
   });
@@ -123,7 +124,7 @@ describe("patternsCopy", () => {
   it("asks for patience with fewer than three readings", async () => {
     const u = await member("p-few");
     await seed(u, ["the-hermit"]);
-    const copy = patternsCopy(await computePatterns(db, u, "30d", now), "30d");
+    const copy = patternsCopy(await computePatterns(db, u, "30d", now), "30d", await loadCopy(db, { cache: false }));
     expect(copy.repeatsTitle).toBe("Patterns appear after a few readings");
     expect(copy.elementsTitle).toBe("Patterns appear after a few readings");
   });

@@ -6,10 +6,13 @@ import { getDb } from "@/lib/db";
 import { viewer } from "@/lib/draw/actor";
 import { DrawError } from "@/lib/draw/errors";
 import { getReading } from "@/lib/draw/service";
+import { getCopy } from "@/lib/copy";
 
-export const metadata = { title: "Verify this shuffle" };
+export async function generateMetadata() {
+  return { title: (await getCopy())("app.verify.meta") };
+}
 
-const TITLE = { single: "The deck", majors: "Major Arcana deck", minors: "Minor Arcana deck" };
+const TITLE = { single: "app.verify.deck_single", majors: "app.verify.deck_majors", minors: "app.verify.deck_minors" } as const;
 
 export default async function VerifyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,20 +26,21 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
     throw e;
   }
   if (!reading.reveal) redirect(`/reading/${id}`);
+  const t = await getCopy();
 
   return (
     <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-16 pt-8">
-      <a href={`/reading/${id}`} className="text-sm">← Back to the reading</a>
+      <a href={`/reading/${id}`} className="text-sm">{t("app.verify.back")}</a>
       <div className="flex flex-col gap-2">
-        <h1 className="m-0 font-display text-4xl font-medium">Verify this shuffle</h1>
-        <p className="m-0 leading-relaxed text-haze">Before you chose, we showed a fingerprint of each shuffled deck. Here is the full order, each card's orientation and the secret salt behind it, so you can confirm nothing changed after you picked. Your browser does the check.</p>
+        <h1 className="m-0 font-display text-4xl font-medium">{t("app.verify.title")}</h1>
+        <p className="m-0 leading-relaxed text-haze">{t("app.verify.lede")}</p>
       </div>
       {reading.reveal.map((r) => {
         const deck = reading.decks.find((d) => d.stage === r.stage);
         if (!deck) return null;
-        return <VerifyCheck key={r.stage} title={TITLE[r.stage]} order={r.order} names={r.order.map((cid) => getCard(cid).name)} orientations={r.orientations} salt={r.salt} fingerprint={deck.fingerprint} picks={deck.picks} />;
+        return <VerifyCheck key={r.stage} title={t(TITLE[r.stage])} order={r.order} names={r.order.map((cid) => getCard(cid).name)} orientations={r.orientations} salt={r.salt} fingerprint={deck.fingerprint} picks={deck.picks} />;
       })}
-      <p className="m-0 text-xs text-muted">The order and salt are only revealed after a reading is complete, so they can't be used to see cards in advance.</p>
+      <p className="m-0 text-xs text-muted">{t("app.verify.footnote")}</p>
     </div>
   );
 }

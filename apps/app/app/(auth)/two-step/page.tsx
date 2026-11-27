@@ -1,11 +1,15 @@
 import { AuthShell } from "@/components/AuthShell";
 import { TwoStepChallenge } from "@/components/TwoStepChallenge";
+import { getCopy } from "@/lib/copy";
 
-export const metadata = { title: "2-step sign-in" };
+export async function generateMetadata() {
+  return { title: (await getCopy())("app.two_step.meta") };
+}
 
-export default function TwoStepPage() {
+export default async function TwoStepPage() {
+  const t = await getCopy();
   return (
-    <AuthShell title="Enter your code" lede="Open your authenticator app and enter the 6-digit code for Astro." footer={<a href="/sign-in">Start again</a>}>
+    <AuthShell title={t("app.two_step.title")} lede={t("app.two_step.lede")} footer={<a href="/sign-in">{t("app.two_step.start_again")}</a>}>
       <TwoStepChallenge />
     </AuthShell>
   );

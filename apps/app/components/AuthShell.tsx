@@ -17,10 +17,10 @@ export function AuthShell({ title, lede, children, footer }: { title: string; le
   );
 }
 
-export function CheckEmail({ lede }: { lede: string }) {
+export function CheckEmail({ title, lede, note, back }: { title: string; lede: string; note: string; back: string }) {
   return (
-    <AuthShell title="Check your email" lede={lede} footer={<a href="/sign-in">Back to sign in</a>}>
-      <p className="m-0 text-sm text-muted">The link expires in one hour. If nothing arrives, check your spam folder.</p>
+    <AuthShell title={title} lede={lede} footer={<a href="/sign-in">{back}</a>}>
+      <p className="m-0 text-sm text-muted">{note}</p>
     </AuthShell>
   );
 }

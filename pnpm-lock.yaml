@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../../packages/copy
       '@astro/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -105,6 +108,9 @@ importers:
       '@astro/cards':
         specifier: workspace:*
         version: link:../../packages/cards
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../../packages/copy
       '@astro/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -400,6 +406,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../copy
       '@astro/db':
         specifier: workspace:*
         version: link:../db

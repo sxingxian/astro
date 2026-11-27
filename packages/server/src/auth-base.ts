@@ -20,9 +20,9 @@ export interface AuthDeps {
 }
 
 export interface MailTemplates {
-  verifyEmail(to: string, url: string): Mail;
-  resetPassword(to: string, url: string): Mail;
-  alreadyRegistered(to: string, signInUrl: string): Mail;
+  verifyEmail(to: string, url: string): Mail | Promise<Mail>;
+  resetPassword(to: string, url: string): Mail | Promise<Mail>;
+  alreadyRegistered(to: string, signInUrl: string): Mail | Promise<Mail>;
 }
 
 /** Where a Better Auth instance runs. The app and the admin portal share accounts but never sessions. */
@@ -92,15 +92,15 @@ export function buildAuthOptions(env: BaseAuthEnv, { db, sendMail, waitUntil }: 
       resetPasswordTokenExpiresIn: 3600,
       // bcrypt runs in Postgres so the Worker stays under the Workers Free plan's 10 ms CPU per request.
       password: createPasswordHasher(db),
-      sendResetPassword: async ({ user, url }) => sendMail(surface.templates.resetPassword(user.email, url)),
-      onExistingUserSignUp: async ({ user }) => sendMail(surface.templates.alreadyRegistered(user.email, signIn))
+      sendResetPassword: async ({ user, url }) => sendMail(await surface.templates.resetPassword(user.email, url)),
+      onExistingUserSignUp: async ({ user }) => sendMail(await surface.templates.alreadyRegistered(user.email, signIn))
     },
     emailVerification: {
       sendOnSignUp: true,
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       expiresIn: 3600,
-      sendVerificationEmail: async ({ user, url }) => sendMail(surface.templates.verifyEmail(user.email, url))
+      sendVerificationEmail: async ({ user, url }) => sendMail(await surface.templates.verifyEmail(user.email, url))
     },
     session: {
       expiresIn: surface.sessionHours * 3600,

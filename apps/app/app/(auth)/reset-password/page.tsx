@@ -1,18 +1,22 @@
 import { AuthShell } from "@/components/AuthShell";
 import { ResetForm } from "@/components/ResetForm";
+import { getCopy } from "@/lib/copy";
 
-export const metadata = { title: "Choose a new password" };
+export async function generateMetadata() {
+  return { title: (await getCopy())("app.reset.meta") };
+}
 
 export default async function ResetPage({ searchParams }: { searchParams: Promise<{ token?: string; error?: string }> }) {
   const { token, error } = await searchParams;
+  const t = await getCopy();
   if (!token || error)
     return (
-      <AuthShell title="This link has expired" lede="Reset links work once and expire after an hour." footer={<a href="/sign-in">Back to sign in</a>}>
-        <a className="btn-gold" href="/forgot-password">Send a new link</a>
+      <AuthShell title={t("app.reset.expired_title")} lede={t("app.reset.expired_lede")} footer={<a href="/sign-in">{t("app.common.back_to_sign_in")}</a>}>
+        <a className="btn-gold" href="/forgot-password">{t("app.reset.send_new")}</a>
       </AuthShell>
     );
   return (
-    <AuthShell title="Choose a new password" lede="Use at least 12 characters. A short sentence works well.">
+    <AuthShell title={t("app.reset.title")} lede={t("app.reset.lede")}>
       <ResetForm token={token} />
     </AuthShell>
   );

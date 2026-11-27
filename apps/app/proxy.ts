@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp, securityHeaders } from "./lib/csp";
 import { getEnv } from "./lib/env";
-import { makeMaintenanceCheck, maintenanceHtml, readMaintenanceFlag } from "./lib/maintenance";
+import { makeMaintenanceCheck, maintenanceHtml, NOT_PAUSED, readMaintenance } from "./lib/maintenance";
 
 /** One check per isolate. The read uses whichever connection string the first request saw (it never changes). */
 let connection = "";
-const isMaintenance = makeMaintenanceCheck(() => readMaintenanceFlag(connection));
+const isMaintenance = makeMaintenanceCheck(() => readMaintenance(connection), NOT_PAUSED);
 const MAINTENANCE_TIMEOUT_MS = 1500;
 
 /** Paths that keep working while the app is paused. */
@@ -17,11 +17,12 @@ async function paused(request: NextRequest): Promise<NextResponse | null> {
   if (ALWAYS_ON.has(path)) return null;
   const env = getEnv();
   connection = env.HYPERDRIVE.connectionString;
-  if (!(await isMaintenance(env.MAINTENANCE_CACHE_SECONDS, MAINTENANCE_TIMEOUT_MS))) return null;
+  const state = await isMaintenance(env.MAINTENANCE_CACHE_SECONDS, MAINTENANCE_TIMEOUT_MS);
+  if (!state.on) return null;
   const headers = { "retry-after": "300", "cache-control": "no-store" };
   return path.startsWith("/api/")
     ? NextResponse.json({ error: "maintenance" }, { status: 503, headers })
-    : new NextResponse(maintenanceHtml(), { status: 503, headers: { ...headers, "content-type": "text/html; charset=utf-8" } });
+    : new NextResponse(maintenanceHtml(state), { status: 503, headers: { ...headers, "content-type": "text/html; charset=utf-8" } });
 }
 
 /** Sets a fresh CSP nonce and the security headers on every page and API response. */

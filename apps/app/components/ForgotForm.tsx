@@ -2,77 +2,43 @@
 
 import { useCallback, useState } from "react";
 import { AuthShell, CheckEmail, FormError } from "./AuthShell";
+import { useT } from "./CopyProvider";
 import { Turnstile } from "./Turnstile";
 import { postJson } from "@/lib/client";
 
-export function ForgotForm({
-  mode,
-  siteKey,
-}: {
-  mode: "on" | "off";
-  siteKey: string;
-}) {
+export function ForgotForm({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
+  const t = useT();
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const onToken = useCallback((t: string) => setToken(t), []);
+  const onToken = useCallback((tok: string) => setToken(tok), []);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    if (mode === "on" && !token)
-      return setError("Please complete the check above.");
+    if (mode === "on" && !token) return setError(t("app.common.complete_check"));
     setBusy(true);
     setError(null);
-    const res = await postJson(
-      "/api/auth/request-password-reset",
-      {
-        email: String(form.get("email") ?? "").trim(),
-        redirectTo: "/reset-password",
-      },
-      token ? { "x-captcha-response": token } : {},
-    );
+    const res = await postJson("/api/auth/request-password-reset", { email: String(form.get("email") ?? "").trim(), redirectTo: "/reset-password" }, token ? { "x-captcha-response": token } : {});
     setBusy(false);
     if (res.ok) return setSent(true);
-    if (res.status === 429)
-      return setError("Too many attempts. Please wait a minute and try again.");
-    setError("Something went wrong. Please try again.");
+    if (res.status === 429) return setError(t("app.common.too_many"));
+    setError(t("app.common.went_wrong"));
   }
 
-  if (sent)
-    return (
-      <CheckEmail lede="If an account uses that email, we've sent a link to reset its password." />
-    );
+  if (sent) return <CheckEmail title={t("app.common.check_email_title")} lede={t("app.forgot.sent")} note={t("app.common.check_email_note")} back={t("app.common.back_to_sign_in")} />;
+
   return (
-    <AuthShell
-      title="Reset your password"
-      lede="Enter your email and we'll send you a link to choose a new password."
-      footer={<a href="/sign-in">Back to sign in</a>}
-    >
+    <AuthShell title={t("app.forgot.title")} lede={t("app.forgot.lede")} footer={<a href="/sign-in">{t("app.common.back_to_sign_in")}</a>}>
       <form onSubmit={submit} className="flex flex-col gap-5">
         <div className="field">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            maxLength={254}
-            className="input"
-          />
+          <label htmlFor="email">{t("app.common.email")}</label>
+          <input id="email" name="email" type="email" autoComplete="email" required maxLength={254} className="input" />
         </div>
-        <Turnstile
-          mode={mode}
-          siteKey={siteKey}
-          action="reset"
-          onToken={onToken}
-        />
+        <Turnstile mode={mode} siteKey={siteKey} action="reset" onToken={onToken} />
         <FormError message={error} />
-        <button type="submit" className="btn-gold w-full" disabled={busy}>
-          {busy ? "Sending…" : "Send reset link"}
-        </button>
+        <button type="submit" className="btn-gold w-full" disabled={busy}>{busy ? t("app.forgot.button_busy") : t("app.forgot.button")}</button>
       </form>
     </AuthShell>
   );

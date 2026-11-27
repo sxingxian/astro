@@ -79,6 +79,16 @@ describe("admin portal tables", () => {
     expect(r?.r).toBe("invalid");
   });
 
+  it("lets the app read published wording but never write it; the portal publishes but never edits history", async () => {
+    await as("astro_web", (tx) => tx`select id from text_version limit 1`);
+    await as("astro_web", (tx) => tx`select id from text_preview limit 1`);
+    await expect(as("astro_web", (tx) => tx`insert into text_version (kind, snapshot) values ('app', '{}')`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_web", (tx) => tx`select key from text_override`)).rejects.toThrow(/permission denied/i);
+    await as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values ('app', '{}')`);
+    await expect(as("astro_admin", (tx) => tx`update text_version set note = 'x'`)).rejects.toThrow(/permission denied/i);
+    await expect(as("astro_admin", (tx) => tx`delete from text_version`)).rejects.toThrow(/permission denied/i);
+  });
+
   it("gives astro_admin no way to create accounts, overwrite passwords or read people's cards", async () => {
     await expect(as("astro_admin", (tx) => tx`insert into "user" (id, name, email) values ('z', 'z', 'z@example.com')`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_admin", (tx) => tx`update account set password = 'x'`)).rejects.toThrow(/permission denied/i);

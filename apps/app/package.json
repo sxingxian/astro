@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@astro/cards": "workspace:*",
+    "@astro/copy": "workspace:*",
     "@astro/db": "workspace:*",
     "@astro/draw": "workspace:*",
     "@astro/meanings": "workspace:*",

@@ -1,7 +1,10 @@
 import { ForgotForm } from "@/components/ForgotForm";
+import { getCopy } from "@/lib/copy";
 import { getEnv } from "@/lib/env";
 
-export const metadata = { title: "Reset your password" };
+export async function generateMetadata() {
+  return { title: (await getCopy())("app.forgot.meta") };
+}
 
 export default function ForgotPage() {
   const env = getEnv();
