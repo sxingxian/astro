@@ -1,6 +1,6 @@
 import { nextLocalMidnight } from "@astro/draw";
 import { headers } from "next/headers";
-import { TabBar } from "@/components/TabBar";
+import { AppShell } from "@/components/AppShell";
 import { getCopy, type T } from "@/lib/copy";
 import { getDb } from "@/lib/db";
 import { viewer } from "@/lib/draw/actor";
@@ -43,6 +43,7 @@ export default async function TodayPage() {
   const t = await getCopy();
 
   return (
+    <AppShell current="today">
     <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8">
       <header className="flex items-center justify-between">
         <span className="flex items-center gap-2.5">
@@ -72,7 +73,7 @@ export default async function TodayPage() {
       />
       {user ? null : <p className="m-0 text-sm text-muted">{t("app.today.guest_note")}</p>}
       <p className="m-0 text-xs text-muted">{t("app.today.disclaimer")}</p>
-      <TabBar current="/today" />
     </div>
+    </AppShell>
   );
 }

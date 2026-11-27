@@ -93,9 +93,14 @@ export const app = {
   "app.meta.description": { group: "Every page", label: "Search description", where: "Page metadata (the app isn't indexed)", default: "Your daily tarot reading, drawn fairly.", max: 160 },
   "app.layout.skip": { group: "Every page", label: "Skip link", where: "First thing a keyboard user reaches", default: "Skip to content", max: S },
   "app.tabs.label": { group: "Every page", label: "Tab bar name (screen readers)", where: "Read aloud by screen readers", default: "App", max: S },
+  "app.nav.label": { group: "Every page", label: "Side menu name (screen readers)", where: "Desktop side menu, read aloud by screen readers", default: "Main menu", max: S },
+  "app.nav.patterns": { group: "Every page", label: "Side menu: Patterns", where: "Desktop side menu", default: "Patterns", max: 20 },
+  "app.nav.reader": { group: "Every page", label: "Side menu: reader section", where: "Desktop side menu, readers only", default: "Reader", max: 20 },
+  "app.nav.my_log": { group: "Every page", label: "Side menu: My log", where: "Desktop side menu, readers only", default: "My log", max: 20 },
   "app.tabs.today": { group: "Every page", label: "Tab: Today", where: "Bottom tab bar", default: "Today", max: 20 },
   "app.tabs.journal": { group: "Every page", label: "Tab: Journal", where: "Bottom tab bar", default: "Journal", max: 20 },
-  "app.tabs.deeper": { group: "Every page", label: "Tab: Go deeper", where: "Bottom tab bar", default: "Go deeper", max: 20 },
+  "app.tabs.ask": { group: "Every page", label: "Tab: Ask", where: "Bottom tab bar and side menu", default: "Ask", max: 20 },
+  "app.tabs.desk": { group: "Every page", label: "Tab: Desk (readers)", where: "Bottom tab bar, readers only", default: "Desk", max: 20 },
   "app.tabs.account": { group: "Every page", label: "Tab: Account", where: "Bottom tab bar", default: "Account", max: 20 },
 
   // Today
@@ -395,5 +400,18 @@ export const app = {
   "app.legal.guidelines_meta": { group: "Legal pages", label: "Reader guidelines: page title", where: "Browser tab", default: "Reader guidelines", max: S },
   "app.draw.fan_hint": { group: "Drawing", label: "Fan: how to pick", where: "Above the fan of cards", default: "Slide your finger across the fan", max: M },
   "app.draw.fan_focus": { group: "Drawing", label: "Fan: card under the finger", where: "Above the fan of cards", default: "Card {n} of {total} · tap it to pick", max: M },
-  "app.draw.fan_focus_picked": { group: "Drawing", label: "Fan: picked card under the finger", where: "Above the fan of cards", default: "Card {n} of {total} · picked, tap to put back", max: M }
+  "app.draw.fan_focus_picked": { group: "Drawing", label: "Fan: picked card under the finger", where: "Above the fan of cards", default: "Card {n} of {total} · picked, tap to put back", max: M },
+  // Ask (coming soon until paid readings open)
+  "app.ask.meta": { group: "Ask", label: "Page title", where: "Browser tab", default: "Ask", max: S },
+  "app.ask.eyebrow": { group: "Ask", label: "Label above the heading", where: "Top of the page", default: "Ask the cards", max: S },
+  "app.ask.soon": { group: "Ask", label: "Coming soon badge", where: "Next to the label", default: "Coming soon", max: 20 },
+  "app.ask.title": { group: "Ask", label: "Heading", where: "Top of the page", default: "Bring one question. Choose AI or a real reader.", max: M },
+  "app.ask.lede": { group: "Ask", label: "Introduction", where: "Under the heading", default: "A paid reading for one question, separate from your free daily draws.", max: L },
+  "app.ask.ai_title": { group: "Ask", label: "AI reading: title", where: "First option", default: "AI reading", max: S },
+  "app.ask.ai_text": { group: "Ask", label: "AI reading: text", where: "First option", default: "You pick the cards. One AI writes your reading, and two other AI services check it against your cards and the card meanings.", max: L },
+  "app.ask.reader_title": { group: "Ask", label: "Real reader: title", where: "Second option", default: "A real reader", max: S },
+  "app.ask.reader_text": { group: "Ask", label: "Real reader: text", where: "Second option", default: "A vetted reader draws the cards for you from a sealed, verifiable shuffle and writes back within 48 hours.", max: L },
+  "app.ask.guest_cta": { group: "Ask", label: "Guests: sign-up button", where: "Bottom of the page, guests", default: "Create a free account", max: S },
+  "app.ask.guest_note": { group: "Ask", label: "Guests: note", where: "Bottom of the page, guests", default: "Questions will need a free account.", max: M },
+  "app.ask.member_note": { group: "Ask", label: "Members: note", where: "Bottom of the page, signed in", default: "We'll let you know when it opens.", max: M }
 } as const satisfies Record<`app.${string}`, EntrySpec>;

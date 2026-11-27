@@ -3,7 +3,7 @@ import { CardFace } from "@astro/ui";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { JournalSwitch } from "@/components/journal/JournalSwitch";
-import { TabBar } from "@/components/TabBar";
+import { AppShell } from "@/components/AppShell";
 import { getSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { computePatterns, type PatternRange } from "@/lib/patterns";
@@ -46,6 +46,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Pro
   ];
 
   return (
+    <AppShell current="patterns">
     <div className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8">
       <div className="flex items-baseline justify-between">
         <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
@@ -109,7 +110,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Pro
       </Panel>
 
       <p className="m-0 text-xs leading-relaxed text-muted">{t("app.patterns.footer")}</p>
-      <TabBar current="/journal" />
     </div>
+    </AppShell>
   );
 }

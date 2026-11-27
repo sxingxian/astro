@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { JournalSwitch } from "@/components/journal/JournalSwitch";
-import { TabBar } from "@/components/TabBar";
+import { AppShell } from "@/components/AppShell";
 import { getCopy } from "@/lib/copy";
 import { getSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -26,6 +26,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const t = await getCopy();
 
   return (
+    <AppShell current="journal">
     <div className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8">
       <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
       <JournalSwitch current="readings" />
@@ -53,7 +54,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
         </ul>
       )}
       {nextCursor ? <a className="btn-ghost" href={`/journal?${new URLSearchParams({ ...(filter === "all" ? {} : { filter }), cursor: nextCursor })}`}>{t("app.journal.older")}</a> : null}
-      <TabBar current="/journal" />
     </div>
+    </AppShell>
   );
 }

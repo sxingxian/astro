@@ -26,7 +26,7 @@ test("Patterns waits for a few readings before drawing conclusions", async ({ pa
   await page.getByRole("button", { name: "Turn the card" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   await page.goto("/journal");
-  await page.getByRole("link", { name: "Patterns" }).click();
+  await page.getByRole("navigation", { name: "Journal view" }).getByRole("link", { name: "Patterns" }).click();
   await expect(page).toHaveURL(/\/journal\/patterns/);
   await expect(page.getByRole("heading", { name: "Patterns appear after a few readings" }).first()).toBeVisible();
   await expect(page.getByText("1 reading", { exact: true })).toBeVisible();

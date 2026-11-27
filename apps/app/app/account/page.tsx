@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChangePassword, CheckInsToggle, DeleteAccount, RevokeSession, SignOutButton, TimeZoneForm } from "@/components/account/Forms";
 import { TwoStepSetup } from "@/components/account/TwoStepSetup";
-import { TabBar } from "@/components/TabBar";
+import { AppShell } from "@/components/AppShell";
 import { getCopy, type T } from "@/lib/copy";
 import { getSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -42,6 +42,7 @@ export default async function AccountPage() {
   const t = await getCopy();
 
   return (
+    <AppShell current="account">
     <div className="mx-auto flex max-w-[560px] flex-col gap-7 px-5 pb-32 pt-8">
       <header className="flex items-center gap-4">
         <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-nebula font-display text-2xl text-gold">{user.name.slice(0, 1).toUpperCase()}</span>
@@ -77,7 +78,7 @@ export default async function AccountPage() {
       </Group>
 
       <SignOutButton />
-      <TabBar current="/account" />
     </div>
+    </AppShell>
   );
 }
