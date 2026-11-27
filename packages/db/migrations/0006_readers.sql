@@ -59,6 +59,28 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
+-- Whether the person who sent an invite or offer may, right now, give what it carries to p_user_id: they must still be
+-- the owner or an admin; only the owner gives the admin role; and only the owner makes anyone both staff and a reader,
+-- whichever of the two comes first. Checked when the role is accepted, so a sender who lost their role can't grant.
+-- Returns 'ok', 'staff_reader_owner_only' or 'invalid'. Internal: only called by the accept functions below.
+CREATE OR REPLACE FUNCTION sender_may_grant(p_sender text, p_user_id text, p_portal text, p_reader boolean) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  s text;
+BEGIN
+  SELECT role INTO s FROM staff_role WHERE user_id = p_sender AND revoked_at IS NULL;
+  IF s IS NULL OR s NOT IN ('owner', 'admin') THEN RETURN 'invalid'; END IF;
+  IF s = 'owner' THEN RETURN 'ok'; END IF;
+  IF p_portal = 'admin' THEN RETURN 'invalid'; END IF;
+  IF (p_reader OR EXISTS (SELECT 1 FROM reader_role WHERE user_id = p_user_id AND revoked_at IS NULL))
+     AND (p_portal IS NOT NULL OR EXISTS (SELECT 1 FROM staff_role WHERE user_id = p_user_id AND revoked_at IS NULL)) THEN
+    RETURN 'staff_reader_owner_only';
+  END IF;
+  RETURN 'ok';
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION sender_may_grant(text, text, text, boolean) FROM PUBLIC;--> statement-breakpoint
 REVOKE ALL ON FUNCTION current_guidelines_version() FROM PUBLIC;--> statement-breakpoint
 REVOKE ALL ON FUNCTION grant_reader_role(text, text, bigint) FROM PUBLIC;--> statement-breakpoint
 -- Accepting an invite, as one checked step (replaces 0003's version). A reader invite now writes reader_role, so the
@@ -69,6 +91,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   inv invite%ROWTYPE;
   u record;
+  verdict text;
 BEGIN
   SELECT * INTO inv FROM invite WHERE token_hash = p_token_hash FOR UPDATE;
   IF NOT FOUND OR inv.accepted_at IS NOT NULL OR inv.revoked_at IS NOT NULL THEN RETURN 'invalid'; END IF;
@@ -77,11 +100,9 @@ BEGIN
   IF NOT FOUND OR u.disabled_at IS NOT NULL THEN RETURN 'invalid'; END IF;
   IF lower(u.email) <> lower(inv.email) THEN RETURN 'wrong_email'; END IF;
   IF NOT u.two_factor_enabled THEN RETURN 'two_step_required'; END IF;
+  verdict := sender_may_grant(inv.invited_by, p_user_id, CASE WHEN inv.role = 'reader' THEN NULL ELSE inv.role END, inv.role = 'reader');
+  IF verdict <> 'ok' THEN RETURN verdict; END IF;
   IF inv.role = 'reader' THEN
-    IF EXISTS (SELECT 1 FROM staff_role WHERE user_id = p_user_id AND revoked_at IS NULL)
-       AND NOT EXISTS (SELECT 1 FROM staff_role WHERE user_id = inv.invited_by AND role = 'owner' AND revoked_at IS NULL) THEN
-      RETURN 'staff_reader_owner_only';
-    END IF;
     IF p_guidelines IS DISTINCT FROM current_guidelines_version() THEN RETURN 'guidelines_changed'; END IF;
     IF NOT grant_reader_role(p_user_id, inv.invited_by, p_guidelines) THEN RETURN 'has_role'; END IF;
   ELSE
@@ -99,7 +120,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   o role_offer%ROWTYPE;
   u record;
-  is_staff boolean;
+  verdict text;
 BEGIN
   SELECT * INTO o FROM role_offer WHERE id = p_offer_id FOR UPDATE;
   IF NOT FOUND OR o.user_id <> p_user_id OR o.accepted_at IS NOT NULL OR o.revoked_at IS NOT NULL THEN RETURN 'invalid'; END IF;
@@ -107,11 +128,9 @@ BEGIN
   SELECT two_factor_enabled, disabled_at INTO u FROM "user" WHERE id = p_user_id;
   IF NOT FOUND OR u.disabled_at IS NOT NULL THEN RETURN 'invalid'; END IF;
   IF NOT u.two_factor_enabled THEN RETURN 'two_step_required'; END IF;
-  is_staff := o.portal_role IS NOT NULL OR EXISTS (SELECT 1 FROM staff_role WHERE user_id = p_user_id AND revoked_at IS NULL);
+  verdict := sender_may_grant(o.offered_by, p_user_id, o.portal_role, o.reader);
+  IF verdict <> 'ok' THEN RETURN verdict; END IF;
   IF o.reader THEN
-    IF is_staff AND NOT EXISTS (SELECT 1 FROM staff_role WHERE user_id = o.offered_by AND role = 'owner' AND revoked_at IS NULL) THEN
-      RETURN 'staff_reader_owner_only';
-    END IF;
     IF p_guidelines IS DISTINCT FROM current_guidelines_version() THEN RETURN 'guidelines_changed'; END IF;
     IF EXISTS (SELECT 1 FROM reader_role WHERE user_id = p_user_id AND revoked_at IS NULL) THEN RETURN 'has_role'; END IF;
   END IF;

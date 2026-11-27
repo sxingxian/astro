@@ -40,3 +40,14 @@ test("the owner writes Terms in the Notion-style editor and publishes only that 
   const [appAfter] = await sql<{ n: number }[]>`select count(*)::int as n from text_version where kind = 'app'`;
   expect(appAfter!.n).toBe(appBefore!.n);
 });
+
+test("a real-length legal document (well over 5,000 characters) saves as a draft", async ({ context, baseURL }) => {
+  const owner = await seedPerson({ email: `owner-longlegal-${Date.now()}@example.com`, role: "owner", twoStep: true });
+  await signInAs(context, baseURL, owner.id);
+  const para = "We keep only what we need to run Astro, and we never sell it. ".repeat(6);
+  const doc = JSON.stringify({ v: 1, blocks: Array.from({ length: 80 }, (_, i) => ({ t: i % 10 === 0 ? "h2" : "p", c: [{ t: "text", text: i % 10 === 0 ? `Section ${i / 10 + 1}` : para }] })) });
+  expect(doc.length).toBeGreaterThan(25_000);
+  const res = await context.request.post("/admin/api/text/draft", { data: { key: "legal.privacy", value: doc }, headers: { origin: new URL(baseURL ?? "").origin } });
+  expect(res.status()).toBe(200);
+  await context.request.post("/admin/api/text/draft", { data: { key: "legal.privacy", useDefault: true }, headers: { origin: new URL(baseURL ?? "").origin } });
+});

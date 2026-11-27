@@ -38,6 +38,8 @@ export async function offerRole(db: Db, actor: Actor, input: { userId: string; r
   const t = await holder(db, input.userId);
   if (!t) throw new HttpError(404, "not_found");
   if (!mayOffer(actor, t.staffRole !== null, input)) throw new HttpError(403, "forbidden_role");
+  // Only the owner makes a reader staff (the database checks this again when they accept).
+  if (input.portalRole && t.reader && actor.role !== "owner") throw new HttpError(403, "forbidden_role");
   if ((input.portalRole && t.staffRole) || (input.reader && t.reader)) throw new HttpError(409, "has_role");
   const expiresAt = new Date(now.getTime() + INVITE_HOURS * 3600_000);
   const [row] = await db.transaction(async (tx) => {

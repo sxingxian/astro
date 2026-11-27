@@ -1,6 +1,6 @@
 import * as OTPAuth from "otpauth";
 import { expect, type Page } from "@playwright/test";
-import { PASSWORD, signUpVerified, sql, test, uniqueEmail } from "./helpers";
+import { ownerId, PASSWORD, signUpVerified, sql, test, uniqueEmail } from "./helpers";
 
 const guidelines = (heading: string) => ({ "legal.guidelines": JSON.stringify({ v: 1, blocks: [{ t: "h2", c: [{ t: "text", text: heading }] }] }) });
 
@@ -26,7 +26,7 @@ test("an offered account accepts the reader role with the current guidelines, ge
   const email = uniqueEmail("offered");
   await signUpVerified(page, email);
   const [u] = await sql<{ id: string }[]>`select id from "user" where email = ${email}`;
-  await sql`insert into role_offer (user_id, reader, expires_at) values (${u!.id}, true, now() + interval '72 hours')`;
+  await sql`insert into role_offer (user_id, reader, offered_by, expires_at) values (${u!.id}, true, ${await ownerId()}, now() + interval '72 hours')`;
 
   // Without an authenticator the offer can't be accepted yet.
   await page.goto("/offer");

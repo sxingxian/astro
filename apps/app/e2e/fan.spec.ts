@@ -40,6 +40,22 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 640 }
   });
 }
 
+test("a quick tap inside an edge zone picks the card under it, even while the fan turns", async ({ browser }) => {
+  const ctx = await newVisitor(browser);
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openOneCard(page);
+  const box = (await stage(page).boundingBox())!;
+  const y = box.y + box.height * 0.35;
+  await page.mouse.move(box.x + 70, y, { steps: 4 });
+  await page.waitForTimeout(300); // the fan is turning under the pointer
+  await page.mouse.down();
+  await page.waitForTimeout(80);
+  await page.mouse.up();
+  await expect(page.locator('[aria-pressed="true"]')).toHaveCount(1);
+  await ctx.close();
+});
+
 test("the 22-card Majors fan works by keyboard, and only positions are sent", async ({ page }) => {
   await signUpVerified(page, uniqueEmail("fan"));
   await page.goto("/draw/three");

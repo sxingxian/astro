@@ -200,3 +200,34 @@ describe("accept_role_offer", () => {
     expect(await activeReader("u-o1")).toBe(true);
   });
 });
+
+describe("the sender's authority, checked when the role is accepted", () => {
+  let g = 0;
+  beforeAll(async () => {
+    g = Number((await sql<{ id: string }[]>`select coalesce(max(id), 0) as id from text_version where kind = 'guidelines'`)[0]!.id);
+    await person("u-x");
+    await person("u-y");
+    await person("u-z");
+    await person("u-admin2");
+    await sql`insert into staff_role (user_id, role) values ('u-admin2', 'admin')`;
+  });
+
+  it("won't let an admin make a reader staff afterwards, by offer or by invite; the owner can", async () => {
+    expect(await acceptOffer(await offer("u-x", "u-admin", { reader: true }), "u-x", g)).toBe("ok:reader");
+    expect(await acceptOffer(await offer("u-x", "u-admin", { reader: false, portal: "moderator" }), "u-x", g)).toBe("staff_reader_owner_only");
+    expect(await acceptInvite(await invite("u-x@example.com", "moderator", "u-admin"), "u-x", g)).toBe("staff_reader_owner_only");
+    const [none] = await sql<{ n: number }[]>`select count(*)::int as n from staff_role where user_id = 'u-x'`;
+    expect(none!.n).toBe(0);
+    expect(await acceptOffer(await offer("u-x", "u-owner", { reader: false, portal: "moderator" }), "u-x", g)).toBe("ok:moderator");
+  });
+
+  it("refuses an offer or invite whose sender has since lost their role, or no longer exists", async () => {
+    const offerId = await offer("u-y", "u-admin2", { reader: false, portal: "moderator" });
+    const inv = await invite("u-z@example.com", "moderator", "u-admin2");
+    await sql`update staff_role set revoked_at = now() where user_id = 'u-admin2'`;
+    expect(await acceptOffer(offerId, "u-y", g)).toBe("invalid");
+    expect(await acceptInvite(inv, "u-z", g)).toBe("invalid");
+    expect(await acceptOffer(await offer("u-y", null as unknown as string, { reader: true }), "u-y", g)).toBe("invalid");
+    expect(await acceptInvite(await invite("u-y@example.com", "admin", "u-admin"), "u-y", g)).toBe("invalid");
+  });
+});

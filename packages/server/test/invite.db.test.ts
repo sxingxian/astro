@@ -9,7 +9,7 @@ if (!url) throw new Error("DATABASE_URL_TEST is not set");
 const db = createDb(url);
 const now = new Date();
 
-async function invite(email: string, role: "admin" | "moderator" | "reader", expiresAt = new Date(now.getTime() + 72 * 3600_000), invitedBy: string | null = null) {
+async function invite(email: string, role: "admin" | "moderator" | "reader", expiresAt = new Date(now.getTime() + 72 * 3600_000), invitedBy: string | null = "own") {
   const { token, hash } = await newInviteToken();
   await db.$client`insert into invite (email, role, token_hash, invited_by, expires_at) values (${email}, ${role}, ${hash}, ${invitedBy}, ${expiresAt.toISOString()})`;
   return token;
@@ -21,6 +21,9 @@ async function person(id: string, email: string, twoStep = true) {
 
 beforeAll(async () => {
   await resetAndMigrate(url);
+  // The database checks, at accept time, that the sender may still give the role.
+  await db.$client`insert into "user" (id, name, email, email_verified) values ('own', 'own', 'own@example.com', true), ('adm', 'adm', 'adm@example.com', true)`;
+  await db.$client`insert into staff_role (user_id, role) values ('own', 'owner'), ('adm', 'admin')`;
 });
 afterAll(async () => {
   await db.$client.end();
@@ -37,14 +40,13 @@ describe("invite tokens", () => {
 
 describe("acceptInvite", () => {
   it("records who sent the invite, and survives two accepts at once", async () => {
-    await db.$client`insert into "user" (id, name, email, email_verified) values ('inviter', 'i', 'inviter@example.com', true) on conflict do nothing`;
     const { token, hash } = await newInviteToken();
-    await db.$client`insert into invite (email, role, token_hash, invited_by, expires_at) values ('race@example.com', 'reader', ${hash}, 'inviter', now() + interval '1 hour')`;
+    await db.$client`insert into invite (email, role, token_hash, invited_by, expires_at) values ('race@example.com', 'reader', ${hash}, 'adm', now() + interval '1 hour')`;
     const u = await person("race1", "race@example.com");
     const results = await Promise.all([acceptInvite(db, { token, userId: u.id }), acceptInvite(db, { token, userId: u.id })]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     const [row] = await db.$client<{ granted_by: string }[]>`select granted_by from reader_role where user_id = 'race1'`;
-    expect(row?.granted_by).toBe("inviter");
+    expect(row?.granted_by).toBe("adm");
   });
 
   it("activates the role once, for the invited email, with 2-step on", async () => {
@@ -90,9 +92,7 @@ describe("acceptInvite", () => {
   });
 
   it("makes staff readers only through the owner, and checks the guidelines version", async () => {
-    await person("own", "own@example.com");
-    await db.$client`insert into staff_role (user_id, role) values ('own', 'owner')`;
-    const notOwner = await invite("has@example.com", "reader");
+    const notOwner = await invite("has@example.com", "reader", undefined, "adm");
     expect(await acceptInvite(db, { token: notOwner, userId: "h1" })).toEqual({ ok: false, reason: "staff_reader_owner_only" });
     const [v] = await db.$client<{ id: string }[]>`insert into text_version (kind, snapshot) values ('guidelines', '{}') returning id`;
     const fromOwner = await invite("has@example.com", "reader", undefined, "own");
@@ -119,6 +119,6 @@ describe("acceptRoleOffer", () => {
   it("refuses a malformed id, someone else's offer and an admin adding the reader role to staff", async () => {
     expect(await acceptRoleOffer(db, { offerId: "nope", userId: "of2", guidelines: 0 })).toEqual({ ok: false, reason: "invalid" });
     expect(await acceptRoleOffer(db, { offerId: await offer("of1", "own", false, "moderator"), userId: "of2", guidelines: 0 })).toEqual({ ok: false, reason: "invalid" });
-    expect(await acceptRoleOffer(db, { offerId: await offer("of2", null, true, null), userId: "of2", guidelines: await guidelines() })).toEqual({ ok: false, reason: "staff_reader_owner_only" });
+    expect(await acceptRoleOffer(db, { offerId: await offer("of2", "adm", true, null), userId: "of2", guidelines: await guidelines() })).toEqual({ ok: false, reason: "staff_reader_owner_only" });
   });
 });

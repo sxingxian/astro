@@ -43,6 +43,8 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
   const [reduced, setReduced] = useState(false);
   const pressed = useRef(false);
   const focusAtDown = useRef(-1);
+  // Where and when the pointer went down, and the card under it then: the fan may turn under a tap in an edge zone.
+  const down = useRef<{ x: number; y: number; t: number; card: number } | null>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
   const velocity = useRef(0);
   const live = useRef({ rot: 0, width: 390 });
@@ -157,6 +159,7 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
           focusAtDown.current = focus;
           const p = local(e);
           last.current = p;
+          down.current = p ? { x: p.x, y: p.y, t: e.timeStamp, card: cardAt(p, rot) } : null;
           if (e.pointerType !== "mouse") {
             const i = cardAt(p, rot);
             if (i >= 0) {
@@ -189,7 +192,12 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
         }}
         onClick={(e) => {
           if (e.detail === 0) return; // keyboard: handled by the card button itself
-          const i = cardAt(local(e), rot);
+          const p = local(e);
+          const d = down.current;
+          down.current = null;
+          // A tap (barely moved, quickly lifted) picks the card that was under it when it went down.
+          if (p && d && d.card >= 0 && Math.hypot(p.x - d.x, p.y - d.y) < 10 && e.timeStamp - d.t < 350) return toggle(d.card);
+          const i = cardAt(p, rot);
           if (i >= 0 && i === focusAtDown.current) toggle(i);
         }}
       >

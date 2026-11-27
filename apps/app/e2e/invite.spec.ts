@@ -1,12 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import * as OTPAuth from "otpauth";
 import { expect } from "@playwright/test";
-import { lastMail, linkIn, PASSWORD, signUp, sql, test, uniqueEmail } from "./helpers";
+import { lastMail, linkIn, ownerId, PASSWORD, signUp, sql, test, uniqueEmail } from "./helpers";
 
 async function seedInvite(email: string, role: "admin" | "moderator" | "reader") {
   const token = randomBytes(32).toString("base64url");
   const hash = createHash("sha256").update(token).digest();
-  await sql`insert into invite (email, role, token_hash, expires_at) values (${email}, ${role}, ${hash}, now() + interval '72 hours')`;
+  await sql`insert into invite (email, role, token_hash, invited_by, expires_at) values (${email}, ${role}, ${hash}, ${await ownerId()}, now() + interval '72 hours')`;
   return token;
 }
 

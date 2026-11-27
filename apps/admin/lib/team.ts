@@ -97,6 +97,11 @@ export async function createInvite(db: Db, actor: Actor, input: { email: string;
   const email = input.email.trim().toLowerCase();
   const holder = await db.execute(sql`select 1 from staff_role s join "user" u on u.id = s.user_id where lower(u.email) = ${email} and s.revoked_at is null`);
   if (holder.length > 0) throw new HttpError(409, "has_role");
+  // Only the owner makes a reader staff (the database checks this again when they accept).
+  if (input.role !== "reader" && actor.role !== "owner") {
+    const reader = await db.execute(sql`select 1 from reader_role r join "user" u on u.id = r.user_id where lower(u.email) = ${email} and r.revoked_at is null`);
+    if (reader.length > 0) throw new HttpError(403, "forbidden_role");
+  }
   const { token, hash } = await newInviteToken();
   const expiresAt = new Date(now.getTime() + INVITE_HOURS * 3600_000);
   const [row] = await db.transaction(async (tx) => {

@@ -3,7 +3,7 @@ import { resetAndMigrate } from "@astro/db/testing";
 import type { Mail } from "@astro/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addReaderToSelf, offerRole, removeReader, revokeOffer } from "@/lib/readers";
-import { listTeam } from "@/lib/team";
+import { createInvite, listTeam } from "@/lib/team";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
@@ -75,6 +75,16 @@ describe("offerRole", () => {
     await expect(revokeOffer(db, admin, pendingFromOwner.id)).rejects.toThrow(/forbidden_role/);
     expect(await revokeOffer(db, admin, r.offerId)).toMatchObject({ email: "u2@example.com" });
     expect((await offers("u2")).at(-1)!.revoked_at).not.toBeNull();
+  });
+});
+
+describe("making a reader staff", () => {
+  it("is the owner's call: an admin can't offer or invite a portal role to a reader", async () => {
+    await person("rd1");
+    await db.$client`insert into reader_role (user_id) values ('rd1')`;
+    await expect(offerRole(db, admin, { userId: "rd1", reader: false, portalRole: "moderator" }, now, deps)).rejects.toThrow(/forbidden_role/);
+    await expect(createInvite(db, admin, { email: "rd1@example.com", role: "moderator" }, now, deps)).rejects.toThrow(/forbidden_role/);
+    await offerRole(db, owner, { userId: "rd1", reader: false, portalRole: "moderator" }, now, deps);
   });
 });
 
