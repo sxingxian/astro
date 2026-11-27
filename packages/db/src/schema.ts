@@ -288,7 +288,7 @@ export const aiRoleSlot = pgTable(
 export const authSchema = { user, session, account, verification, twoFactor, rateLimit };
 
 // Text editing (plan 3, part B). Drafts per key, published snapshots per kind, and short-lived previews.
-export const TEXT_KINDS = ["landing", "app", "meanings"] as const;
+export const TEXT_KINDS = ["landing", "app", "meanings", "terms", "privacy", "guidelines"] as const;
 export type TextKind = (typeof TEXT_KINDS)[number];
 
 /** A draft override for one key (catalogue key, or "<card>.<field>" for meanings). Live only once published. */
@@ -301,7 +301,7 @@ export const textOverride = pgTable(
     updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
-  (t) => [check("text_override_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+  (t) => [check("text_override_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`)]
 );
 
 /** A published set of overrides for one kind. The newest row per kind is live; older rows are history. */
@@ -315,7 +315,7 @@ export const textVersion = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
     note: text("note")
   },
-  (t) => [check("text_version_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`), index("text_version_kind_idx").on(t.kind, t.id)]
+  (t) => [check("text_version_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`), index("text_version_kind_idx").on(t.kind, t.id)]
 );
 
 /** A draft snapshot the app shows for 30 minutes to whoever has the id (?astro-preview=<id>). */
@@ -327,5 +327,5 @@ export const textPreview = pgTable(
     snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
   },
-  (t) => [check("text_preview_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+  (t) => [check("text_preview_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings', 'terms', 'privacy', 'guidelines')`)]
 );

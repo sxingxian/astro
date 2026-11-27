@@ -36,6 +36,13 @@
       "when": 1795739086326,
       "tag": "0004_text",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795751003291,
+      "tag": "0005_legal_kinds",
+      "breakpoints": true
     }
   ]
 }

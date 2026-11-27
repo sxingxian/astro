@@ -4,7 +4,10 @@ import { and, desc, eq, schema, sql, type Db } from "@astro/db";
 import { fieldText, getMeaning, MEANING_FIELDS, type MeaningField } from "@astro/meanings";
 import { can, defaultEmailT, HttpError, type AuditEntry, type EmailT, type Role } from "@astro/server";
 
-export type TextKind = "landing" | "app" | "meanings";
+export type TextKind = "landing" | "app" | "meanings" | LegalKind;
+/** Each legal page is published on its own. */
+export type LegalKind = "terms" | "privacy" | "guidelines";
+export const LEGAL_KINDS: readonly LegalKind[] = ["terms", "privacy", "guidelines"];
 
 interface Actor {
   id: string;
@@ -31,7 +34,8 @@ const MEANING_KEY = /^([a-z0-9-]+)\.(.+)$/;
 export function entryFor(key: string): { kind: TextKind; entry: CopyEntry } | null {
   if (isCopyKey(key)) {
     const entry = catalogue[key];
-    return { kind: entry.surface === "landing" ? "landing" : "app", entry };
+    const kind: TextKind = entry.surface === "landing" ? "landing" : entry.surface === "legal" ? (key.slice("legal.".length) as LegalKind) : "app";
+    return { kind, entry };
   }
   const m = MEANING_KEY.exec(key);
   const spec = m && MEANING_FIELDS.find((f) => f.field === m[2]);

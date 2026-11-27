@@ -1,17 +1,19 @@
 import { app } from "./app.ts";
 import { email } from "./email.ts";
 import { landing } from "./landing.ts";
+import { legal } from "./legal.ts";
 import type { CopyEntry, EntrySpec, Surface } from "./types.ts";
 import { placeholdersIn } from "./validate.ts";
 
 export type LandingKey = keyof typeof landing;
 export type AppKey = keyof typeof app;
 export type EmailKey = keyof typeof email;
-export type CopyKey = LandingKey | AppKey | EmailKey;
+export type LegalKey = keyof typeof legal;
+export type CopyKey = LandingKey | AppKey | EmailKey | LegalKey;
 
 function build<K extends string>(surface: Surface, specs: Record<K, EntrySpec>): Record<K, CopyEntry> {
   return Object.fromEntries(
-    (Object.entries(specs) as [K, EntrySpec][]).map(([key, s]) => [key, { ...s, key, surface, placeholders: placeholdersIn(s.default) }])
+    (Object.entries(specs) as [K, EntrySpec][]).map(([key, s]) => [key, { ...s, key, surface, placeholders: s.format === "doc" ? [] : placeholdersIn(s.default) }])
   ) as unknown as Record<K, CopyEntry>;
 }
 
@@ -19,7 +21,8 @@ function build<K extends string>(surface: Surface, specs: Record<K, EntrySpec>):
 export const catalogue: Record<CopyKey, CopyEntry> = {
   ...build("landing", landing),
   ...build("app", app),
-  ...build("email", email)
+  ...build("email", email),
+  ...build("legal", legal)
 };
 
 export const isCopyKey = (k: string): k is CopyKey => Object.hasOwn(catalogue, k);
@@ -27,3 +30,4 @@ export const entriesFor = (surface: Surface): CopyEntry[] => Object.values(catal
 
 export type { CopyEntry, Surface } from "./types.ts";
 export { fill, placeholdersIn, resolve, validateOverride } from "./validate.ts";
+export { DOC_LIMITS, parseDoc, safeHref, type Block, type Doc, type Inline } from "./doc.ts";

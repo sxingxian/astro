@@ -89,6 +89,11 @@ describe("admin portal tables", () => {
     await expect(as("astro_admin", (tx) => tx`delete from text_version`)).rejects.toThrow(/permission denied/i);
   });
 
+  it("stores Terms, Privacy and Reader guidelines as their own published kinds", async () => {
+    for (const kind of ["terms", "privacy", "guidelines"]) await as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values (${kind}, '{}')`);
+    await expect(as("astro_admin", (tx) => tx`insert into text_version (kind, snapshot) values ('cookies', '{}')`)).rejects.toThrow(/check/i);
+  });
+
   it("gives astro_admin no way to create accounts, overwrite passwords or read people's cards", async () => {
     await expect(as("astro_admin", (tx) => tx`insert into "user" (id, name, email) values ('z', 'z', 'z@example.com')`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_admin", (tx) => tx`update account set password = 'x'`)).rejects.toThrow(/permission denied/i);

@@ -8,7 +8,7 @@ import { publish } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
 
-const body = z.object({ kind: z.enum(["landing", "app", "meanings"]), note: z.string().max(200).default(""), code: z.string().max(6).optional() });
+const body = z.object({ kind: z.enum(["landing", "app", "meanings", "terms", "privacy", "guidelines"]), note: z.string().max(200).default(""), code: z.string().max(6).optional() });
 
 /** Publishes a kind's drafts. Card meanings also need a fresh authenticator code (and the owner, checked in publish). */
 export const POST = mutation(body, async ({ request, user, body }) => {

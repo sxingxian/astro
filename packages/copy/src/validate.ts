@@ -1,3 +1,4 @@
+import { parseDoc } from "./doc.ts";
 import type { CopyEntry } from "./types.ts";
 
 /** The {name} placeholders a text uses, sorted and without repeats. */
@@ -18,7 +19,11 @@ const WEB_ADDRESS = /https?:\/\/|www\.|\b[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}\b/
  * Whether an override can replace an entry's default. Markup is allowed as plain text: every surface renders
  * wording escaped, never as HTML.
  */
-export function validateOverride(entry: CopyEntry, value: string): { ok: true } | { ok: false; reason: "too_long" | "placeholders" | "control_chars" | "invisible_chars" | "line_breaks" | "links" | "empty" } {
+export function validateOverride(entry: CopyEntry, value: string): { ok: true } | { ok: false; reason: "too_long" | "placeholders" | "control_chars" | "invisible_chars" | "line_breaks" | "links" | "empty" | "doc_invalid" | "doc_too_large" } {
+  if (entry.format === "doc") {
+    const r = parseDoc(value);
+    return r.ok ? { ok: true } : r;
+  }
   if (value.trim() === "") return { ok: false, reason: "empty" };
   if (CONTROL.test(value)) return { ok: false, reason: "control_chars" };
   if (INVISIBLE.test(value)) return { ok: false, reason: "invisible_chars" };
