@@ -286,3 +286,46 @@ export const aiRoleSlot = pgTable(
 );
 
 export const authSchema = { user, session, account, verification, twoFactor, rateLimit };
+
+// Text editing (plan 3, part B). Drafts per key, published snapshots per kind, and short-lived previews.
+export const TEXT_KINDS = ["landing", "app", "meanings"] as const;
+export type TextKind = (typeof TEXT_KINDS)[number];
+
+/** A draft override for one key (catalogue key, or "<card>.<field>" for meanings). Live only once published. */
+export const textOverride = pgTable(
+  "text_override",
+  {
+    key: text("key").primaryKey(),
+    kind: text("kind", { enum: TEXT_KINDS }).notNull(),
+    value: text("value").notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [check("text_override_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+);
+
+/** A published set of overrides for one kind. The newest row per kind is live; older rows are history. */
+export const textVersion = pgTable(
+  "text_version",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    kind: text("kind", { enum: TEXT_KINDS }).notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull(),
+    publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+    note: text("note")
+  },
+  (t) => [check("text_version_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`), index("text_version_kind_idx").on(t.kind, t.id)]
+);
+
+/** A draft snapshot the app shows for 30 minutes to whoever has the id (?astro-preview=<id>). */
+export const textPreview = pgTable(
+  "text_preview",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind", { enum: TEXT_KINDS }).notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+  },
+  (t) => [check("text_preview_kind_check", sql`${t.kind} in ('landing', 'app', 'meanings')`)]
+);

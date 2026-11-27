@@ -15,7 +15,10 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@astro/cards": "workspace:*",
+    "@astro/copy": "workspace:*",
     "@astro/db": "workspace:*",
+    "@astro/meanings": "workspace:*",
     "@astro/server": "workspace:*",
     "@astro/tokens": "workspace:*",
     "@fontsource/cormorant-garamond": "^5.3.0",

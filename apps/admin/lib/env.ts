@@ -17,7 +17,7 @@ const schema = z.object({
   /** Encrypts AI service keys (AES-256-GCM). 32 bytes as 64 hex characters. */
   AI_KEY_ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/, "AI_KEY_ENCRYPTION_KEY must be 64 hex characters"),
   AI_GATEWAY_URL: z.url(),
-  /** The landing page's Workers Builds Deploy Hook. Used from plan 3 part B. */
+  /** The landing page's Workers Builds Deploy Hook. Publishing landing text calls it. The URL is the credential. */
   LANDING_DEPLOY_HOOK_URL: z.url().optional(),
   OWNER_ALERTS: onOff.default("on")
 });
@@ -37,6 +37,7 @@ export function parseEnv(raw: Record<string, unknown>): AdminEnvVars {
     if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is required in production");
     if (!env.TURNSTILE_SECRET_KEY) throw new Error("TURNSTILE_SECRET_KEY is required in production");
     if (!env.AI_GATEWAY_URL.startsWith("https://")) throw new Error("AI_GATEWAY_URL must be https in production");
+    if (!env.LANDING_DEPLOY_HOOK_URL?.startsWith("https://")) throw new Error("LANDING_DEPLOY_HOOK_URL is required in production");
   }
   if (env.TURNSTILE_MODE === "on" && !env.TURNSTILE_SECRET_KEY) throw new Error("TURNSTILE_SECRET_KEY is required when TURNSTILE_MODE=on");
   return env;

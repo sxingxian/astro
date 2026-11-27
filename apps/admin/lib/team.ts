@@ -1,5 +1,5 @@
 import { and, eq, isNull, schema, sql, type Db } from "@astro/db";
-import { canGrant, HttpError, INVITE_HOURS, inviteEmail, newInviteToken, type Mail, type Role } from "@astro/server";
+import { canGrant, HttpError, INVITE_HOURS, inviteEmail, newInviteToken, type EmailT, type Mail, type Role } from "@astro/server";
 
 export interface Actor {
   id: string;
@@ -9,6 +9,8 @@ export interface Actor {
 interface InviteDeps {
   sendMail: (m: Mail) => Promise<void>;
   appUrl: string;
+  /** The published email wording; defaults when left out. */
+  emailT?: EmailT;
 }
 
 export interface TeamMember {
@@ -82,7 +84,7 @@ export async function createInvite(db: Db, actor: Actor, input: { email: string;
     return tx.insert(schema.invite).values({ email, role: input.role, tokenHash: hash, invitedBy: actor.id, expiresAt }).returning({ id: schema.invite.id });
   });
   // The token goes after "#", which browsers never send to a server, so it stays out of request logs.
-  await deps.sendMail(inviteEmail(email, input.role, `${deps.appUrl}/invite#${token}`, expiresAt));
+  await deps.sendMail(inviteEmail(email, input.role, `${deps.appUrl}/invite#${token}`, expiresAt, deps.emailT));
   return { inviteId: row!.id, expiresAt };
 }
 

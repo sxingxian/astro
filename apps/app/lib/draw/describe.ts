@@ -1,6 +1,7 @@
 import { getCard, type Card } from "@astro/cards";
-import { getMeaning, type Meaning } from "@astro/meanings";
+import type { Meaning } from "@astro/meanings";
 import type { Orientation } from "@astro/draw";
+import type { T } from "../copy";
 
 export interface CardText {
   card: Card;
@@ -12,12 +13,15 @@ export interface CardText {
   line: string;
 }
 
-const element: Record<Card["element"], string> = { fire: "Fire", water: "Water", air: "Air", earth: "Earth" };
+const ELEMENT = { fire: "app.card.fire", water: "app.card.water", air: "app.card.air", earth: "app.card.earth" } as const;
 
-/** Everything the reveal shows for one drawn card, in its orientation. Server-only: meanings never ship to the browser. */
-export function describe(cardId: string, orientation: Orientation): CardText {
+/**
+ * Everything the reveal shows for one drawn card, in its orientation, with the published wording (t) and card
+ * meanings (meaningOf, from getMeanings()). Server-only: meanings never ship to the browser.
+ */
+export function describe(cardId: string, orientation: Orientation, t: T, meaningOf: (cardId: string) => Meaning): CardText {
   const card = getCard(cardId);
-  const meaning = getMeaning(cardId);
+  const meaning = meaningOf(cardId);
   const reversed = orientation === "reversed";
   return {
     card,
@@ -25,7 +29,7 @@ export function describe(cardId: string, orientation: Orientation): CardText {
     orientation,
     reversed,
     side: reversed ? meaning.reversed : meaning.upright,
-    title: reversed ? `${card.name}, reversed` : card.name,
-    line: `${reversed ? "Reversed" : "Upright"} · ${card.arcana === "major" ? "Major Arcana" : "Minor Arcana"} · ${element[card.element]}`
+    title: reversed ? t("app.card.reversed_title", { name: card.name }) : card.name,
+    line: `${t(reversed ? "app.card.reversed" : "app.card.upright")} · ${t(card.arcana === "major" ? "app.card.major" : "app.card.minor")} · ${t(ELEMENT[card.element])}`
   };
 }

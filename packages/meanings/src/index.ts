@@ -7,6 +7,7 @@ import type { Meaning } from "./types";
 import { wands } from "./wands";
 
 export type { Meaning, Side } from "./types";
+export { applyOverrides, fieldText, MEANING_FIELDS, type MeaningField } from "./fields";
 
 const modules: Meaning[] = [...majors, ...wands, ...cups, ...swords, ...pentacles];
 

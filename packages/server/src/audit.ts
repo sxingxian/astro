@@ -21,7 +21,10 @@ export const AUDIT_ACTIONS = {
   "ai.key_change": ["serviceId", "provider", "last4"],
   "ai.test": ["serviceId", "ok", "ms", "failure"],
   "ai.roles": ["companies", "warning"],
-  "audit.export": ["rows"]
+  "audit.export": ["rows"],
+  "text.publish": ["kind", "version", "changes"],
+  "text.restore": ["kind", "version", "from"],
+  "text.rebuild": ["version", "status"]
 } as const satisfies Record<string, readonly string[]>;
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS;

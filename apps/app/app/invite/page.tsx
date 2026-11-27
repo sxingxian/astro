@@ -1,9 +1,12 @@
 import { headers } from "next/headers";
 import { InviteAccept } from "@/components/InviteAccept";
 import { getSessionUser } from "@/lib/auth";
+import { getCopy } from "@/lib/copy";
 import { getEnv } from "@/lib/env";
 
-export const metadata = { title: "Accept invitation" };
+export async function generateMetadata() {
+  return { title: (await getCopy())("app.invite.meta") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function InvitePage() {

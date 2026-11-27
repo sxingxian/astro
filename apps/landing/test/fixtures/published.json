@@ -1,0 +1,1 @@
+{ "version": 7, "overrides": { "landing.hero.title": "Each night,\na new card.", "landing.hero.note": "<script>alert(1)</script>" } }

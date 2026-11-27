@@ -20,7 +20,7 @@ export type StartOutcome =
   | { kind: "done"; sessionId: string }
   | { kind: "needs-check" }
   | { kind: "sign-up" }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: "app.draw.guest_limit" | "app.draw.shuffle_failed" };
 
 export async function startReading(spread: "one" | "three", turnstileToken?: string): Promise<StartOutcome> {
   const res = await postJson<StartState & { sessionId?: string }>("/api/draw/start", { spread, timeZone: localTimeZone(), turnstileToken });
@@ -28,8 +28,8 @@ export async function startReading(spread: "one" | "three", turnstileToken?: str
   if (res.status === 409 && res.data.error === "daily_limit" && res.data.sessionId) return { kind: "done", sessionId: res.data.sessionId };
   if (res.status === 403 && res.data.error === "verification_failed") return { kind: "needs-check" };
   if (res.status === 403 && res.data.error === "guest_spread") return { kind: "sign-up" };
-  if (res.status === 429) return { kind: "error", message: "You've reached today's limit for guest readings from this network. Create a free account to keep drawing." };
-  return { kind: "error", message: "The deck couldn't be shuffled just now. Please try again." };
+  if (res.status === 429) return { kind: "error", message: "app.draw.guest_limit" };
+  return { kind: "error", message: "app.draw.shuffle_failed" };
 }
 
 export async function pickCards(sessionId: string, stage: DeckState["stage"], positions: number[]): Promise<boolean> {

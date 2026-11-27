@@ -1,1 +1,3 @@
 next-env.d.ts
+# Written by scripts/fetch-copy.mjs before each build.
+content/published.json

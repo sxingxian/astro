@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@astro/tokens", "@astro/cards", "@astro/ui", "@astro/draw", "@astro/meanings", "@astro/db"]
+  transpilePackages: ["@astro/copy", "@astro/tokens", "@astro/cards", "@astro/ui", "@astro/draw", "@astro/meanings", "@astro/db"]
 };
 
 export default config;

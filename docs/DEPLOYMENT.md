@@ -6,7 +6,7 @@ Every step below is done on a website, in your browser: **Cloudflare**, **GitHub
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
 | `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts | `astro-app` | **Built (plan 2)** |
-| `astro.midnightpoetry.studio/admin` | Admin portal: team, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3, part A)** |
+| `astro.midnightpoetry.studio/admin` | Admin portal: text, card meanings, team, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3)** |
 
 Sections marked *(plan N)* are for parts that aren't built yet. They're here so the whole setup is planned in one place.
 
@@ -35,6 +35,7 @@ Sections marked *(plan N)* are for parts that aren't built yet. They're here so 
 | Admin Hyperdrive ID (not secret) | Cloudflare (step 5) | GitHub file `apps/admin/wrangler.jsonc` (step 8) |
 | AI key encryption key | Your password manager (64 characters, **numbers only**) | `astro-admin` secret `AI_KEY_ENCRYPTION_KEY` (step 14) |
 | AI company API keys | Each AI company's website (step 12) | Admin portal → **AI settings**. Never a Cloudflare secret. |
+| Landing Deploy Hook URL | Cloudflare → `astro-landing` (step 14e) | `astro-admin` secret `LANDING_DEPLOY_HOOK_URL`. Nowhere else. |
 
 The values that aren't secret (the Hyperdrive IDs and the Turnstile site key) can instead be sent to Claude, who will put them into the code for you.
 
@@ -407,6 +408,25 @@ And **Settings → Variables and Secrets → Add**, type **Secret** for each:
 3. Open `astro.midnightpoetry.studio/admin`, pass Cloudflare Access, sign in with your app email and password, and set up your authenticator app when asked. Every portal change after that needs a code from it.
 4. Invite the rest of the team from **Team and roles**. Each invitee accepts in the app (with 2-step sign-in on), and you add their email to the Access policy in a.
 
+**e. Text publishing: the landing Deploy Hook** *(plan 3, part B)*. The landing page is static: when you publish landing text in the portal, Cloudflare rebuilds it with the new wording built in (about 5 minutes). The rebuild is started through a Deploy Hook, a private address that starts a build when called. **Do this before merging the Part B pull request**, because the portal refuses to start on its real address without it.
+
+1. Cloudflare → **Workers & Pages** → `astro-landing` → **Settings → Builds → Deploy Hooks**: name `Publish text`, branch `main` → **Create**. Copy the address it shows.
+2. Cloudflare → `astro-admin` → **Settings → Variables and Secrets → Add**: type **Secret**, name `LANDING_DEPLOY_HOOK_URL`, value the address you copied → **Save**. Also save it in your password manager as "Astro · landing Deploy Hook".
+3. Never paste that address anywhere else (chat, email, GitHub, screenshots): anyone who has it can start builds. The portal never shows it. If it ever leaks, delete the hook in step 1, make a new one and replace the secret.
+
+**f. The landing build's wording source** *(plan 3, part B)*. Every landing build now reads the published wording from the app (`astroapp.midnightpoetry.studio/api/copy/landing`), so a code change never undoes published text. That address only exists once the Part B version of `astro-app` is deployed, so for the first deploy:
+
+1. **Before merging the Part B pull request:** Cloudflare → `astro-landing` → **Settings → Build → Build variables → Add**: `COPY_SOURCE` = `defaults`. (The build then uses the default wording without asking the app.)
+2. Merge. Wait until `astro-app` → **Deployments** shows the new version finished.
+3. Open `https://astroapp.midnightpoetry.studio/api/copy/landing` in your browser: an empty page is right (nothing published yet). An error page means the app deploy hasn't finished.
+4. Back in `astro-landing` → **Settings → Build → Build variables**, **delete** `COPY_SOURCE`, then **Deployments → Retry build**. It should finish, with a line `fetch-copy: nothing published yet` in the build log.
+
+From then on, if the app can't be reached during a landing build, that build fails and the current landing page keeps serving. It never quietly goes back to default wording.
+
+**Node version:** the landing build needs Node 22.18 or newer (`NODE_VERSION` = `22` gets the newest 22). If a build log ever says it needs a newer Node, set `NODE_VERSION` to `22.18.0` or later.
+
+**Optional extra protection.** `/api/copy/landing` is public (it only holds wording that's already on the landing page). If you'd like a limit on it anyway: Cloudflare → `midnightpoetry.studio` → **Security → WAF → Rate limiting rules → Create rule**: name `copy endpoint`, **URI Path equals** `/api/copy/landing`, hostname `astroapp.midnightpoetry.studio`, **30 requests per 10 seconds** per IP, action **Block** for 10 seconds. The Free plan includes one such rule.
+
 ## 15. After the first deploy: checks
 
 All of these are done in a browser.
@@ -438,6 +458,10 @@ All of these are done in a browser.
 - [ ] **Audit log** lists your sign-in.
 - [ ] **AI settings:** add one service with a real key and press **Test**: "Test passed". The email "an AI service key was changed" arrives.
 - [ ] **Site settings:** turn **Maintenance mode** on (it asks for a code); within a minute `astroapp.midnightpoetry.studio` shows "Astro is resting for a moment". Turn it off again.
+- [ ] **Text → Landing page:** change the small note under the hero buttons, **Save draft**, **Publish 1 change**. The portal says the rebuild started; `astro-landing` → **Deployments** shows a new build. About 5 minutes later the landing page shows the new note, and its footer shows the new version (for example `v3`). Then change it back (or **Restore** the earlier version) and publish again after 2 minutes.
+- [ ] **Text → App:** change a heading, press **Preview in the app**: the app opens with a gold "Preview, not live" bar and your wording. **Publish**; within a minute the app shows it without the bar. Restore the earlier version afterwards.
+- [ ] **Card library** (owner): change one card's summary, publish with your code; within a minute that card's reveal in the app shows it. Signed in as an admin, the screen has no editing buttons.
+- [ ] **Audit log** lists "Text published" entries, with the rebuild's response for landing publishes. The Deploy Hook address appears nowhere in the portal.
 
 **Paid readings** *(plan 4)*:
 

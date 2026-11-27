@@ -1,4 +1,5 @@
-import { finalCta, hero, links } from "@/content/site";
+import { copy } from "@/content/copy";
+import { links } from "@/content/site";
 
 export function FinalCta() {
   return (
@@ -10,9 +11,9 @@ export function FinalCta() {
         </svg>
       </div>
       <div className="relative flex flex-col items-center gap-6">
-        <h2 id="h-final" className="h2 text-[clamp(2.75rem,7vw,5.25rem)]" data-anim="reveal">{finalCta.title}</h2>
-        <div data-anim="reveal"><a className="btn-gold" href={links.today}>{hero.primary}</a></div>
-        <span className="text-[13px] text-muted">{hero.note}</span>
+        <h2 id="h-final" className="h2 text-[clamp(2.75rem,7vw,5.25rem)]" data-anim="reveal">{copy("landing.final.title")}</h2>
+        <div data-anim="reveal"><a className="btn-gold" href={links.today}>{copy("landing.hero.primary")}</a></div>
+        <span className="text-[13px] text-muted">{copy("landing.hero.note")}</span>
       </div>
     </section>
   );

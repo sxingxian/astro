@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { FormError } from "./FormError";
 
 const MESSAGES: Record<string, string> = {
@@ -31,6 +31,8 @@ export function StepUpDialog({
   messages?: Record<string, string>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Unique per dialog: a screen can hold more than one (e.g. Publish and Restore).
+  const id = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,13 +56,13 @@ export function StepUpDialog({
   }
 
   return (
-    <dialog ref={ref} onCancel={(e) => { e.preventDefault(); onCancel(); }} aria-labelledby="stepup-title" className="panel m-auto w-[min(440px,calc(100%-32px))] p-7 text-moon backdrop:bg-night/75">
+    <dialog ref={ref} onCancel={(e) => { e.preventDefault(); onCancel(); }} aria-labelledby={`${id}-title`} className="panel m-auto w-[min(440px,calc(100%-32px))] p-7 text-moon backdrop:bg-night/75">
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <h2 id="stepup-title" className="serif text-[30px] font-semibold m-0">{title}</h2>
+        <h2 id={`${id}-title`} className="serif text-[30px] font-semibold m-0">{title}</h2>
         <div className="m-0 text-sm text-haze leading-relaxed">{description}</div>
         <div className="field">
-          <label htmlFor="stepup-code">6-digit code</label>
-          <input id="stepup-code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required maxLength={6} autoFocus className="input text-center text-2xl tracking-[0.3em]" />
+          <label htmlFor={`${id}-code`}>6-digit code</label>
+          <input id={`${id}-code`} name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required maxLength={6} autoFocus className="input text-center text-2xl tracking-[0.3em]" />
         </div>
         <FormError message={error} />
         <div className="flex gap-2.5 justify-end">

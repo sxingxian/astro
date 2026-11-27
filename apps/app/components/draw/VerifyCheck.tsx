@@ -2,6 +2,7 @@
 
 import { fingerprintOf, formatFingerprint, type Orientation } from "@astro/draw";
 import { useEffect, useId, useState } from "react";
+import { useT } from "../CopyProvider";
 
 interface Props {
   title: string;
@@ -15,6 +16,7 @@ interface Props {
 
 /** Recomputes the fingerprint in your own browser from the revealed order, orientations and salt. */
 export function VerifyCheck({ title, order, names, orientations, salt: initialSalt, fingerprint, picks }: Props) {
+  const t = useT();
   const [salt, setSalt] = useState(initialSalt);
   const [computed, setComputed] = useState<string | null>(null);
   const id = useId();
@@ -31,26 +33,26 @@ export function VerifyCheck({ title, order, names, orientations, salt: initialSa
       <div className="flex items-center justify-between gap-3">
         <h2 id={`${id}-h`} className="m-0 font-display text-2xl font-medium">{title}</h2>
         <span aria-live="polite" className={`rounded-full px-3 py-1 text-sm font-semibold ${computed === null ? "text-muted" : matches ? "bg-gold text-night" : "bg-error text-night"}`}>
-          {computed === null ? "Checking…" : matches ? "Matches ✓" : "Doesn't match"}
+          {computed === null ? t("app.verify.checking") : matches ? t("app.verify.matches") : t("app.verify.no_match")}
         </span>
       </div>
-      <p className="m-0 text-sm text-haze">Shown before you picked: <code className="font-mono text-moon">{formatFingerprint(fingerprint)}</code></p>
+      <p className="m-0 text-sm text-haze">{t("app.verify.shown_before")} <code className="font-mono text-moon">{formatFingerprint(fingerprint)}</code></p>
       <div className="field">
-        <label htmlFor={`${id}-salt`}>Salt</label>
+        <label htmlFor={`${id}-salt`}>{t("app.verify.salt")}</label>
         <input id={`${id}-salt`} className="input font-mono text-sm" value={salt} onChange={(e) => setSalt(e.target.value)} spellCheck={false} autoComplete="off" />
       </div>
-      <p className="m-0 text-sm text-haze">You picked positions {picks.map((p) => p + 1).join(", ")}: {picks.map((p) => names[p]).join(", ")}.</p>
+      <p className="m-0 text-sm text-haze">{t("app.verify.you_picked", { positions: picks.map((p) => p + 1).join(", "), cards: picks.map((p) => names[p]).join(", ") })}</p>
       <details className="text-sm">
-        <summary className="cursor-pointer text-gold">Show all {order.length} positions</summary>
+        <summary className="cursor-pointer text-gold">{t("app.verify.show_all", { count: String(order.length) })}</summary>
         <ol className="mt-3 flex flex-col gap-1 pl-6 text-haze">
           {order.map((cardId, i) => (
-            <li key={cardId} className={picks.includes(i) ? "font-semibold text-gold" : ""}>{names[i]}{orientations[i] === "reversed" ? " (reversed)" : ""}</li>
+            <li key={cardId} className={picks.includes(i) ? "font-semibold text-gold" : ""}>{names[i]}{orientations[i] === "reversed" ? t("app.verify.reversed_suffix") : ""}</li>
           ))}
         </ol>
       </details>
       <details className="text-sm">
-        <summary className="cursor-pointer text-gold">Check it yourself</summary>
-        <p className="mb-2 mt-3 text-haze">The fingerprint is the first 32 characters of <code className="text-moon">sha256(order.join(",") + "|" + orientations.join(",") + ":" + salt)</code>.</p>
+        <summary className="cursor-pointer text-gold">{t("app.verify.check_yourself")}</summary>
+        <p className="mb-2 mt-3 text-haze">{t("app.verify.formula")} <code className="text-moon">sha256(order.join(",") + "|" + orientations.join(",") + ":" + salt)</code>.</p>
         <pre className="max-h-64 overflow-auto rounded-xl bg-night p-3 text-xs text-haze">{json}</pre>
       </details>
     </section>

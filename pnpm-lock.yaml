@@ -20,9 +20,18 @@ importers:
 
   apps/admin:
     dependencies:
+      '@astro/cards':
+        specifier: workspace:*
+        version: link:../../packages/cards
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../../packages/copy
       '@astro/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@astro/meanings':
+        specifier: workspace:*
+        version: link:../../packages/meanings
       '@astro/server':
         specifier: workspace:*
         version: link:../../packages/server
@@ -105,6 +114,9 @@ importers:
       '@astro/cards':
         specifier: workspace:*
         version: link:../../packages/cards
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../../packages/copy
       '@astro/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -202,6 +214,9 @@ importers:
       '@astro/cards':
         specifier: workspace:*
         version: link:../../packages/cards
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../../packages/copy
       '@astro/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -278,6 +293,9 @@ importers:
       wrangler:
         specifier: ^4.168.0
         version: 4.168.0(@types/node@22.20.5)(vitest@5.1.1(@types/node@22.20.5)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1)))
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/cards:
     devDependencies:
@@ -308,6 +326,21 @@ importers:
       typescript-eslint:
         specifier: ^8.74.0
         version: 8.74.0(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3)
+
+  packages/copy:
+    devDependencies:
+      '@astro/config':
+        specifier: workspace:*
+        version: link:../config
+      eslint:
+        specifier: ^10.15.0
+        version: 10.15.0(jiti@2.7.0)
+      typescript:
+        specifier: ~6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^5.1.1
+        version: 5.1.1(@types/node@22.20.5)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/db:
     dependencies:
@@ -379,6 +412,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@astro/copy':
+        specifier: workspace:*
+        version: link:../copy
       '@astro/db':
         specifier: workspace:*
         version: link:../db

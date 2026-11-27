@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/csp.mjs",
+    "build": "node scripts/fetch-copy.mjs && next build && node scripts/csp.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -25,7 +25,8 @@
     "next": "^16.4.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "three": "^0.187.0"
+    "three": "^0.187.0",
+    "@astro/copy": "workspace:*"
   },
   "devDependencies": {
     "@astro/config": "workspace:*",
@@ -41,6 +42,7 @@
     "tailwindcss": "^4.3.5",
     "typescript": "~6.0.3",
     "vitest": "^5.1.1",
-    "wrangler": "^4.168.0"
+    "wrangler": "^4.168.0",
+    "zod": "^4.6.7"
   }
 }

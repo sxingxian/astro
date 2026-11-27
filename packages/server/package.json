@@ -13,6 +13,7 @@
     "test:db": "vitest run --config vitest.db.config.ts"
   },
   "dependencies": {
+    "@astro/copy": "workspace:*",
     "@astro/db": "workspace:*",
     "better-auth": "^1.7.28",
     "resend": "^6.40.0",
