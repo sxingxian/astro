@@ -555,5 +555,11 @@ export const app = {
   "app.nav.account_free": { group: "Every page", label: "Side menu: free account", where: "Bottom of the desktop side menu", default: "Free account", max: S },
   "app.nav.account_reader": { group: "Every page", label: "Side menu: reader", where: "Bottom of the desktop side menu, readers", default: "Reader", max: S },
   "app.nav.two_step_on": { group: "Every page", label: "Side menu: 2-step on", where: "Bottom of the desktop side menu", default: "2-step on", max: 20 },
-  "app.nav.two_step_off": { group: "Every page", label: "Side menu: 2-step off", where: "Bottom of the desktop side menu", default: "2-step off", max: 20 }
+  "app.nav.two_step_off": { group: "Every page", label: "Side menu: 2-step off", where: "Bottom of the desktop side menu", default: "2-step off", max: 20 },
+  "app.errors.not_found_title": { group: "Errors", label: "Not found: heading", where: "A page or reading that doesn't exist", default: "Nothing here", max: S },
+  "app.errors.not_found_body": { group: "Errors", label: "Not found: text", where: "A page or reading that doesn't exist", default: "This page doesn't exist, or it isn't yours.", max: M },
+  "app.errors.back_today": { group: "Errors", label: "Not found: button", where: "A page or reading that doesn't exist", default: "Back to Today", max: S },
+  "app.errors.generic_title": { group: "Errors", label: "Couldn't load: heading", where: "When a page can't load its data", default: "Something went wrong", max: S },
+  "app.errors.generic_body": { group: "Errors", label: "Couldn't load: text", where: "When a page can't load its data", default: "Astro couldn't load this page. Check your connection and try again.", max: M },
+  "app.errors.retry": { group: "Errors", label: "Couldn't load: button", where: "When a page can't load its data", default: "Try again", max: S }
 } as const satisfies Record<`app.${string}`, EntrySpec>;
