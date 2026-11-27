@@ -1,10 +1,10 @@
 import { expect } from "@playwright/test";
-import { signUpVerified, test, uniqueEmail } from "./helpers";
+import { pickCard, signUpVerified, test, uniqueEmail } from "./helpers";
 
 test("a member's reading lands in the journal with its note", async ({ page }) => {
   await signUpVerified(page, uniqueEmail("journal"));
   await page.goto("/draw/one");
-  await page.getByRole("button", { name: "Card 40 of 78" }).click();
+  await pickCard(page, 40, 78);
   await page.getByRole("button", { name: "Turn the card" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   const name = (await page.getByRole("heading", { level: 1 }).textContent()) ?? "";
@@ -22,7 +22,7 @@ test("a member's reading lands in the journal with its note", async ({ page }) =
 test("Patterns waits for a few readings before drawing conclusions", async ({ page }) => {
   await signUpVerified(page, uniqueEmail("patterns"));
   await page.goto("/draw/one");
-  await page.getByRole("button", { name: "Card 7 of 78" }).click();
+  await pickCard(page, 7, 78);
   await page.getByRole("button", { name: "Turn the card" }).click();
   await expect(page).toHaveURL(/\/reading\//);
   await page.goto("/journal");

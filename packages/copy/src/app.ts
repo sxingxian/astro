@@ -392,5 +392,8 @@ export const app = {
   "app.legal.terms_meta": { group: "Legal pages", label: "Terms: page title", where: "Browser tab", default: "Terms of use", max: S },
   "app.legal.privacy_meta": { group: "Legal pages", label: "Privacy: page title", where: "Browser tab", default: "Privacy notice", max: S },
   "app.legal.updated": { group: "Legal pages", label: "Last updated", where: "Under the page", default: "Last updated {date}", max: S },
-  "app.legal.guidelines_meta": { group: "Legal pages", label: "Reader guidelines: page title", where: "Browser tab", default: "Reader guidelines", max: S }
+  "app.legal.guidelines_meta": { group: "Legal pages", label: "Reader guidelines: page title", where: "Browser tab", default: "Reader guidelines", max: S },
+  "app.draw.fan_hint": { group: "Drawing", label: "Fan: how to pick", where: "Above the fan of cards", default: "Slide your finger across the fan", max: M },
+  "app.draw.fan_focus": { group: "Drawing", label: "Fan: card under the finger", where: "Above the fan of cards", default: "Card {n} of {total} · tap it to pick", max: M },
+  "app.draw.fan_focus_picked": { group: "Drawing", label: "Fan: picked card under the finger", where: "Above the fan of cards", default: "Card {n} of {total} · picked, tap to put back", max: M }
 } as const satisfies Record<`app.${string}`, EntrySpec>;

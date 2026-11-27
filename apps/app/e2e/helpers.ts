@@ -66,3 +66,10 @@ export const test = base.extend({
 export async function newVisitor(browser: Browser) {
   return browser.newContext({ extraHTTPHeaders: { "cf-connecting-ip": randomIp() } });
 }
+
+/** Picks a card from the fan by keyboard: focusing a card turns the fan to show it, Enter picks it. */
+export async function pickCard(page: Page, n: number, total: number) {
+  await page.getByRole("button", { name: `Card ${n} of ${total}` }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: `Card ${n} of ${total}` })).toHaveAttribute("aria-pressed", "true");
+}

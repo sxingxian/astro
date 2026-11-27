@@ -5,7 +5,7 @@ import { FormError } from "../AuthShell";
 import { Turnstile } from "../Turnstile";
 import { useT } from "../CopyProvider";
 import { FingerprintText } from "./FingerprintText";
-import { Fan } from "./Fan";
+import { FanPicker } from "./FanPicker";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
 
 export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
@@ -48,7 +48,7 @@ export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string
       {needsCheck ? <div className="px-5"><p className="mb-3 mt-0 text-sm text-haze">{t("app.draw.quick_check")}</p><Turnstile mode={mode} siteKey={siteKey} action="draw" onToken={onToken} /></div> : null}
       {deck ? (
         <>
-          <Fan size={deck.size} selected={selected} limit={1} label={t("app.draw.fan_one")} onToggle={(i) => setSelected([i])} />
+          <FanPicker size={deck.size} selected={selected} limit={1} label={t("app.draw.fan_one")} onToggle={(i) => setSelected([i])} />
           <div className="flex flex-col gap-3 px-5">
             <p className="m-0 text-sm text-haze" aria-live="polite">{selected.length ? t("app.draw.chosen_one") : t("app.draw.chosen_none")}</p>
             <FormError message={error} />

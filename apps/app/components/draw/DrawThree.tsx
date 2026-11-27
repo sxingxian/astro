@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FormError } from "../AuthShell";
-import { Fan } from "./Fan";
+import { FanPicker } from "./FanPicker";
 import { useT } from "../CopyProvider";
 import { FingerprintText } from "./FingerprintText";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
@@ -54,7 +54,7 @@ export function DrawThree() {
       </div>
       {deck ? (
         <>
-          <Fan key={stage} size={deck.size} selected={selected} limit={3} label={t(stage === "majors" ? "app.draw.fan_major" : "app.draw.fan_minor", { count: String(deck.size) })} onToggle={toggle} />
+          <FanPicker key={stage} size={deck.size} selected={selected} limit={3} label={t(stage === "majors" ? "app.draw.fan_major" : "app.draw.fan_minor", { count: String(deck.size) })} onToggle={toggle} />
           <div className="flex flex-col gap-3 px-5">
             <ol className="m-0 flex list-none gap-2 p-0" aria-live="polite">
               {POSITIONS.map((p, i) => (
