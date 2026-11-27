@@ -26,6 +26,9 @@ importers:
       '@astro/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@astro/meanings':
+        specifier: workspace:*
+        version: link:../../packages/meanings
       '@astro/server':
         specifier: workspace:*
         version: link:../../packages/server

@@ -9,7 +9,9 @@ const isMaintenance = makeMaintenanceCheck(() => readMaintenance(connection), NO
 const MAINTENANCE_TIMEOUT_MS = 1500;
 
 /** Paths that keep working while the app is paused. */
-const ALWAYS_ON = new Set(["/maintenance", "/api/health"]);
+// The landing build reads its wording from /api/copy/landing, so code deploys still work while paused.
+const ALWAYS_ON = new Set(["/maintenance", "/api/health", "/api/copy/landing"]);
+const PREVIEW_ID = /^[A-Za-z0-9_-]{22}$/;
 
 /** While the owner has paused the app: 503 with the notice (JSON for API calls), and a hint to retry later. */
 async function paused(request: NextRequest): Promise<NextResponse | null> {
@@ -36,10 +38,19 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
+  // Draft wording only via ?astro-preview=<id>; a header sent by the browser is never trusted.
+  requestHeaders.delete("x-astro-preview");
+  const preview = request.nextUrl.searchParams.get("astro-preview");
+  const previewing = preview !== null && PREVIEW_ID.test(preview);
+  if (previewing) requestHeaders.set("x-astro-preview", preview);
 
   const response = (await paused(request)) ?? NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
   for (const [k, v] of Object.entries(securityHeaders)) response.headers.set(k, v);
+  if (previewing) {
+    response.headers.set("cache-control", "no-store");
+    response.headers.set("x-robots-tag", "noindex");
+  }
   return response;
 }
 

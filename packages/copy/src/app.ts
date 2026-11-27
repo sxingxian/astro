@@ -383,5 +383,9 @@ export const app = {
   "app.invite.ready_text": { group: "Team invitation", label: "Ready: text", where: "Step 3", default: "Signed in as {email} with 2-step sign-in on.", max: M },
   "app.invite.accept": { group: "Team invitation", label: "Accept button", where: "Step 3", default: "Accept invitation", max: S },
   "app.invite.accept_busy": { group: "Team invitation", label: "Accept button while working", where: "Step 3", default: "Accepting…", max: S },
-  "app.tfa.qr_alt": { group: "2-step setup", label: "QR code description (screen readers)", where: "Read aloud by screen readers", default: "QR code for your authenticator app", max: S }
+  "app.tfa.qr_alt": { group: "2-step setup", label: "QR code description (screen readers)", where: "Read aloud by screen readers", default: "QR code for your authenticator app", max: S },
+  // Wording preview (from the admin portal)
+  "app.preview.bar": { group: "Wording preview", label: "Bar heading", where: "Top of the page in a preview link", default: "Preview, not live", max: S },
+  "app.preview.note": { group: "Wording preview", label: "Bar note", where: "Top of the page in a preview link", default: "Draft wording, shown only through this link for 30 minutes.", max: M },
+  "app.preview.exit": { group: "Wording preview", label: "Leave preview link", where: "Top of the page in a preview link", default: "See live wording", max: S }
 } as const satisfies Record<`app.${string}`, EntrySpec>;

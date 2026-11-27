@@ -4,6 +4,7 @@ import { getMailer, type Staff } from "./auth";
 import { ownerEmail } from "./ai";
 import { getDb } from "./db";
 import { getEnv } from "./env";
+import { emailT } from "./text";
 
 /** Shared input rules for the AI routes. Model names go into provider URLs, so they're kept to a safe alphabet. */
 export const serviceFields = z.object({
@@ -20,5 +21,5 @@ export const apiKey = z.string().trim().min(8).max(500).regex(/^[\x21-\x7e]+$/);
 export async function alertOwner(actor: Staff, service: string, last4: string): Promise<void> {
   if (getEnv().OWNER_ALERTS !== "on") return;
   const to = await ownerEmail(getDb());
-  if (to) await getMailer().send(aiKeyChangedEmail(to, { service, last4, by: actor.email, at: new Date() }));
+  if (to) await getMailer().send(aiKeyChangedEmail(to, { service, last4, by: actor.email, at: new Date() }, await emailT(getDb())));
 }

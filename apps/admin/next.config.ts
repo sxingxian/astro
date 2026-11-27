@@ -6,7 +6,7 @@ const config: NextConfig = {
   basePath: "/admin",
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@astro/copy", "@astro/tokens", "@astro/db", "@astro/server"]
+  transpilePackages: ["@astro/copy", "@astro/cards", "@astro/meanings", "@astro/tokens", "@astro/db", "@astro/server"]
 };
 
 export default config;

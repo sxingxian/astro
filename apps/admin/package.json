@@ -17,6 +17,7 @@
   "dependencies": {
     "@astro/copy": "workspace:*",
     "@astro/db": "workspace:*",
+    "@astro/meanings": "workspace:*",
     "@astro/server": "workspace:*",
     "@astro/tokens": "workspace:*",
     "@fontsource/cormorant-garamond": "^5.3.0",

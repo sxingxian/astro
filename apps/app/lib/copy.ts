@@ -45,6 +45,14 @@ export async function previewId(): Promise<string | null> {
   return (await headers()).get("x-astro-preview");
 }
 
+/** Whether this request carries an unexpired preview id (of any kind), so the layout shows the preview bar. */
+export const getPreviewing = cache(async (): Promise<boolean> => {
+  const id = await previewId();
+  if (!id || !PREVIEW_ID.test(id)) return false;
+  const rows = await getDb().select({ id: schema.textPreview.id }).from(schema.textPreview).where(and(eq(schema.textPreview.id, id), gt(schema.textPreview.expiresAt, new Date()))).limit(1);
+  return rows.length > 0;
+});
+
 /** For server components and routes. Client components use useT() (CopyProvider in the root layout). */
 export const getCopy = cache(async (): Promise<T> => loadCopy(getDb(), { previewId: await previewId() }));
 
