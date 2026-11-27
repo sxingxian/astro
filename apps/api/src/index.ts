@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
+import { isLegacy } from "./legacy";
 import { drawRoutes } from "./routes/draw";
 import { maintenance, readRoutes } from "./routes/reads";
 import { writeRoutes } from "./routes/writes";
@@ -75,4 +76,11 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
 }
 
 const app = createApp();
-export default { fetch: app.fetch } satisfies ExportedHandler<RawEnv>;
+
+/** Reader pages go to the old app; everything else under /api to this Worker (pages are static files). */
+export function handle(request: Request, env: RawEnv, ctx: ExecutionContext): Response | Promise<Response> {
+  if (isLegacy(new URL(request.url).pathname)) return env.LEGACY ? env.LEGACY.fetch(request) : new Response("Not found", { status: 404 });
+  return app.fetch(request, env, ctx);
+}
+
+export default { fetch: handle } satisfies ExportedHandler<RawEnv>;
