@@ -1,6 +1,7 @@
-import { catalogue, fill, isCopyKey, validateOverride, type CopyEntry } from "@astro/copy";
+import { allCards } from "@astro/cards";
+import { catalogue, entriesFor, fill, isCopyKey, validateOverride, type CopyEntry } from "@astro/copy";
 import { and, desc, eq, schema, sql, type Db } from "@astro/db";
-import { fieldText, getMeaning, MEANING_FIELDS } from "@astro/meanings";
+import { fieldText, getMeaning, MEANING_FIELDS, type MeaningField } from "@astro/meanings";
 import { can, defaultEmailT, HttpError, type AuditEntry, type EmailT, type Role } from "@astro/server";
 
 export type TextKind = "landing" | "app" | "meanings";
@@ -171,7 +172,7 @@ export async function history(db: Db, kind: TextKind, limit = 20) {
     .select({ id: schema.textVersion.id, publishedAt: schema.textVersion.publishedAt, note: schema.textVersion.note, by: schema.user.email })
     .from(schema.textVersion)
     .leftJoin(schema.user, eq(schema.user.id, schema.textVersion.publishedBy))
-    .where(and(eq(schema.textVersion.kind, kind)))
+    .where(eq(schema.textVersion.kind, kind))
     .orderBy(desc(schema.textVersion.id))
     .limit(limit);
 }
@@ -186,4 +187,136 @@ export async function emailT(db: Db): Promise<EmailT> {
     console.error("email wording unavailable, using defaults", e);
     return defaultEmailT;
   }
+}
+
+// ---- Screens -------------------------------------------------------------------------------------------------
+
+export type TextTab = "landing" | "app" | "email";
+
+export interface TextItem {
+  key: string;
+  group: string;
+  label: string;
+  where: string;
+  default: string;
+  max: number;
+  placeholders: readonly string[];
+  /** The saved draft override, if any. */
+  draft: string | null;
+  /** The published override, if any. */
+  live: string | null;
+}
+
+export interface Pending {
+  key: string;
+  title: string;
+}
+
+export interface LiveVersion {
+  id: number;
+  publishedAt: string;
+  /** Landing only: the Deploy Hook's answer to the last rebuild request (0 = no answer). */
+  rebuildStatus: number | null;
+}
+
+export interface HistoryRow {
+  id: number;
+  publishedAt: string;
+  by: string | null;
+  note: string | null;
+}
+
+const kindOf = (tab: TextTab): TextKind => (tab === "landing" ? "landing" : "app");
+
+async function liveOf(db: Db, kind: TextKind): Promise<{ id: number; publishedAt: Date; snapshot: Record<string, string> } | null> {
+  const [row] = await db
+    .select({ id: schema.textVersion.id, publishedAt: schema.textVersion.publishedAt, snapshot: schema.textVersion.snapshot })
+    .from(schema.textVersion)
+    .where(eq(schema.textVersion.kind, kind))
+    .orderBy(desc(schema.textVersion.id))
+    .limit(1);
+  return row ?? null;
+}
+
+async function draftsOf(db: Db, kind: TextKind): Promise<Record<string, string>> {
+  const rows = await db.select({ key: schema.textOverride.key, value: schema.textOverride.value }).from(schema.textOverride).where(eq(schema.textOverride.kind, kind));
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+/** Keys whose draft differs from what's published (a new override, a changed one, or one going back to default). */
+function pendingKeys(drafts: Record<string, string>, live: Record<string, string>): string[] {
+  return [...new Set([...Object.keys(drafts), ...Object.keys(live)])].filter((k) => drafts[k] !== live[k] && entryFor(k) !== null).sort();
+}
+
+async function lastRebuild(db: Db, version: number): Promise<number | null> {
+  const [row] = await db
+    .select({ summary: schema.auditLog.summary })
+    .from(schema.auditLog)
+    .where(and(eq(schema.auditLog.action, "text.rebuild"), eq(schema.auditLog.entityId, String(version))))
+    .orderBy(desc(schema.auditLog.id))
+    .limit(1);
+  const status = (row?.summary as { status?: unknown } | undefined)?.status;
+  return typeof status === "number" ? status : null;
+}
+
+const historyRows = async (db: Db, kind: TextKind): Promise<HistoryRow[]> =>
+  (await history(db, kind, 10)).map((h) => ({ id: h.id, publishedAt: h.publishedAt.toISOString(), by: h.by, note: h.note }));
+
+/** Everything the Text screen shows for one tab. App and Emails share one published set ("app"). */
+export async function textScreen(db: Db, tab: TextTab) {
+  const kind = kindOf(tab);
+  const [drafts, live] = await Promise.all([draftsOf(db, kind), liveOf(db, kind)]);
+  const published = live?.snapshot ?? {};
+  const items: TextItem[] = entriesFor(tab).map((e) => ({ key: e.key, group: e.group, label: e.label, where: e.where, default: e.default, max: e.max, placeholders: e.placeholders, draft: drafts[e.key] ?? null, live: published[e.key] ?? null }));
+  const pending: Pending[] = pendingKeys(drafts, published).map((key) => {
+    const e = entryFor(key)!.entry;
+    return { key, title: `${e.group} · ${e.label}` };
+  });
+  return {
+    kind,
+    items,
+    pending,
+    live: live ? { id: live.id, publishedAt: live.publishedAt.toISOString(), rebuildStatus: kind === "landing" ? await lastRebuild(db, live.id) : null } : null,
+    history: await historyRows(db, kind)
+  };
+}
+
+export interface CardField {
+  key: string;
+  field: MeaningField;
+  label: string;
+  max: number;
+  default: string;
+  draft: string | null;
+  live: string | null;
+}
+
+/** Everything the Card library shows: the list of cards, one card's fields, what's waiting to publish, and history. */
+export async function cardScreen(db: Db, cardId: string) {
+  const [drafts, live] = await Promise.all([draftsOf(db, "meanings"), liveOf(db, "meanings")]);
+  const published = live?.snapshot ?? {};
+  const pending = pendingKeys(drafts, published);
+  const changed = new Set(pending.map((k) => k.slice(0, k.indexOf("."))));
+  const cards = allCards.map((c) => ({ id: c.id, name: c.name, numeral: c.numeral, group: c.suit ?? "majors", draft: changed.has(c.id) }));
+  const card = allCards.find((c) => c.id === cardId) ?? allCards[0]!;
+  const meaning = getMeaning(card.id);
+  const fields: CardField[] = MEANING_FIELDS.flatMap((f) => {
+    const text = fieldText(meaning, f.field);
+    if (text === undefined) return [];
+    const key = `${card.id}.${f.field}`;
+    return [{ key, field: f.field, label: f.label, max: f.max, default: text, draft: drafts[key] ?? null, live: published[key] ?? null }];
+  });
+  const name = (id: string) => allCards.find((c) => c.id === id)?.name ?? id;
+  return {
+    cards,
+    card: { id: card.id, name: card.name, numeral: card.numeral },
+    fields,
+    pending: pending.map((key) => {
+      const [id, ...rest] = key.split(".");
+      const label = MEANING_FIELDS.find((f) => f.field === rest.join("."))?.label ?? rest.join(".");
+      return { key, title: `${name(id!)} · ${label}` };
+    }),
+    live: live ? { id: live.id, publishedAt: live.publishedAt.toISOString(), rebuildStatus: null } : null,
+    history: await historyRows(db, "meanings")
+  };
 }

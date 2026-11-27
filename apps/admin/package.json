@@ -15,6 +15,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@astro/cards": "workspace:*",
     "@astro/copy": "workspace:*",
     "@astro/db": "workspace:*",
     "@astro/meanings": "workspace:*",

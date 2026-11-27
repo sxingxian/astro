@@ -2,6 +2,8 @@ import { can, type Action, type Role } from "@astro/server";
 
 const NAV: { href: string; label: string; action: Action }[] = [
   { href: "/", label: "Dashboard", action: "dashboard.view" },
+  { href: "/text", label: "Text", action: "text.edit" },
+  { href: "/cards", label: "Card library", action: "meanings.view" },
   { href: "/ai", label: "AI settings", action: "ai.edit" },
   { href: "/settings", label: "Site settings", action: "settings.edit" },
   { href: "/users", label: "Users", action: "users.help" },

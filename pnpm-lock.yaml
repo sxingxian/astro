@@ -20,6 +20,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@astro/cards':
+        specifier: workspace:*
+        version: link:../../packages/cards
       '@astro/copy':
         specifier: workspace:*
         version: link:../../packages/copy
