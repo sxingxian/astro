@@ -43,7 +43,7 @@ export default async function AccountPage() {
 
   return (
     <AppShell current="account">
-    <div className="mx-auto flex max-w-[560px] flex-col gap-7 px-5 pb-32 pt-8">
+    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-7 px-5 pb-32 pt-8 lg:max-w-[880px] lg:pb-16">
       <header className="flex items-center gap-4">
         <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-nebula font-display text-2xl text-gold">{user.name.slice(0, 1).toUpperCase()}</span>
         <div>

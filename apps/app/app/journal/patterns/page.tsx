@@ -47,7 +47,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Pro
 
   return (
     <AppShell current="patterns">
-    <div className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8">
+    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
       <div className="flex items-baseline justify-between">
         <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
         <span className="text-sm text-muted">{t(p.readings === 1 ? "app.patterns.count_one" : "app.patterns.count_many", { n: String(p.readings) })}</span>
@@ -59,6 +59,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Pro
         ))}
       </nav>
 
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
       <Panel eyebrow={t("app.patterns.returning")} title={copy.repeatsTitle}>
         {p.repeats.length ? (
           <ul className="m-0 flex list-none gap-3 p-0">
@@ -108,6 +109,7 @@ export default async function PatternsPage({ searchParams }: { searchParams: Pro
         </ul>
         <p className="m-0 text-sm leading-relaxed text-haze">{t("app.patterns.checked_in", { done: String(p.checkedIn.done), eligible: String(p.checkedIn.eligible) })}</p>
       </Panel>
+      </div>
 
       <p className="m-0 text-xs leading-relaxed text-muted">{t("app.patterns.footer")}</p>
     </div>

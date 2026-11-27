@@ -65,16 +65,16 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
     const t = describe(drawn.cardId, drawn.orientation, tr, meaningOf);
     return (
     <AppShell current="today">
-      <article className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8">
-        <p className="eyebrow">{tr("app.reading.one_eyebrow", { date: dayLabel(reading) })}</p>
-        <div className="flex flex-col items-center gap-2 py-2">
+      <article data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8 lg:grid lg:max-w-none lg:grid-cols-[minmax(220px,300px)_1fr] lg:items-start lg:gap-x-12 lg:pb-16">
+        <p className="eyebrow lg:col-span-2">{tr("app.reading.one_eyebrow", { date: dayLabel(reading) })}</p>
+        <div className="flex flex-col items-center gap-2 py-2 lg:sticky lg:top-8 lg:row-span-4">
           <FlipCard width={104} height={176}><CardFace id={t.card.id} size="lg" reversed={t.reversed} /></FlipCard>
           {t.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
         </div>
-        <header className="flex flex-col gap-2 text-center">
+        <header className="flex flex-col gap-2 text-center lg:text-left">
           <h1 className="m-0 font-display text-5xl font-medium leading-none">{t.title}</h1>
           <p className="m-0 text-sm text-muted">{t.line}</p>
-          <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0">
+          <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0 lg:justify-start">
             {t.card.keywords.map((k) => <li key={k} className="rounded-full border border-gold/30 px-3 py-1 text-xs text-haze">{k}</li>)}
           </ul>
         </header>
@@ -93,11 +93,12 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
   const minorsDeck = reading.decks.find((d) => d.stage === "minors");
   return (
     <AppShell current="today">
-    <article className="mx-auto flex max-w-[560px] flex-col gap-8 px-5 pb-32 pt-8">
+    <article data-page className="mx-auto flex max-w-[560px] flex-col gap-8 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
       <div className="flex flex-col gap-2">
         <p className="eyebrow">{tr("app.reading.three_eyebrow", { date: dayLabel(reading) })}</p>
         <h1 className="m-0 font-display text-4xl font-medium leading-tight">{tr("app.reading.three_title")}</h1>
       </div>
+      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start lg:gap-5">
       {POSITIONS.map((pos, i) => {
         const major = majorsDeck?.cards[i];
         const minor = minorsDeck?.cards[i];
@@ -132,6 +133,7 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
           </section>
         );
       })}
+      </div>
       {footer}
     </article>
     </AppShell>

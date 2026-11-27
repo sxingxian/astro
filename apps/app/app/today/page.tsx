@@ -44,9 +44,9 @@ export default async function TodayPage() {
 
   return (
     <AppShell current="today">
-    <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8">
+    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
       <header className="flex items-center justify-between">
-        <span className="flex items-center gap-2.5">
+        <span className="flex items-center gap-2.5 lg:invisible">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.8 7.2L21 12l-7.2 1.8L12 21l-1.8-7.2L3 12l7.2-1.8z" fill="none" stroke="#D8B46A" strokeWidth="1.3" strokeLinejoin="round" /></svg>
           <span className="font-display text-2xl font-semibold">Astro</span>
         </span>
@@ -54,7 +54,7 @@ export default async function TodayPage() {
       </header>
       <div className="flex flex-col gap-2">
         <p className="eyebrow">{t("app.today.eyebrow")}</p>
-        <h1 className="m-0 font-display text-4xl font-medium leading-tight">{t("app.today.title")}</h1>
+        <h1 className="m-0 font-display text-4xl font-medium leading-tight lg:text-6xl">{t("app.today.title")}</h1>
       </div>
       {due[0] ? (
         <a href={`/check-in/${due[0].sessionId}`} className="panel flex min-h-14 items-center justify-between gap-3 px-5 py-3 text-moon no-underline">
@@ -62,6 +62,7 @@ export default async function TodayPage() {
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="#D8B46A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </a>
       ) : null}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
       <SpreadCard t={t} title={t("app.today.one_title")} sub={t("app.today.one_sub")} today={one} start={{ href: "/draw/one", label: t("app.today.one_button") }} />
       <SpreadCard
         t={t}
@@ -71,6 +72,7 @@ export default async function TodayPage() {
         start={{ href: "/draw/three", label: t("app.today.three_button") }}
         locked={user ? undefined : { href: "/sign-up", label: t("app.today.three_locked") }}
       />
+      </div>
       {user ? null : <p className="m-0 text-sm text-muted">{t("app.today.guest_note")}</p>}
       <p className="m-0 text-xs text-muted">{t("app.today.disclaimer")}</p>
     </div>
