@@ -114,12 +114,13 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
 
   return (
     <form onSubmit={save} className="flex flex-col gap-[18px]" noValidate>
+      <div className="flex flex-col gap-[18px] lg:grid lg:grid-cols-3 lg:gap-4">
       <div className="field">
         <label htmlFor="log-name">{t("app.log.name")}</label>
         <input id="log-name" className="input" value={v.name} maxLength={60} required autoComplete="off" onChange={(e) => set({ name: e.target.value })} aria-describedby="log-name-hint" />
         <span id="log-name-hint" className="text-xs text-muted">{t("app.log.name_hint")}</span>
       </div>
-      <div className="flex gap-3">
+      <div className="flex gap-3 lg:contents">
         <div className="field flex-1"><label htmlFor="log-date">{t("app.log.date")}</label><input id="log-date" className="input" type="date" required value={v.readOn} onChange={(e) => set({ readOn: e.target.value })} /></div>
         <div className="field flex-1">
           <label htmlFor="log-where">{t("app.log.where")}</label>
@@ -128,11 +129,13 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
           </select>
         </div>
       </div>
+      </div>
       <div className="field">
         <label htmlFor="log-question">{t("app.log.question")}</label>
         <textarea id="log-question" className="input min-h-[72px] py-2.5" rows={2} maxLength={280} value={v.question} onChange={(e) => set({ question: e.target.value })} />
       </div>
 
+      <div className="flex flex-col gap-[18px] lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
       <div className="flex flex-col gap-2">
         <span id="log-spread" className="text-sm text-haze">{t("app.log.spread")}</span>
         <div role="radiogroup" aria-labelledby="log-spread" className="flex gap-1 rounded-full border border-gold/20 bg-ink p-1">
@@ -154,9 +157,11 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
           </div>
         </div>
       ) : null}
+      </div>
 
       <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0">
         <legend className="mb-2.5 p-0 text-sm text-haze">{t("app.log.cards")}</legend>
+        <div className={`flex flex-col gap-2.5 ${three ? "lg:grid lg:grid-cols-3" : ""}`}>
         {v.positions.map((p, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-gold/15 p-3">
             <label className="flex items-center gap-2 text-xs text-muted">
@@ -169,6 +174,7 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
             </div>
           </div>
         ))}
+        </div>
       </fieldset>
 
       <div className="flex flex-col gap-2.5">

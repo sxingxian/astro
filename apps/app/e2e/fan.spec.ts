@@ -87,3 +87,26 @@ test("with Reduce Motion the fan doesn't animate", async ({ browser }) => {
   expect(duration.split(",").every((d) => parseFloat(d) === 0)).toBe(true);
   await ctx.close();
 });
+
+test("desktop: the picker sits in the side-menu layout with D2's larger fan; the 22-card fan fits, so no edge arrows", async ({ page }) => {
+  await signUpVerified(page, uniqueEmail("fandesk"));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/draw/three");
+  await expect(stage(page)).toHaveAttribute("data-size", "desktop");
+  await expect(page.getByRole("navigation", { name: "Main menu" })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page.locator(".fan-edge[data-on]")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: /Your picks: 0 of 3/ })).toBeVisible();
+});
+
+test("phone: everything needed to pick fits on a 390 × 844 screen above the tabs", async ({ browser }) => {
+  const ctx = await newVisitor(browser);
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openOneCard(page);
+  await expect(stage(page)).toHaveAttribute("data-size", "phone");
+  const button = (await page.getByRole("button", { name: "Turn the card" }).boundingBox())!;
+  const tabs = (await page.getByRole("navigation", { name: "App" }).boundingBox())!;
+  expect(button.y + button.height).toBeLessThanOrEqual(tabs.y);
+  await ctx.close();
+});

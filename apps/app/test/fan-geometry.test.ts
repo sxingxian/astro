@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleStep, edgeVelocity, indexAt, keepVisible, maxRotation } from "@/lib/draw/fan-geometry";
+import { angleStep, baseAngle, cardLift, edgeVelocity, geometryFor, indexAt, keepVisible, maxRotation } from "@/lib/draw/fan-geometry";
 
 describe("fan geometry", () => {
   it("spaces the cards as approved: 3° for 78, 3.3° for 56, 5.5° for 22", () => {
@@ -36,5 +36,37 @@ describe("fan geometry", () => {
     expect(r).toBeLessThanOrEqual(max);
     expect(keepVisible(77, 0, 78, 390)).toBeGreaterThanOrEqual(-max);
     expect(keepVisible(39, 0, 78, 390)).toBe(0);
+  });
+
+  it("uses the prototype's size on phones and mockup D2's larger cards on desktop", () => {
+    expect(geometryFor(390)).toMatchObject({ cardW: 70, cardH: 116, radius: 256 });
+    expect(geometryFor(320)).toMatchObject({ cardW: 70, cardH: 116, radius: 256 });
+    expect(geometryFor(900)).toMatchObject({ cardW: 104, cardH: 170, radius: 370 });
+    // A point between the pivot and the cards picks nothing on desktop, where the cards sit further out.
+    expect(indexAt(0, -150, 0, 78, geometryFor(390))).toBeGreaterThanOrEqual(0);
+    expect(indexAt(0, -150, 0, 78, geometryFor(900))).toBe(-1);
+    expect(indexAt(0, -300, 0, 78, geometryFor(900))).toBe(39);
+    expect(cardLift(5, 5, false, geometryFor(900))).toBeGreaterThan(cardLift(5, 5, false, geometryFor(390)));
+  });
+
+  it("treats a fan that fits but for less than one card as fitting: no sliding, no arrows", () => {
+    expect(maxRotation(22, 880, geometryFor(880))).toBe(0);
+  });
+
+  it("keeps the 78-card fan wider than the stage at every width, so the edges always slide", () => {
+    for (const w of [320, 390, 640, 900, 1100]) expect(maxRotation(78, w, geometryFor(w)), `${w} px`).toBeGreaterThan(0);
+  });
+
+  it("turns the fan so a chosen card, lifted, stays fully on a small phone screen", () => {
+    for (const w of [320, 390]) {
+      const g = geometryFor(w);
+      for (const i of [0, 10, 19, 40, 77]) {
+        const rot = keepVisible(i, 0, 78, w, g);
+        const a = (baseAngle(i, 78, rot) * Math.PI) / 180;
+        const centre = w / 2 + (g.radius + g.lift) * Math.sin(a);
+        expect(centre - g.cardW / 2, `${w} px, card ${i}`).toBeGreaterThanOrEqual(0);
+        expect(centre + g.cardW / 2, `${w} px, card ${i}`).toBeLessThanOrEqual(w);
+      }
+    }
   });
 });

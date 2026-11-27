@@ -25,7 +25,7 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
   test.setTimeout(90_000);
   await becomeReader(page);
   await page.goto("/desk/log");
-  await expect(page.getByText("Private to you. Astro staff can't see it in the app or portal.")).toBeVisible();
+  await expect(page.getByText("Private to you. Astro staff can't see it in the app or portal.").first()).toBeVisible();
   await page.getByRole("link", { name: "Record a reading" }).click();
 
   await page.getByLabel("Who you read for").fill("Hannah");
@@ -50,7 +50,7 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
   await expect(page).toHaveURL(/\/desk\/log$/);
   const entry = page.getByRole("link", { name: /Hannah/ });
   await expect(entry).toContainText("The Hermit (reversed)");
-  await expect(entry).toContainText("Major, then Minor");
+  await expect(entry).toContainText("The Fool + Two of Cups"); // pairs shown as in mockup D4
 
   await entry.click();
   await expect(page.getByRole("heading", { name: "Edit reading" })).toBeVisible();

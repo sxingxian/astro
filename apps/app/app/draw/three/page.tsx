@@ -1,6 +1,7 @@
 import { getCopy } from "@/lib/copy";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
 import { DrawThree } from "@/components/draw/DrawThree";
 import { getSessionUser } from "@/lib/auth";
 
@@ -11,9 +12,10 @@ export async function generateMetadata() {
 export default async function DrawThreePage() {
   if (!(await getSessionUser(await headers()))) redirect("/sign-up");
   return (
-    <div className="mx-auto flex max-w-[560px] flex-col gap-6 pb-16 pt-8">
-      <a href="/today" className="px-5 text-sm">{(await getCopy())("app.draw.back_today")}</a>
-      <DrawThree />
-    </div>
+    <AppShell current="today">
+      <div data-page className="mx-auto flex max-w-[560px] flex-col gap-4 pb-28 pt-5 lg:max-w-none lg:pb-16 lg:pt-2">
+        <DrawThree />
+      </div>
+    </AppShell>
   );
 }

@@ -1,6 +1,7 @@
 import { getCard } from "@astro/cards";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
 import { VerifyCheck } from "@/components/draw/VerifyCheck";
 import { getDb } from "@/lib/db";
 import { viewer } from "@/lib/draw/actor";
@@ -16,7 +17,7 @@ const TITLE = { single: "app.verify.deck_single", majors: "app.verify.deck_major
 
 export default async function VerifyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { actor } = await viewer(await headers());
+  const { actor, user: viewerUser } = await viewer(await headers());
   if (!actor) notFound();
   let reading;
   try {
@@ -29,18 +30,22 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
   const t = await getCopy();
 
   return (
-    <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-16 pt-8">
-      <a href={`/reading/${id}`} className="text-sm">{t("app.verify.back")}</a>
-      <div className="flex flex-col gap-2">
-        <h1 className="m-0 font-display text-4xl font-medium">{t("app.verify.title")}</h1>
-        <p className="m-0 leading-relaxed text-haze">{t("app.verify.lede")}</p>
+    <AppShell current={viewerUser ? "journal" : "today"}>
+      <div data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8 lg:max-w-none lg:px-0 lg:pb-16 lg:pt-4">
+        <a href={`/reading/${id}`} className="text-sm">{t("app.verify.back")}</a>
+        <div className="flex max-w-[720px] flex-col gap-2">
+          <h1 className="m-0 font-display text-4xl font-medium lg:text-5xl">{t("app.verify.title")}</h1>
+          <p className="m-0 leading-relaxed text-haze">{t("app.verify.lede")}</p>
+        </div>
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start">
+          {reading.reveal.map((r) => {
+            const deck = reading.decks.find((d) => d.stage === r.stage);
+            if (!deck) return null;
+            return <VerifyCheck key={r.stage} title={t(TITLE[r.stage])} order={r.order} names={r.order.map((cid) => getCard(cid).name)} orientations={r.orientations} salt={r.salt} fingerprint={deck.fingerprint} picks={deck.picks} />;
+          })}
+        </div>
+        <p className="m-0 text-xs text-muted">{t("app.verify.footnote")}</p>
       </div>
-      {reading.reveal.map((r) => {
-        const deck = reading.decks.find((d) => d.stage === r.stage);
-        if (!deck) return null;
-        return <VerifyCheck key={r.stage} title={t(TITLE[r.stage])} order={r.order} names={r.order.map((cid) => getCard(cid).name)} orientations={r.orientations} salt={r.salt} fingerprint={deck.fingerprint} picks={deck.picks} />;
-      })}
-      <p className="m-0 text-xs text-muted">{t("app.verify.footnote")}</p>
-    </div>
+    </AppShell>
   );
 }

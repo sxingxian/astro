@@ -6,6 +6,7 @@ import { Turnstile } from "../Turnstile";
 import { useT } from "../CopyProvider";
 import { FingerprintText } from "./FingerprintText";
 import { FanPicker } from "./FanPicker";
+import { PickerLayout } from "./PickerLayout";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
 
 export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
@@ -39,27 +40,31 @@ export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 px-5">
-        <p className="eyebrow">{t("app.draw.one_eyebrow")}</p>
-        <h1 className="m-0 font-display text-4xl font-medium leading-tight">{deck ? t("app.draw.shuffled") : t("app.draw.shuffling_title")}</h1>
-        <p className="m-0 text-haze">{t("app.draw.touch")}</p>
-      </div>
-      {needsCheck ? <div className="px-5"><p className="mb-3 mt-0 text-sm text-haze">{t("app.draw.quick_check")}</p><Turnstile mode={mode} siteKey={siteKey} action="draw" onToken={onToken} /></div> : null}
-      {deck ? (
+    <PickerLayout
+      eyebrow={t("app.draw.one_eyebrow")}
+      title={deck ? t("app.draw.shuffled") : t("app.draw.shuffling_title")}
+      lede={t("app.draw.touch")}
+      slots={[{ label: t("app.draw.your_card"), filled: selected.length === 1 }]}
+      fan={
         <>
-          <FanPicker size={deck.size} selected={selected} limit={1} label={t("app.draw.fan_one")} onToggle={(i) => setSelected([i])} />
-          <div className="flex flex-col gap-3 px-5">
+          {needsCheck ? <div className="px-5 lg:px-0"><p className="mb-3 mt-0 text-sm text-haze">{t("app.draw.quick_check")}</p><Turnstile mode={mode} siteKey={siteKey} action="draw" onToken={onToken} /></div> : null}
+          {deck ? <FanPicker size={deck.size} selected={selected} limit={1} label={t("app.draw.fan_one")} onToggle={(i) => setSelected([i])} /> : null}
+        </>
+      }
+      footer={
+        deck ? (
+          <>
+            <p className="m-0 hidden text-sm text-haze lg:block">{t("app.draw.desktop_hint")}</p>
             <p className="m-0 text-sm text-haze" aria-live="polite">{selected.length ? t("app.draw.chosen_one") : t("app.draw.chosen_none")}</p>
             <FormError message={error} />
-            <button type="button" className="btn-gold" disabled={selected.length !== 1 || busy} onClick={() => void turn()}>{t("app.draw.turn")}</button>
+            <button type="button" className="btn-gold lg:self-start lg:px-10" disabled={selected.length !== 1 || busy} onClick={() => void turn()}>{t("app.draw.turn")}</button>
             <FingerprintText fingerprint={deck.fingerprint} label={t("app.draw.fingerprint")} />
             <p className="m-0 text-xs text-muted">{t("app.draw.one_note")}</p>
-          </div>
-        </>
-      ) : (
-        <div className="px-5"><FormError message={error} /></div>
-      )}
-    </div>
+          </>
+        ) : (
+          <FormError message={error} />
+        )
+      }
+    />
   );
 }
