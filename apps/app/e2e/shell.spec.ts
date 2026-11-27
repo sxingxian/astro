@@ -1,39 +1,37 @@
 import { expect } from "@playwright/test";
 import { signUpVerified, test, uniqueEmail } from "./helpers";
 
-test("serves the app with a nonce CSP and security headers", async ({ page }) => {
+test("serves the app with a strict CSP and security headers, and no inline scripts", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   page.on("pageerror", (e) => errors.push(e.message));
 
-  const res = await page.goto("/");
+  const res = await page.goto("/today");
   expect(res?.status()).toBeLessThan(400);
   const headers = res?.headers() ?? {};
   const csp = headers["content-security-policy"] ?? "";
-  expect(csp).toContain("'nonce-");
+  // The pages are pre-built files with no inline scripts, so scripts come only from this site (and Turnstile).
+  expect(csp).toContain("script-src 'self' https://challenges.cloudflare.com;");
+  expect(csp).not.toContain("unsafe-inline' https://challenges");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(headers["strict-transport-security"]).toContain("max-age=");
   expect(headers["x-content-type-options"]).toBe("nosniff");
   expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
-
-  const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
-  const scriptNonces = await page.$$eval("script", (els) => els.map((s) => s.nonce || s.getAttribute("nonce") || ""));
-  expect(scriptNonces.length).toBeGreaterThan(0);
-  for (const n of scriptNonces) expect(n).toBe(nonce);
+  const inline = await page.$$eval("script", (els) => els.filter((s) => !s.src).length);
+  expect(inline).toBe(0);
 
   await page.waitForLoadState("networkidle");
   expect(errors).toEqual([]);
 });
 
 test("refuses state changes from another origin", async ({ request }) => {
-  const res = await request.post("/api/health", { headers: { Origin: "https://evil.example" } });
+  const res = await request.post("/api/reading/x/note", { data: { text: "hi" }, headers: { Origin: "https://evil.example" } });
   expect(res.status()).toBe(403);
 });
 
-test("accepts state changes from its own origin", async ({ request, baseURL }) => {
-  const res = await request.post("/api/health", { headers: { Origin: baseURL ?? "" } });
-  expect(res.status()).toBe(200);
-  expect(await res.json()).toEqual({ ok: true });
+test("accepts state changes from its own origin (then asks who is signed in)", async ({ request, baseURL }) => {
+  const res = await request.post("/api/reading/x/note", { data: { text: "hi" }, headers: { Origin: baseURL ?? "" } });
+  expect(res.status()).toBe(401);
 });
 
 test.describe("app layout", () => {

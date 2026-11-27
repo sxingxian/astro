@@ -23,9 +23,14 @@ test("a preview link shows draft wording with a bar, uncached and unindexed; an 
   await sql`insert into text_preview (id, kind, snapshot, expires_at) values ('e2e-live-preview-00000', 'app', ${sql.json({ "app.sign_in.title": "Preview welcome" })}, now() + interval '30 minutes')`;
   await sql`insert into text_preview (id, kind, snapshot, expires_at) values ('e2e-old-preview-000000', 'app', ${sql.json({ "app.sign_in.title": "Stale welcome" })}, now() - interval '1 minute')`;
 
+  // The page is a static file with no wording in it; the draft comes from /api/session, never cached or indexed.
+  const session = page.waitForResponse((r) => r.url().includes("/api/session"));
   const live = await page.goto("/sign-in?astro-preview=e2e-live-preview-00000");
-  expect(live?.headers()["cache-control"]).toBe("no-store");
   expect(live?.headers()["x-robots-tag"]).toBe("noindex");
+  const wording = await session;
+  expect(wording.url()).toContain("astro-preview=e2e-live-preview-00000");
+  expect(wording.headers()["cache-control"]).toBe("no-store");
+  expect(wording.headers()["x-robots-tag"]).toBe("noindex");
   await expect(page.getByRole("heading", { name: "Preview welcome" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Preview, not live");
 
