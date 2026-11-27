@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { loadLegalPage, type LegalPage } from "@/lib/legal";
 
 /** A public legal page: the published document and when it was last published. */
-export async function LegalPageView({ page }: { page: Exclude<LegalPage, "guidelines"> }) {
+export async function LegalPageView({ page }: { page: LegalPage }) {
   const [t, legal] = await Promise.all([getCopy(), loadLegalPage(getDb(), page, await previewId())]);
   return (
     <article className="mx-auto flex max-w-[720px] flex-col gap-6 px-5 pb-24 pt-10">

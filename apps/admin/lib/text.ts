@@ -232,7 +232,7 @@ export async function emailT(db: Db): Promise<EmailT> {
 
 // ---- Screens -------------------------------------------------------------------------------------------------
 
-export type TextTab = "landing" | "app" | "email";
+export type TextTab = "landing" | "app" | "email" | "legal";
 
 export interface TextItem {
   key: string;
@@ -267,7 +267,7 @@ export interface HistoryRow {
   note: string | null;
 }
 
-const kindOf = (tab: TextTab): TextKind => (tab === "landing" ? "landing" : "app");
+const kindOf = (tab: Exclude<TextTab, "legal">): TextKind => (tab === "landing" ? "landing" : "app");
 
 async function liveOf(db: Db, kind: TextKind): Promise<{ id: number; publishedAt: Date; snapshot: Record<string, string> } | null> {
   const [row] = await db
@@ -304,7 +304,7 @@ const historyRows = async (db: Db, kind: TextKind): Promise<HistoryRow[]> =>
   (await history(db, kind, 10)).map((h) => ({ id: h.id, publishedAt: h.publishedAt.toISOString(), by: h.by, note: h.note }));
 
 /** Everything the Text screen shows for one tab. App and Emails share one published set ("app"). */
-export async function textScreen(db: Db, tab: TextTab) {
+export async function textScreen(db: Db, tab: Exclude<TextTab, "legal">) {
   const kind = kindOf(tab);
   const [drafts, live] = await Promise.all([draftsOf(db, kind), liveOf(db, kind)]);
   const published = live?.snapshot ?? {};
@@ -360,4 +360,30 @@ export async function cardScreen(db: Db, cardId: string) {
     live: live ? { id: live.id, publishedAt: live.publishedAt.toISOString(), rebuildStatus: null } : null,
     history: await historyRows(db, "meanings")
   };
+}
+
+export interface LegalItem {
+  kind: LegalKind;
+  key: `legal.${LegalKind}`;
+  label: string;
+  where: string;
+  default: string;
+  draft: string | null;
+  live: string | null;
+  pending: boolean;
+}
+
+/** The Legal tab: the three pages, and the selected page's live version and history (each page publishes alone). */
+export async function legalScreen(db: Db, page: LegalKind) {
+  const items: LegalItem[] = [];
+  let live: LiveVersion | null = null;
+  for (const kind of LEGAL_KINDS) {
+    const key = `legal.${kind}` as const;
+    const e = catalogue[key];
+    const [drafts, version] = await Promise.all([draftsOf(db, kind), liveOf(db, kind)]);
+    const published = version?.snapshot ?? {};
+    items.push({ kind, key, label: e.label, where: e.where, default: e.default, draft: drafts[key] ?? null, live: published[key] ?? null, pending: pendingKeys(drafts, published).length > 0 });
+    if (kind === page && version) live = { id: version.id, publishedAt: version.publishedAt.toISOString(), rebuildStatus: null };
+  }
+  return { items, live, history: await historyRows(db, page) };
 }

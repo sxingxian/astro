@@ -391,5 +391,6 @@ export const app = {
   // Legal pages (wording around the documents; the documents themselves are edited on the Legal tab)
   "app.legal.terms_meta": { group: "Legal pages", label: "Terms: page title", where: "Browser tab", default: "Terms of use", max: S },
   "app.legal.privacy_meta": { group: "Legal pages", label: "Privacy: page title", where: "Browser tab", default: "Privacy notice", max: S },
-  "app.legal.updated": { group: "Legal pages", label: "Last updated", where: "Under the page", default: "Last updated {date}", max: S }
+  "app.legal.updated": { group: "Legal pages", label: "Last updated", where: "Under the page", default: "Last updated {date}", max: S },
+  "app.legal.guidelines_meta": { group: "Legal pages", label: "Reader guidelines: page title", where: "Browser tab", default: "Reader guidelines", max: S }
 } as const satisfies Record<`app.${string}`, EntrySpec>;
