@@ -98,6 +98,17 @@ describe("what the app's database user may do", () => {
   });
 });
 
+describe("reader log table", () => {
+  it("is out of the portal's reach entirely", async () => {
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("set local role astro_admin");
+        await tx`select count(*) from reader_log_entry`;
+      })
+    ).rejects.toThrow(/permission denied/i);
+  });
+});
+
 describe("accept_invite with readers", () => {
   it("makes the person a reader and records the guidelines they accepted", async () => {
     await person("u-r1");

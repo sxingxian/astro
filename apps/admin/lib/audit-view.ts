@@ -88,6 +88,8 @@ export function describe(e: Pick<AuditRow, "action" | "summary">): { what: strin
       return { what: "Removed the reader role", details: String(s.email) };
     case "reader.accept":
       return { what: "Accepted a role", details: offered(s) };
+    case "reader.log_export":
+      return { what: "A reader downloaded their log", details: `${s.rows} entries` };
     case "user.find":
       return { what: "Looked up an account", details: `${s.email}${s.found ? "" : " · no match"}` };
     case "user.disable":

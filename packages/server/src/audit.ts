@@ -16,6 +16,7 @@ export const AUDIT_ACTIONS = {
   "reader.add": ["email"],
   "reader.remove": ["email"],
   "reader.accept": ["reader", "portalRole"],
+  "reader.log_export": ["rows"],
   "user.find": ["email", "found"],
   "user.disable": ["email"],
   "user.enable": ["email"],

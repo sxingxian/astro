@@ -263,6 +263,36 @@ export const guidelineAcceptance = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.version] })]
 );
 
+/**
+ * A reader's private record of a reading done outside the app. Only the app's database user can reach it, and every
+ * query is filtered by the signed-in reader with an active reader role. Deleted with the account.
+ */
+export const readerLogEntry = pgTable(
+  "reader_log_entry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    readerId: text("reader_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    readOn: date("read_on", { mode: "string" }).notNull(),
+    place: text("place", { enum: ["in_person", "online", "event"] }).notNull(),
+    name: text("name").notNull(),
+    question: text("question"),
+    notes: text("notes"),
+    consent: boolean("consent").notNull(),
+    spread: text("spread", { enum: ["one", "three_any", "three_pairs"] }).notNull(),
+    cards: jsonb("cards").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow()
+  },
+  (t) => [
+    check("reader_log_entry_place_check", sql`${t.place} in ('in_person', 'online', 'event')`),
+    check("reader_log_entry_spread_check", sql`${t.spread} in ('one', 'three_any', 'three_pairs')`),
+    check("reader_log_entry_name_check", sql`char_length(${t.name}) between 1 and 60`),
+    check("reader_log_entry_question_check", sql`char_length(${t.question}) <= 280`),
+    check("reader_log_entry_notes_check", sql`char_length(${t.notes}) <= 4000`),
+    index("reader_log_entry_reader_idx").on(t.readerId, sql`${t.readOn} desc`)
+  ]
+);
+
 /** Append-only: a trigger rejects UPDATE and DELETE, and runtime roles may only INSERT. */
 export const auditLog = pgTable(
   "audit_log",
