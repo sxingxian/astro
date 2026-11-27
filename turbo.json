@@ -11,6 +11,10 @@
         ".next/**",
         "!.next/cache/**",
         ".open-next/**"
+      ],
+      "env": [
+        "COPY_SOURCE",
+        "COPY_SOURCE_URL"
       ]
     },
     "lint": {},

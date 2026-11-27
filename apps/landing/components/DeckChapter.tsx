@@ -1,5 +1,6 @@
 import { CardBack, CardFace } from "@astro/ui";
-import { deck } from "@/content/site";
+import { copy, copyLines } from "@/content/copy";
+import { deckCardId } from "@/content/site";
 import { ChapterIntro } from "./Chapter";
 
 const CHOSEN_INDEX = 13;
@@ -16,7 +17,7 @@ export function DeckChapter() {
   return (
     <section id="deck" aria-labelledby="h-deck" tabIndex={-1} className="relative border-t border-gold/10 px-5 pb-16 pt-28 sm:px-10">
       <div className="mx-auto max-w-[1280px]">
-        <ChapterIntro label={deck.chapter} titleId="h-deck" title={deck.title} lede={deck.lede} align="center" />
+        <ChapterIntro label={copy("landing.deck.chapter")} titleId="h-deck" title={copyLines("landing.deck.title")} lede={copy("landing.deck.lede")} align="center" />
       </div>
       <div className="deck-stage">
         <div className="deck" data-anim="deck" aria-hidden="true">
@@ -34,7 +35,7 @@ export function DeckChapter() {
                 <div className="deck-glow" data-anim="deck-glow" />
                 <div className="deck-flipper" data-anim="deck-flipper">
                   <CardBack className="deck-side" />
-                  <CardFace id={deck.chosenCardId} size="lg" className="deck-side deck-side--face" />
+                  <CardFace id={deckCardId} size="lg" className="deck-side deck-side--face" />
                 </div>
               </div>
             ) : (
@@ -49,9 +50,9 @@ export function DeckChapter() {
           )}
         </div>
       </div>
-      <ol className="steps" aria-label="How a draw works">
-        {deck.steps.map((step, i) => (
-          <li key={step} className="step" data-anim="deck-step">
+      <ol className="steps" aria-label={copy("landing.deck.steps_label")}>
+        {[copy("landing.deck.step_1"), copy("landing.deck.step_2"), copy("landing.deck.step_3")].map((step, i) => (
+          <li key={i} className="step" data-anim="deck-step">
             <b>{i + 1}</b>
             {step}
           </li>

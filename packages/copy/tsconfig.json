@@ -1,6 +1,6 @@
 {
   "extends": "@astro/config/tsconfig.base.json",
-  // Relative imports name their ".ts" file so plain Node (type stripping) can run the landing's build script.
-  "compilerOptions": { "allowImportingTsExtensions": true, "noEmit": true },
+  // Relative imports name their ".ts" file (allowed by the base config) so plain Node can run the landing's build
+  // script, which imports this package directly.
   "include": ["src", "test"]
 }

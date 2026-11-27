@@ -1,3 +1,4 @@
+import { copy } from "@/content/copy";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { display, ui } from "./fonts";
@@ -5,11 +6,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://astro.midnightpoetry.studio"),
-  title: "Astro — Daily tarot, read slowly",
-  description: "A free daily tarot card, or three pairs of Major and Minor Arcana, with meanings worth slowing down for.",
+  title: copy("landing.meta.title"),
+  description: copy("landing.meta.description"),
   openGraph: {
-    title: "Astro — Daily tarot, read slowly",
-    description: "Every day, one card turns. Free daily tarot by Midnight Poetry Studio.",
+    title: copy("landing.meta.title"),
+    description: copy("landing.meta.share_description"),
     url: "https://astro.midnightpoetry.studio",
     siteName: "Astro",
     type: "website"
