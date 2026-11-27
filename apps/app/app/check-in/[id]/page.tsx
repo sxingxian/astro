@@ -1,6 +1,7 @@
 import { CardFace } from "@astro/ui";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
 import { CheckInForm } from "@/components/check-in/CheckInForm";
 import { getSessionUser } from "@/lib/auth";
 import { findDue } from "@/lib/check-ins";
@@ -24,9 +25,10 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
   const when = due.completedAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: user.timeZone });
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[560px] flex-col gap-6 px-5 pb-10 pt-6">
-      <a href="/today" className="text-sm">{tr("app.draw.back_today")}</a>
-      <div className="flex items-center gap-4">
+    <AppShell current="today">
+    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-6 lg:max-w-[880px] lg:px-0 lg:pb-16 lg:pt-4">
+      <a href="/today" className="text-sm lg:hidden">{tr("app.draw.back_today")}</a>
+      <div className="flex items-center gap-4 lg:gap-6">
         <CardFace id={due.cardId} size="sm" reversed={t.reversed} reversedLabel={tr("app.card.reversed")} />
         <div className="flex flex-col gap-1.5">
           <p className="eyebrow">{tr("app.check_in.eyebrow", { date: when })}</p>
@@ -36,5 +38,6 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
       </div>
       <CheckInForm sessionId={due.sessionId} />
     </div>
+    </AppShell>
   );
 }

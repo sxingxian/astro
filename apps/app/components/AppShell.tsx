@@ -30,12 +30,9 @@ const ITEMS: { tab: ShellTab; href: string; label: AppKey }[] = [
  * Patterns lives inside Journal on phones, so the phone tabs leave it out; readers get Desk. Whether the signed-in
  * person is a reader is looked up here unless the page already knows.
  */
-export async function AppShell({ current, reader, children }: { current: ShellTab; reader?: boolean; children: ReactNode }) {
-  const t = await getCopy();
-  if (reader === undefined) {
-    const user = await getSessionUser(await headers());
-    reader = user ? (await readerStatus(getDb(), user.id)).reader : false;
-  }
+export async function AppShell({ current, reader, children }: { current?: ShellTab; reader?: boolean; children: ReactNode }) {
+  const [t, user] = await Promise.all([getCopy(), getSessionUser(await headers())]);
+  if (reader === undefined) reader = user ? (await readerStatus(getDb(), user.id)).reader : false;
   const phoneTabs = ITEMS.filter((i) => i.tab !== "patterns");
   const phoneCurrent = current === "patterns" ? "journal" : current;
   return (
@@ -62,6 +59,14 @@ export async function AppShell({ current, reader, children }: { current: ShellTa
             </>
           ) : null}
         </nav>
+        {user ? (
+          <a href="/account" className="mt-auto flex flex-col gap-0.5 rounded-xl border border-gold/14 p-3 text-xs text-muted no-underline">
+            <span className="truncate text-sm text-moon">{user.email}</span>
+            <span>{reader ? t("app.nav.account_reader") : t("app.nav.account_free")} · {user.twoFactorEnabled ? t("app.nav.two_step_on") : t("app.nav.two_step_off")}</span>
+          </a>
+        ) : (
+          <a href="/sign-up" className="btn-ghost mt-auto min-h-11 text-sm">{t("app.today.sign_up")}</a>
+        )}
       </aside>
       <div className="min-w-0 flex-1 pb-20 lg:pb-0">
         <div className="mx-auto w-full max-w-[1100px] lg:px-12 lg:pb-16 lg:pt-6">{children}</div>

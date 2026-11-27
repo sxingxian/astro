@@ -4,7 +4,7 @@ import { CardBack } from "@astro/ui";
 import { gsap } from "gsap";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "../CopyProvider";
-import { cardAngle, cardLift, clampRotation, edgeVelocity, indexAt, keepVisible, angleStep } from "@/lib/draw/fan-geometry";
+import { angleStep, cardAngle, cardLift, clampRotation, DESKTOP_FAN, edgeVelocity, geometryFor, indexAt, keepVisible, maxRotation } from "@/lib/draw/fan-geometry";
 
 interface Props {
   size: number;
@@ -15,10 +15,6 @@ interface Props {
   onToggle: (position: number) => void;
 }
 
-const STAGE_H = 440;
-const CARD_TOP = 250;
-const PIVOT_FROM_CARD_TOP = 256;
-const PIVOT_Y = CARD_TOP + PIVOT_FROM_CARD_TOP;
 const EDGE_ZONE = 115;
 const SLIDE_SPEED = 3;
 /** Cards turned further than this are off the arc: not drawn and not clickable. */
@@ -47,8 +43,10 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
   const down = useRef<{ x: number; y: number; t: number; card: number } | null>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
   const velocity = useRef(0);
-  const live = useRef({ rot: 0, width: 390 });
-  live.current = { rot, width };
+  // Phones get the prototype's fan; a wide stage (desktop panel) gets mockup D2's larger cards.
+  const g = geometryFor(width);
+  const live = useRef({ rot: 0, width: 390, g });
+  live.current = { rot, width, g };
 
   // Reduce Motion: no fan-out animation and no sliding motion.
   useEffect(() => {
@@ -83,14 +81,14 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
     const r = stageRef.current?.getBoundingClientRect();
     return r ? { x: e.clientX - r.left, y: e.clientY - r.top } : null;
   };
-  const cardAt = useCallback((p: { x: number; y: number } | null, r: number) => (p ? indexAt(p.x - live.current.width / 2, p.y - PIVOT_Y, r, size) : -1), [size]);
+  const cardAt = useCallback((p: { x: number; y: number } | null, r: number) => (p ? indexAt(p.x - live.current.width / 2, p.y - (live.current.g.cardTop + live.current.g.radius), r, size, live.current.g) : -1), [size]);
 
   // The edge slide: GSAP's ticker turns the fan while the pointer rests in an edge zone.
   const tick = useCallback(
     (_time: number, _delta: number, _frame: number) => {
       const v = velocity.current;
       if (!v) return;
-      const next = clampRotation(live.current.rot + v, size, live.current.width);
+      const next = clampRotation(live.current.rot + v, size, live.current.width, live.current.g);
       if (next === live.current.rot) return setSliding(0);
       live.current.rot = next;
       setRot(next);
@@ -106,7 +104,7 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
       const id = window.setInterval(() => {
         const v = velocity.current;
         if (!v) return;
-        const next = clampRotation(live.current.rot + Math.sign(v) * angleStep(size), size, live.current.width);
+        const next = clampRotation(live.current.rot + Math.sign(v) * angleStep(size), size, live.current.width, live.current.g);
         setRot(next);
       }, 250);
       return () => window.clearInterval(id);
@@ -132,11 +130,10 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
   };
 
   const tabStop = focus >= 0 ? focus : (selected[0] ?? Math.floor(size / 2));
-  const leftMore = fanned && cardAngleRaw(0) < -50;
-  const rightMore = fanned && cardAngleRaw(size - 1) > 50;
-  function cardAngleRaw(i: number) {
-    return cardAngle(i, size, rot, -1);
-  }
+  // Arrows show only when the fan can still turn that way (a fan that fits the stage has none).
+  const maxRot = maxRotation(size, width, g);
+  const leftMore = fanned && rot < maxRot - 0.5;
+  const rightMore = fanned && rot > -maxRot + 0.5;
 
   const focusText =
     focus >= 0
@@ -153,7 +150,8 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
         data-testid="fan-stage"
         data-rot={rot.toFixed(1)}
         className="fan-stage"
-        style={{ height: STAGE_H }}
+        data-size={g === DESKTOP_FAN ? "desktop" : "phone"}
+        style={{ height: g.stageH }}
         onPointerDown={(e) => {
           pressed.current = true;
           focusAtDown.current = focus;
@@ -205,7 +203,7 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
           const picked = selected.includes(i);
           const angle = fanned ? cardAngle(i, size, rot, focus) : 0;
           const visible = Math.abs(angle) < VISIBLE_ANGLE;
-          const lift = fanned ? cardLift(i, focus, picked) : 0;
+          const lift = fanned ? cardLift(i, focus, picked, g) : 0;
           const transition = reduced ? "none" : !settled ? `transform 800ms cubic-bezier(.22,1,.36,1) ${i * 6}ms` : sliding ? "transform 70ms linear" : "transform 180ms cubic-bezier(.22,1,.36,1)";
           return (
             <button
@@ -219,8 +217,11 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
               tabIndex={i === tabStop ? 0 : -1}
               disabled={locked}
               style={{
-                top: CARD_TOP,
-                transformOrigin: `50% ${PIVOT_FROM_CARD_TOP}px`,
+                top: g.cardTop,
+                width: g.cardW,
+                height: g.cardH,
+                marginLeft: -g.cardW / 2,
+                transformOrigin: `50% ${g.radius}px`,
                 transform: `rotate(${angle.toFixed(2)}deg) translateY(${(-lift).toFixed(1)}px)`,
                 zIndex: i === focus ? 400 : i,
                 opacity: visible ? 1 : 0,
@@ -229,7 +230,7 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
               }}
               onFocus={() => {
                 setFocus(i);
-                setRot((r) => keepVisible(i, r, size, live.current.width));
+                setRot((r) => keepVisible(i, r, size, live.current.width, live.current.g));
               }}
               onBlur={(e) => {
                 if (!stageRef.current?.contains(e.relatedTarget as Node | null)) setFocus(-1);

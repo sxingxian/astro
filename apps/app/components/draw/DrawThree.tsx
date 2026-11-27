@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FormError } from "../AuthShell";
 import { FanPicker } from "./FanPicker";
+import { PickerLayout } from "./PickerLayout";
 import { useT } from "../CopyProvider";
 import { FingerprintText } from "./FingerprintText";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
@@ -45,32 +46,30 @@ export function DrawThree() {
   const minorsDeck = state?.decks.find((d) => d.stage === "minors");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 px-5">
-        <p className="eyebrow">Three pairs · Step {stage === "majors" ? 1 : 2} of 2</p>
-        <p className="m-0 text-sm text-muted">{stage === "majors" ? t("app.draw.majors_label") : t("app.draw.minors_label")}</p>
-        <h1 className="m-0 font-display text-4xl font-medium leading-tight">{stage === "majors" ? t("app.draw.majors_title") : t("app.draw.minors_title")}</h1>
-        <p className="m-0 text-haze">{stage === "majors" ? t("app.draw.majors_lede") : t("app.draw.minors_lede")}</p>
-      </div>
-      {deck ? (
-        <>
-          <FanPicker key={stage} size={deck.size} selected={selected} limit={3} label={t(stage === "majors" ? "app.draw.fan_major" : "app.draw.fan_minor", { count: String(deck.size) })} onToggle={toggle} />
-          <div className="flex flex-col gap-3 px-5">
-            <ol className="m-0 flex list-none gap-2 p-0" aria-live="polite">
-              {POSITIONS.map((p, i) => (
-                <li key={p} className={`flex-1 rounded-full border px-3 py-2 text-center text-sm ${selected[i] !== undefined ? "border-gold text-moon" : "border-gold/20 text-muted"}`}>{t(p)}{selected[i] !== undefined ? " ✓" : ""}</li>
-              ))}
-            </ol>
+    <PickerLayout
+      eyebrow={t("app.draw.three_step", { n: stage === "majors" ? "1" : "2" })}
+      note={stage === "majors" ? t("app.draw.majors_label") : t("app.draw.minors_label")}
+      title={stage === "majors" ? t("app.draw.majors_title") : t("app.draw.minors_title")}
+      lede={stage === "majors" ? t("app.draw.majors_lede") : t("app.draw.minors_lede")}
+      slots={POSITIONS.map((p, i) => ({ label: t(p), filled: selected[i] !== undefined }))}
+      fan={deck ? <FanPicker key={stage} size={deck.size} selected={selected} limit={3} label={t(stage === "majors" ? "app.draw.fan_major" : "app.draw.fan_minor", { count: String(deck.size) })} onToggle={toggle} /> : null}
+      footer={
+        deck ? (
+          <>
+            <p className="m-0 hidden text-sm text-haze lg:block">{t("app.draw.desktop_hint")}</p>
             <FormError message={error} />
-            <button type="button" className="btn-gold" disabled={selected.length !== 3 || busy} onClick={() => void next()}>{stage === "majors" ? t("app.draw.next_clarifiers") : t("app.draw.turn_six")}</button>
+            <button type="button" className="btn-gold lg:self-start lg:px-10" disabled={selected.length !== 3 || busy} onClick={() => void next()}>{stage === "majors" ? t("app.draw.next_clarifiers") : t("app.draw.turn_six")}</button>
             {majorsDeck ? <FingerprintText fingerprint={majorsDeck.fingerprint} label={t("app.draw.majors_fingerprint")} /> : null}
             {minorsDeck ? <FingerprintText fingerprint={minorsDeck.fingerprint} label={t("app.draw.minors_fingerprint")} /> : null}
             <p className="m-0 text-xs text-muted">{t("app.draw.three_note")}</p>
-          </div>
-        </>
-      ) : (
-        <div className="px-5"><FormError message={error} />{error ? null : <p className="m-0 text-haze">{t("app.draw.shuffling")}</p>}</div>
-      )}
-    </div>
+          </>
+        ) : (
+          <>
+            <FormError message={error} />
+            {error ? null : <p className="m-0 text-haze">{t("app.draw.shuffling")}</p>}
+          </>
+        )
+      }
+    />
   );
 }

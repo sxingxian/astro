@@ -4,10 +4,29 @@
  */
 
 const STEPS: Record<number, number> = { 78: 3, 56: 3.3, 22: 5.5 };
-/** Cards closer to the pivot than this, or further away, are not under the finger. */
-const RING = { inner: 120, outer: 390 };
-/** Distance from the pivot to the cards' centre line, used to work out how much of the fan a screen shows. */
-const RADIUS = 256;
+
+/**
+ * The fan's size. Phones use the approved prototype's numbers; wider stages (desktop panel, mockup D2) use larger
+ * cards on a larger fan, so the deck still runs past both edges. `radius` is the pivot's distance to the card tops;
+ * points nearer the pivot than `inner`, or further than `outer`, are off the fan.
+ */
+export interface FanGeometry {
+  cardW: number;
+  cardH: number;
+  radius: number;
+  cardTop: number;
+  stageH: number;
+  inner: number;
+  outer: number;
+  lift: number;
+}
+// As in the prototype, the pivot sits below the stage so the fan rises from the bottom edge. The space above the
+// cards is just enough for a lifted card and its raised neighbours.
+export const PHONE_FAN: FanGeometry = { cardW: 70, cardH: 116, radius: 256, cardTop: 80, stageH: 290, inner: 120, outer: 390, lift: 52 };
+export const DESKTOP_FAN: FanGeometry = { cardW: 104, cardH: 170, radius: 370, cardTop: 100, stageH: 410, inner: 180, outer: 560, lift: 70 };
+/** Stages at least this wide get the desktop fan. */
+export const DESKTOP_FAN_FROM = 600;
+export const geometryFor = (width: number): FanGeometry => (width >= DESKTOP_FAN_FROM ? DESKTOP_FAN : PHONE_FAN);
 
 /** Degrees between neighbouring cards: 78 → 3, 56 → 3.3, 22 → 5.5; other sizes in between. */
 export function angleStep(size: number): number {
@@ -18,17 +37,22 @@ export function angleStep(size: number): number {
 
 export const spreadOf = (size: number) => angleStep(size) * (size - 1);
 
-/** How far either side of centre a card can sit and still be fully on a screen this wide. */
-export function safeAngle(width: number): number {
-  const s = Math.max(0, Math.min(1, (width / 2 - 30) / RADIUS));
-  return Math.max(30, Math.min(72, (Math.asin(s) * 180) / Math.PI));
+/** How far either side of centre a card can sit, lifted, and still be fully on a stage this wide. */
+export function safeAngle(width: number, g: FanGeometry = PHONE_FAN): number {
+  // Room for the whole card, raised by its lift, so a chosen card is never pushed off the side of the stage.
+  const s = Math.max(0, Math.min(1, (width / 2 - g.cardW * 0.75) / (g.radius + g.lift)));
+  return Math.max(15, Math.min(72, (Math.asin(s) * 180) / Math.PI));
 }
 
 /** The furthest the fan can turn either way: enough to bring the end cards into view, no further. */
-export const maxRotation = (size: number, width: number) => Math.max(0, spreadOf(size) / 2 - safeAngle(width));
+export function maxRotation(size: number, width: number, g: FanGeometry = PHONE_FAN): number {
+  const m = spreadOf(size) / 2 - safeAngle(width, g);
+  // Less than one card out of view still reads as a fan that fits: no sliding and no edge arrows.
+  return m < angleStep(size) ? 0 : m;
+}
 
-export const clampRotation = (rot: number, size: number, width: number) => {
-  const m = maxRotation(size, width);
+export const clampRotation = (rot: number, size: number, width: number, g: FanGeometry = PHONE_FAN) => {
+  const m = maxRotation(size, width, g);
   return Math.max(-m, Math.min(m, rot));
 };
 
@@ -45,15 +69,15 @@ export function cardAngle(i: number, size: number, rot: number, focus: number): 
 }
 
 /** How high a card lifts: the one under the finger most, its neighbours a little; picked cards stay raised. */
-export function cardLift(i: number, focus: number, picked: boolean): number {
-  const near = focus >= 0 ? Math.max(0, 1 - Math.abs(i - focus) / 2.5) * 52 : 0;
-  return near + (picked ? 16 : 0);
+export function cardLift(i: number, focus: number, picked: boolean, g: FanGeometry = PHONE_FAN): number {
+  const near = focus >= 0 ? Math.max(0, 1 - Math.abs(i - focus) / 2.5) * g.lift : 0;
+  return near + (picked ? Math.round(g.lift * 0.3) : 0);
 }
 
 /** The card under a point (relative to the pivot), or -1 when the point is off the fan. */
-export function indexAt(px: number, py: number, rot: number, size: number): number {
+export function indexAt(px: number, py: number, rot: number, size: number, g: FanGeometry = PHONE_FAN): number {
   const dist = Math.hypot(px, py);
-  if (dist < RING.inner || dist > RING.outer) return -1;
+  if (dist < g.inner || dist > g.outer) return -1;
   const angle = (Math.atan2(px, -py) * 180) / Math.PI - rot;
   const i = Math.round((angle + spreadOf(size) / 2) / angleStep(size));
   return i < 0 || i > size - 1 ? -1 : i;
@@ -74,11 +98,11 @@ export function edgeVelocity(x: number, width: number, zone = 115, speed = 3): n
 }
 
 /** The rotation that keeps card `i` in view, changed as little as possible. */
-export function keepVisible(i: number, rot: number, size: number, width: number): number {
-  const safe = safeAngle(width) - angleStep(size);
+export function keepVisible(i: number, rot: number, size: number, width: number, g: FanGeometry = PHONE_FAN): number {
+  const safe = safeAngle(width, g) - angleStep(size);
   const a = baseAngle(i, size, rot);
   let next = rot;
   if (a > safe) next -= a - safe;
   if (a < -safe) next += -safe - a;
-  return clampRotation(next, size, width);
+  return clampRotation(next, size, width, g);
 }

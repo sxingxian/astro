@@ -1,11 +1,8 @@
 import { HttpError } from "@astro/server";
 import { notFound } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { LogForm } from "@/components/reader-log/LogForm";
-import { LogFormFrame } from "@/components/reader-log/LogFormFrame";
+import { LogWorkspace } from "@/components/reader-log/LogWorkspace";
 import { getCopy } from "@/lib/copy";
 import { getDb } from "@/lib/db";
-import { formValue } from "@/lib/log-form";
 import { getEntry } from "@/lib/reader-log";
 import { requireReaderPage } from "@/lib/reader-page";
 
@@ -21,11 +18,5 @@ export default async function EditLogEntryPage({ params }: { params: Promise<{ i
     if (e instanceof HttpError && e.status === 404) notFound();
     throw e;
   });
-  return (
-    <AppShell current="desk" reader>
-      <LogFormFrame title={t("app.log.edit_title")} t={t}>
-        <LogForm initial={formValue(t, entry.readOn, entry)} />
-      </LogFormFrame>
-    </AppShell>
-  );
+  return <LogWorkspace user={user} t={t} mode="edit" entry={entry} />;
 }
