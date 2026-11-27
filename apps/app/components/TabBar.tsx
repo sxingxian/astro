@@ -2,7 +2,7 @@ import { getCopy } from "@/lib/copy";
 const tabs = [
   { href: "/today", label: "app.tabs.today" as const, icon: <><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></> },
   { href: "/journal", label: "app.tabs.journal" as const, icon: <><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M5 17a3 3 0 0 1 3-3h11" fill="none" stroke="currentColor" strokeWidth="1.6" /></> },
-  { href: "https://astro.midnightpoetry.studio/#deeper", label: "app.tabs.deeper" as const, icon: <path d="M12 3l1.6 6.4L20 11l-6.4 1.6L12 19l-1.6-6.4L4 11l6.4-1.6z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /> },
+  { href: "/ask", label: "app.tabs.deeper" as const, icon: <path d="M12 3l1.6 6.4L20 11l-6.4 1.6L12 19l-1.6-6.4L4 11l6.4-1.6z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /> },
   { href: "/account", label: "app.tabs.account" as const, icon: <><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M4 21a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeWidth="1.6" /></> }
 ];
 

@@ -387,5 +387,9 @@ export const app = {
   // Wording preview (from the admin portal)
   "app.preview.bar": { group: "Wording preview", label: "Bar heading", where: "Top of the page in a preview link", default: "Preview, not live", max: S },
   "app.preview.note": { group: "Wording preview", label: "Bar note", where: "Top of the page in a preview link", default: "Draft wording, shown only through this link for 30 minutes.", max: M },
-  "app.preview.exit": { group: "Wording preview", label: "Leave preview link", where: "Top of the page in a preview link", default: "See live wording", max: S }
+  "app.preview.exit": { group: "Wording preview", label: "Leave preview link", where: "Top of the page in a preview link", default: "See live wording", max: S },
+  // Legal pages (wording around the documents; the documents themselves are edited on the Legal tab)
+  "app.legal.terms_meta": { group: "Legal pages", label: "Terms: page title", where: "Browser tab", default: "Terms of use", max: S },
+  "app.legal.privacy_meta": { group: "Legal pages", label: "Privacy: page title", where: "Browser tab", default: "Privacy notice", max: S },
+  "app.legal.updated": { group: "Legal pages", label: "Last updated", where: "Under the page", default: "Last updated {date}", max: S }
 } as const satisfies Record<`app.${string}`, EntrySpec>;

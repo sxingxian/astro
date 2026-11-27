@@ -5,6 +5,8 @@ export const APP_URL = "https://astroapp.midnightpoetry.studio";
 export const links = {
   today: `${APP_URL}/today`,
   signIn: `${APP_URL}/sign-in`,
+  terms: `${APP_URL}/terms`,
+  privacy: `${APP_URL}/privacy`,
   deeperAi: `${APP_URL}/deeper?tier=ai`,
   deeperHuman: `${APP_URL}/deeper?tier=human`
 } as const;
