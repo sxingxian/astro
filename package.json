@@ -21,7 +21,7 @@
     "cf:deploy:app": "pnpm --filter @astro/app run deploy",
     "cf:build:admin": "turbo run lint typecheck test build --filter=@astro/admin...",
     "cf:deploy:admin": "pnpm --filter @astro/admin run deploy",
-    "cf:build:api": "turbo run lint typecheck test build --filter=@astro/api...",
+    "cf:build:api": "turbo run lint typecheck test build --filter=@astro/api... --filter=@astro/web...",
     "cf:deploy:api": "pnpm --filter @astro/api run deploy"
   },
   "devDependencies": {

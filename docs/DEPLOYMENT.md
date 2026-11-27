@@ -493,7 +493,7 @@ All of these are done in a browser.
 
 ## 17. Data Worker `astro-api` (free-plan Stage 0: measurement)
 
-> **Why:** on Workers Free each request may use 10 ms of processing time, and the Next.js app uses far more. The data Worker is the first piece of the fix (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). In this stage it only answers `astroapp.midnightpoetry.studio/api/v2/…`, so its real processing time can be read before any page changes. The app itself is untouched.
+> **Done; superseded by §18** (its settings, secrets and build steps still apply). **Why:** on Workers Free each request may use 10 ms of processing time, and the Next.js app uses far more. The data Worker is the first piece of the fix (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). In this stage it only answers `astroapp.midnightpoetry.studio/api/v2/…`, so its real processing time can be read before any page changes. The app itself is untouched.
 
 At **dash.cloudflare.com** → **Workers & Pages → Create → Import a repository** → `sxingxian/astro`:
 
@@ -528,6 +528,56 @@ Finally, **Deployments → Retry build**. The deploy creates the route `astroapp
 3. Tell Claude. Claude reads each request's processing time in **astro-api → Observability** and decides with you whether to go on to Stage 1 (the gate: under 6 ms for ordinary requests).
 
 To remove it again: **astro-api → Settings → Delete**. The app is unaffected.
+
+## 18. Free-plan Stage 1: the app moves to `astro-api`
+
+> **Why:** the app's pages become pre-built files and its data comes from `astro-api`, so each request fits Workers Free's 10 ms (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). The reader pages (Desk, My log, invitations, role offers, reader guidelines) aren't rebuilt yet: `astro-api` passes them to `astro-app` unchanged. Nothing changes in the database, so going back is two clicks (below).
+
+**What people notice:** about a minute when the app doesn't load, while its address moves. Everyone stays signed in.
+
+### Before you say "merge"
+
+1. **astro-api → Settings → Variables and Secrets → Add**, type **Secret**, the same values as `astro-app`'s (from your password manager):
+
+   | Name | Value |
+   | --- | --- |
+   | `RESEND_API_KEY` | the same as `astro-app` |
+   | `TURNSTILE_SECRET_KEY` | the same as `astro-app` |
+
+   `DATABASE_URL`, `BETTER_AUTH_SECRET` and `PASS_SECRET` are already there from Stage 0. The other settings (sender address, Turnstile site key and so on) come with the code.
+2. **astro-api → Settings → Build → Build watch paths → Include:** replace the list with `apps/api/*`, `apps/web/*`, `apps/app/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`.
+3. Tell Claude these are done.
+
+### The move
+
+1. Say **"merge"**. Cloudflare builds both Workers (2–4 minutes). `astro-app` keeps serving the app until the address moves.
+2. Open **astro-api → Deployments** and wait for the newest build to finish.
+   - **It says Success:** the address has moved by itself. Go to step 3.
+   - **It failed with a message about the domain being in use:** move it by hand (about 30 seconds without the app):
+     1. **astro-app → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
+     2. **astro-api → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
+     3. Later, **astro-api → Deployments → Retry build**. It should now say Success.
+3. **astro-app → Settings → Domains & Routes** should list no `astroapp…` address. If it still does, remove it (**⋯ → Remove**). `astro-app` keeps running with no address of its own; only `astro-api` can reach it.
+4. If **astro-api → Settings → Domains & Routes** still lists the Stage 0 route `astroapp.midnightpoetry.studio/api/v2/*`, remove it.
+
+### Check it
+
+In a private window:
+
+1. `https://astroapp.midnightpoetry.studio/api/health` shows `{"ok":true}`.
+2. `https://astroapp.midnightpoetry.studio/today` shows Today. Draw a guest card.
+3. Sign in. Open Today, the journal, a reading, Patterns and Account.
+4. As a reader: open the Desk and My log (these still come from `astro-app`).
+5. Tell Claude. Claude reads each request's processing time in **astro-api → Observability** (the gate: ordinary requests under 6 ms, none over 10 ms).
+
+### Going back (if something is wrong)
+
+Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers use the same sign-ins in Neon.
+
+1. **astro-api → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
+2. **astro-app → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
+
+`astro-app` still has every page, so the app works as before. Then tell Claude. Until Claude has prepared the fix, don't retry `astro-api`'s build: it would take the address back.
 
 ## Release safety
 
