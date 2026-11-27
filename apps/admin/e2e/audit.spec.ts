@@ -14,10 +14,11 @@ test("sign-ins, invites and role changes are logged and shown on the Audit scree
   const mod = await seedPerson({ email: `mod-audit-${stamp}@example.com`, role: "moderator", twoStep: true });
   const origin = new URL(baseURL ?? "http://127.0.0.1:8791").origin;
 
-  // The admin changes the moderator's role (through the API, with their own fresh code).
+  // The admin changes the moderator's role (through the API, with their own fresh code). Readers are a separate grant
+  // now, so the only change an admin can make to a moderator is a no-op; it is still checked and logged.
   const adminCtx = await context.browser()!.newContext({ baseURL });
   await signInAs(adminCtx, baseURL, admin.id);
-  const changed = await adminCtx.request.post("/admin/api/team/role", { data: { userId: mod.id, role: "reader", code: admin.totp!.generate() }, headers: { origin } });
+  const changed = await adminCtx.request.post("/admin/api/team/role", { data: { userId: mod.id, role: "moderator", code: admin.totp!.generate() }, headers: { origin } });
   expect(changed.status()).toBe(200);
   await adminCtx.close();
 

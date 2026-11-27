@@ -1,5 +1,5 @@
 import { and, inArray, isNull, schema, sql } from "@astro/db";
-import { alreadyRegistered, audit, buildAuthOptions, burnSignInStep, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps, type Role } from "@astro/server";
+import { alreadyRegistered, audit, buildAuthOptions, burnSignInStep, invalidCredentials, PORTAL_ROLES, resetPassword, verifyEmail, type AuthDeps } from "@astro/server";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import type { AdminEnvVars } from "./env";
@@ -98,7 +98,7 @@ export function adminAuthOptions(env: AdminEnvVars, deps: AuthDeps) {
               .select({ role: schema.staffRole.role })
               .from(schema.staffRole)
               .innerJoin(schema.user, sql`${schema.user.id} = ${schema.staffRole.userId}`)
-              .where(and(sql`lower(${schema.user.email}) = lower(${email})`, isNull(schema.staffRole.revokedAt), inArray(schema.staffRole.role, PORTAL_ROLES as Role[])))
+              .where(and(sql`lower(${schema.user.email}) = lower(${email})`, isNull(schema.staffRole.revokedAt), inArray(schema.staffRole.role, [...PORTAL_ROLES])))
           : [];
       if (rows.length === 0) {
         await ctx.context.password.hash(typeof password === "string" ? password : "");

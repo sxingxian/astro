@@ -1,5 +1,5 @@
 import { and, eq, isNull, schema, sql, type Db } from "@astro/db";
-import { canGrant, HttpError, INVITE_HOURS, inviteEmail, newInviteToken, type EmailT, type Mail, type Role } from "@astro/server";
+import { canGrant, HttpError, INVITE_HOURS, inviteEmail, newInviteToken, type EmailT, type Mail, type Role, type StaffRole } from "@astro/server";
 
 export interface Actor {
   id: string;
@@ -54,7 +54,7 @@ export async function listTeam(db: Db, now: Date): Promise<{ members: TeamMember
   return { members, invites };
 }
 
-async function holderOf(db: Db, userId: string): Promise<{ role: Role; email: string } | null> {
+async function holderOf(db: Db, userId: string): Promise<{ role: StaffRole; email: string } | null> {
   const [r] = await db
     .select({ role: schema.staffRole.role, email: schema.user.email })
     .from(schema.staffRole)
@@ -69,7 +69,7 @@ const endPortalSessions = (db: Db, userId: string) => db.delete(schema.session).
  * Invites someone by email. Only roles the actor may grant; never someone who already has a role. Replaces any
  * earlier pending invite for that email. The link opens the app, valid for 72 hours; only its hash is stored.
  */
-export async function createInvite(db: Db, actor: Actor, input: { email: string; role: Role }, now: Date, deps: InviteDeps): Promise<{ inviteId: string; expiresAt: Date }> {
+export async function createInvite(db: Db, actor: Actor, input: { email: string; role: Exclude<Role, "owner"> }, now: Date, deps: InviteDeps): Promise<{ inviteId: string; expiresAt: Date }> {
   if (!canGrant(actor.role, input.role)) throw new HttpError(403, "forbidden_role");
   const email = input.email.trim().toLowerCase();
   const holder = await db.execute(sql`select 1 from staff_role s join "user" u on u.id = s.user_id where lower(u.email) = ${email} and s.revoked_at is null`);
@@ -98,7 +98,7 @@ export async function revokeInvite(db: Db, actor: Actor, inviteId: string): Prom
 }
 
 /** Changes someone's role. Both the old and the new role must be ones the actor may grant. Ends their portal sessions. */
-export async function changeRole(db: Db, actor: Actor, userId: string, role: Role): Promise<{ from: Role; to: Role; email: string }> {
+export async function changeRole(db: Db, actor: Actor, userId: string, role: Exclude<StaffRole, "owner">): Promise<{ from: StaffRole; to: StaffRole; email: string }> {
   if (userId === actor.id) throw new HttpError(403, "self");
   const holder = await holderOf(db, userId);
   if (!holder) throw new HttpError(404, "not_found");

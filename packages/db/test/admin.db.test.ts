@@ -75,7 +75,7 @@ describe("admin portal tables", () => {
     await expect(as("astro_web", (tx) => tx`insert into staff_role (user_id, role) values ('x', 'admin')`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_web", (tx) => tx`select token_hash from invite`)).rejects.toThrow(/permission denied/i);
     await expect(as("astro_web", (tx) => tx`update invite set accepted_at = now()`)).rejects.toThrow(/permission denied/i);
-    const [r] = await as("astro_web", (tx) => tx<{ r: string }[]>`select accept_invite(${Buffer.alloc(32)}, 'nobody') as r`);
+    const [r] = await as("astro_web", (tx) => tx<{ r: string }[]>`select accept_invite(${Buffer.alloc(32)}, 'nobody', 0) as r`);
     expect(r?.r).toBe("invalid");
   });
 

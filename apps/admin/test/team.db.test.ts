@@ -84,6 +84,6 @@ describe("team", () => {
     const [s] = await db.$client<{ n: number }[]>`select count(*)::int as n from session where user_id = 'm2' and surface = 'admin'`;
     expect(s?.n).toBe(0);
     await expect(changeRole(db, admin, "m2", "moderator")).rejects.toThrow(/forbidden/);
-    await expect(changeRole(db, admin, "a1", "reader")).rejects.toThrow(/self/);
+    await expect(changeRole(db, admin, "a1", "moderator")).rejects.toThrow(/self/);
   });
 });

@@ -38,8 +38,8 @@ test("an invitation is accepted in the app: account, then authenticator, then th
   await page.goto("/invite");
   await page.getByRole("button", { name: "Accept invitation" }).click();
   await expect(page.getByRole("heading", { name: "You're on the team" })).toBeVisible();
-  const [row] = await sql<{ role: string }[]>`select s.role from staff_role s join "user" u on u.id = s.user_id where u.email = ${email}`;
-  expect(row?.role).toBe("reader");
+  const [row] = await sql<{ n: number }[]>`select count(*)::int as n from reader_role r join "user" u on u.id = r.user_id where u.email = ${email} and r.revoked_at is null`;
+  expect(row?.n).toBe(1);
   const [logged] = await sql<{ actor_role: string }[]>`select a.actor_role from audit_log a join "user" u on u.id = a.actor_id where u.email = ${email} and a.action = 'team.accept'`;
   expect(logged?.actor_role).toBe("reader");
 });

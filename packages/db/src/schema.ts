@@ -187,7 +187,9 @@ export const mailOutbox = pgTable("mail_outbox", {
 
 const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({ dataType: () => "bytea" });
 
-export const STAFF_ROLES = ["owner", "admin", "moderator", "reader"] as const;
+export const STAFF_ROLES = ["owner", "admin", "moderator"] as const;
+/** What an invite can carry: a portal role or the reader role (readers work in the app). */
+export const INVITE_ROLES = ["admin", "moderator", "reader"] as const;
 
 /** One active role per person. Exactly one active owner (unique partial index). */
 export const staffRole = pgTable(
@@ -200,7 +202,7 @@ export const staffRole = pgTable(
     revokedAt: ts("revoked_at")
   },
   (t) => [
-    check("staff_role_role_check", sql`${t.role} in ('owner', 'admin', 'moderator', 'reader')`),
+    check("staff_role_role_check", sql`${t.role} in ('owner', 'admin', 'moderator')`),
     uniqueIndex("staff_role_one_owner_uq").on(sql`(true)`).where(sql`${t.role} = 'owner' and ${t.revokedAt} is null`)
   ]
 );
@@ -210,7 +212,7 @@ export const invite = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email").notNull(),
-    role: text("role", { enum: STAFF_ROLES }).notNull(),
+    role: text("role", { enum: INVITE_ROLES }).notNull(),
     tokenHash: bytea("token_hash").notNull().unique(),
     invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -219,6 +221,46 @@ export const invite = pgTable(
     revokedAt: ts("revoked_at")
   },
   (t) => [check("invite_role_check", sql`${t.role} in ('admin', 'moderator', 'reader')`), index("invite_email_idx").on(sql`lower(${t.email})`)]
+);
+
+/** The reader role, held alone or beside a portal role. Active while revoked_at is null; never deleted. */
+export const readerRole = pgTable("reader_role", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  grantedBy: text("granted_by").references(() => user.id, { onDelete: "set null" }),
+  grantedAt: ts("granted_at").notNull().defaultNow(),
+  revokedAt: ts("revoked_at")
+});
+
+/** A role offered to an existing account: the reader role, a portal role, or both. Accepted only by that account. */
+export const roleOffer = pgTable(
+  "role_offer",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    reader: boolean("reader").notNull(),
+    portalRole: text("portal_role", { enum: ["admin", "moderator"] }),
+    offeredBy: text("offered_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    expiresAt: ts("expires_at").notNull(),
+    acceptedAt: ts("accepted_at"),
+    revokedAt: ts("revoked_at")
+  },
+  (t) => [
+    check("role_offer_portal_role_check", sql`${t.portalRole} in ('admin', 'moderator')`),
+    check("role_offer_something_check", sql`${t.reader} or ${t.portalRole} is not null`),
+    index("role_offer_user_idx").on(t.userId)
+  ]
+);
+
+/** Which published version of the reader guidelines each reader accepted (0 = the built-in default). */
+export const guidelineAcceptance = pgTable(
+  "guideline_acceptance",
+  {
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    version: bigint("version", { mode: "number" }).notNull(),
+    acceptedAt: ts("accepted_at").notNull().defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })]
 );
 
 /** Append-only: a trigger rejects UPDATE and DELETE, and runtime roles may only INSERT. */

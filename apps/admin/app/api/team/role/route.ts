@@ -6,7 +6,7 @@ import { changeRole } from "@/lib/team";
 
 export const dynamic = "force-dynamic";
 
-export const POST = mutation(z.object({ userId: z.string().min(1).max(64), role: z.enum(["admin", "moderator", "reader"]), code: z.string().max(6) }), async ({ request, user, body }) => {
+export const POST = mutation(z.object({ userId: z.string().min(1).max(64), role: z.enum(["admin", "moderator"]), code: z.string().max(6) }), async ({ request, user, body }) => {
   requireCan(user, "team.manage");
   await stepUp(user, body.code);
   const r = await inTransaction(async (tx) => {

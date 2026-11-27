@@ -43,6 +43,13 @@
       "when": 1795751003291,
       "tag": "0005_legal_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795753522481,
+      "tag": "0006_readers",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,7 @@ import { seedPerson } from "./seed";
 const ROUTES: { path: string; body: Record<string, unknown>; deny: ("admin" | "moderator")[] }[] = [
   { path: "/admin/api/team/invite", body: { email: "x@example.com", role: "moderator", code: "000000" }, deny: ["moderator"] },
   { path: "/admin/api/team/revoke", body: { inviteId: crypto.randomUUID(), code: "000000" }, deny: ["moderator"] },
-  { path: "/admin/api/team/role", body: { userId: "nobody", role: "reader", code: "000000" }, deny: ["moderator"] },
+  { path: "/admin/api/team/role", body: { userId: "nobody", role: "moderator", code: "000000" }, deny: ["moderator"] },
   { path: "/admin/api/team/remove", body: { userId: "nobody", code: "000000" }, deny: ["moderator"] }
 ];
 

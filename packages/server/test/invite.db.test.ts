@@ -2,15 +2,16 @@ import { createDb } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { acceptInvite, hashInviteToken, newInviteToken } from "../src/invite";
+import { acceptRoleOffer } from "../src/offers";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
 const db = createDb(url);
 const now = new Date();
 
-async function invite(email: string, role: "admin" | "moderator" | "reader", expiresAt = new Date(now.getTime() + 72 * 3600_000)) {
+async function invite(email: string, role: "admin" | "moderator" | "reader", expiresAt = new Date(now.getTime() + 72 * 3600_000), invitedBy: string | null = null) {
   const { token, hash } = await newInviteToken();
-  await db.$client`insert into invite (email, role, token_hash, expires_at) values (${email}, ${role}, ${hash}, ${expiresAt.toISOString()})`;
+  await db.$client`insert into invite (email, role, token_hash, invited_by, expires_at) values (${email}, ${role}, ${hash}, ${invitedBy}, ${expiresAt.toISOString()})`;
   return token;
 }
 async function person(id: string, email: string, twoStep = true) {
@@ -42,7 +43,7 @@ describe("acceptInvite", () => {
     const u = await person("race1", "race@example.com");
     const results = await Promise.all([acceptInvite(db, { token, userId: u.id }), acceptInvite(db, { token, userId: u.id })]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
-    const [row] = await db.$client<{ granted_by: string }[]>`select granted_by from staff_role where user_id = 'race1'`;
+    const [row] = await db.$client<{ granted_by: string }[]>`select granted_by from reader_role where user_id = 'race1'`;
     expect(row?.granted_by).toBe("inviter");
   });
 
@@ -50,8 +51,8 @@ describe("acceptInvite", () => {
     const token = await invite("Reader@Example.com", "reader");
     const u = await person("r1", "reader@example.com");
     expect(await acceptInvite(db, { token, userId: u.id })).toEqual({ ok: true, role: "reader" });
-    const [row] = await db.$client<{ role: string }[]>`select role from staff_role where user_id = 'r1'`;
-    expect(row?.role).toBe("reader");
+    const [row] = await db.$client<{ n: number }[]>`select count(*)::int as n from reader_role where user_id = 'r1' and revoked_at is null`;
+    expect(row?.n).toBe(1);
     expect(await acceptInvite(db, { token, userId: u.id })).toEqual({ ok: false, reason: "invalid" });
   });
 
@@ -81,10 +82,43 @@ describe("acceptInvite", () => {
     expect(await acceptInvite(db, { token: "x".repeat(43), userId: u.id })).toEqual({ ok: false, reason: "invalid" });
   });
 
-  it("refuses someone who already has a role", async () => {
+  it("refuses a portal role to someone who already has one", async () => {
     const u = await person("h1", "has@example.com");
     await db.$client`insert into staff_role (user_id, role) values ('h1', 'moderator')`;
-    const token = await invite("has@example.com", "reader");
+    const token = await invite("has@example.com", "admin");
     expect(await acceptInvite(db, { token, userId: u.id })).toEqual({ ok: false, reason: "has_role" });
+  });
+
+  it("makes staff readers only through the owner, and checks the guidelines version", async () => {
+    await person("own", "own@example.com");
+    await db.$client`insert into staff_role (user_id, role) values ('own', 'owner')`;
+    const notOwner = await invite("has@example.com", "reader");
+    expect(await acceptInvite(db, { token: notOwner, userId: "h1" })).toEqual({ ok: false, reason: "staff_reader_owner_only" });
+    const [v] = await db.$client<{ id: string }[]>`insert into text_version (kind, snapshot) values ('guidelines', '{}') returning id`;
+    const fromOwner = await invite("has@example.com", "reader", undefined, "own");
+    expect(await acceptInvite(db, { token: fromOwner, userId: "h1", guidelines: 0 })).toEqual({ ok: false, reason: "guidelines_changed" });
+    expect(await acceptInvite(db, { token: fromOwner, userId: "h1", guidelines: Number(v!.id) })).toEqual({ ok: true, role: "reader" });
+  });
+});
+
+describe("acceptRoleOffer", () => {
+  async function offer(userId: string, by: string | null, reader: boolean, portal: "admin" | "moderator" | null) {
+    const [row] = await db.$client<{ id: string }[]>`insert into role_offer (user_id, reader, portal_role, offered_by, expires_at) values (${userId}, ${reader}, ${portal}, ${by}, now() + interval '1 hour') returning id`;
+    return row!.id;
+  }
+  const guidelines = async () => Number((await db.$client<{ v: string }[]>`select coalesce(max(id), 0) as v from text_version where kind = 'guidelines'`)[0]!.v);
+
+  it("gives the offered roles and says which", async () => {
+    await person("of1", "of1@example.com");
+    const id = await offer("of1", "own", true, "admin");
+    expect(await acceptRoleOffer(db, { offerId: id, userId: "of1", guidelines: await guidelines() })).toEqual({ ok: true, roles: { portal: "admin", reader: true } });
+    await person("of2", "of2@example.com");
+    expect(await acceptRoleOffer(db, { offerId: await offer("of2", "own", false, "moderator"), userId: "of2", guidelines: 0 })).toEqual({ ok: true, roles: { portal: "moderator", reader: false } });
+  });
+
+  it("refuses a malformed id, someone else's offer and an admin adding the reader role to staff", async () => {
+    expect(await acceptRoleOffer(db, { offerId: "nope", userId: "of2", guidelines: 0 })).toEqual({ ok: false, reason: "invalid" });
+    expect(await acceptRoleOffer(db, { offerId: await offer("of1", "own", false, "moderator"), userId: "of2", guidelines: 0 })).toEqual({ ok: false, reason: "invalid" });
+    expect(await acceptRoleOffer(db, { offerId: await offer("of2", null, true, null), userId: "of2", guidelines: await guidelines() })).toEqual({ ok: false, reason: "staff_reader_owner_only" });
   });
 });
