@@ -11,7 +11,8 @@
  * Exits 1 if any call doesn't answer as expected (status, and for member reads the pass state: `x-astro-pass`
  * `refresh` without a pass, `hit` with one), or if the median CPU of the warm calls is over the budget (ms) for the
  * usual request (with a pass) or over twice the budget for a request that checks Neon (no pass, sign-in, draw start).
- * p90 and max are printed too.
+ * p90 and max are printed too, as is each read's first (cache-cold) call. A median or first call over 8 ms prints
+ * WARN without failing: worth a look before it meets the live 10 ms.
  *
  * Limits: the profiler adds overhead and samples every 0.1 ms (a gap longer than 2 ms between samples is time spent waiting and counts as one sample), and the local machine isn't Cloudflare's. It does
  * count time in the runtime's native Web Crypto (`test/cpu-budget.cpu.test.ts` proves both kinds). So this is a
@@ -51,6 +52,7 @@ const INSPECTOR = 9235;
 const NEON_PORT = 4445;
 const SAMPLE_MS = 0.1;
 const GAP_MS = 2;
+const WARN_MS = 8;
 const AUTH_SECRET = "cpu-budget-auth-secret-0123456789abcdef";
 const PASS_SECRET = "cpu-budget-pass-secret-0123456789abcdef";
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -204,10 +206,11 @@ try {
   const { send, close } = await inspector();
 
   /** Runs one case `runs` times; the first call warms the isolate and isn't counted. */
-  async function check(label: string, c: Call, ok: (r: { status: number; pass: string | null }) => boolean, limit: number) {
+  /** `c` may be a setup run (unmeasured) before each call, for requests that can't repeat (a fresh draw). */
+  async function check(label: string, c: Call | (() => Promise<Call>), ok: (r: { status: number; pass: string | null }) => boolean, limit: number) {
     if (only && !label.includes(only)) return;
     const results = [];
-    for (let k = 0; k < runs; k++) results.push(await measure(send, c));
+    for (let k = 0; k < runs; k++) results.push(await measure(send, typeof c === "function" ? await c() : c));
     // A cheap error page must never pass for a fast route: every call has to be the real answer.
     const wrong = results.find((r) => !ok(r));
     const warm = results.slice(1).map((r) => r.ms);
@@ -215,8 +218,19 @@ try {
     const over = m > limit;
     failed ||= over || Boolean(wrong);
     const stats = `median ${m.toFixed(1)} ms, p90 ${pct(warm, 0.9).toFixed(1)}, max ${Math.max(...warm).toFixed(1)} [${warm.map((x) => x.toFixed(1)).join(", ")}] budget ${limit} ms`;
+    // Locally over ~8 ms is worth a look before it meets the live 10 ms (the local run has profiler overhead).
     if (wrong) console.log(`WRONG ${label}: status ${wrong.status}, x-astro-pass ${wrong.pass ?? "none"}`);
-    else console.log(`${over ? "OVER " : "ok   "} ${label}: ${stats}`);
+    else console.log(`${over ? "OVER " : m > WARN_MS ? "WARN " : "ok   "} ${label}: ${stats}`);
+  }
+
+  /** A new person each time, with a sign-in cookie (and pass) and, if asked, today's reading started. */
+  async function freshPerson(spread?: "one" | "three") {
+    const p = await testPerson();
+    const me = await call({ path: "/api/me", cookie: p.cookie });
+    const cookie = `${p.cookie}; astro.pass=${/astro\.pass=([^;]*)/.exec(me.headers.get("set-cookie") ?? "")?.[1]}`;
+    if (!spread) return { cookie, sessionId: "" };
+    const res = await call({ method: "POST", path: "/api/draw/start", cookie, body: () => ({ spread }) });
+    return { cookie, sessionId: ((await res.json()) as { sessionId: string }).sessionId };
   }
 
   // A finished reading to read and write notes on (the draw start and pick, through the Worker).
@@ -228,6 +242,9 @@ try {
   const reads = paths.length ? paths : ["/api/me", "/api/session", "/api/today", "/api/journal", "/api/patterns", "/api/account", `/api/reading/${sessionId}`];
   for (const path of reads) {
     // Each read twice: without a pass (checks Neon, issues one) and with it (the usual case).
+    // The first call: the isolate's wording and maintenance caches may still be empty (more database requests).
+    const cold = await measure(send, { path, cookie });
+    if (!only || path.includes(only)) console.log(`${cold.ms > WARN_MS ? "WARN " : "ok   "} ${path} (first call): ${cold.ms.toFixed(1)} ms`);
     const first = await call({ path, cookie });
     const pass = /astro\.pass=([^;]*)/.exec(first.headers.get("set-cookie") ?? "")?.[1];
     await check(`${path} (no pass)`, { path, cookie }, (r) => r.status === 200 && r.pass === "refresh", budget * 2);
@@ -240,6 +257,11 @@ try {
     await check("POST /api/reading/:id/note (with pass)", { method: "POST", path: `/api/reading/${sessionId}/note`, cookie: withPass, body: () => ({ body: `Note ${Math.random()}` }) }, (r) => r.status === 200, budget);
     // Returns today's three-card reading in progress after the first call: the advisory lock on the WebSocket driver each time.
     await check("POST /api/draw/start (WebSocket driver)", { method: "POST", path: "/api/draw/start", cookie: withPass, body: () => ({ spread: "three" }) }, (r) => r.status === 200, budget * 2);
+    await check("POST /api/draw/start fresh (shuffle and save)", async () => ({ method: "POST", path: "/api/draw/start", cookie: (await freshPerson()).cookie, body: () => ({ spread: "three" }) }), (r) => r.status === 200, budget * 2);
+    await check("POST /api/draw/pick", async () => {
+      const p = await freshPerson("one");
+      return { method: "POST", path: "/api/draw/pick", cookie: p.cookie, body: () => ({ sessionId: p.sessionId, stage: "single", positions: [7] }) };
+    }, (r) => r.status === 200, budget);
     await check("POST /api/auth/sign-in/email (bcrypt in Postgres)", { method: "POST", path: "/api/auth/sign-in/email", body: () => ({ email: person.email, password: PASSWORD }) }, (r) => r.status === 200, budget * 2);
   }
   close();

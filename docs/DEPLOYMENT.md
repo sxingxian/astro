@@ -550,7 +550,7 @@ To remove it again: **astro-api → Settings → Delete**. The app is unaffected
 
 ### The move
 
-1. Say **"merge"**. Cloudflare builds both Workers (2–4 minutes). `astro-app` keeps serving the app until the address moves.
+1. Say **"merge"**. Cloudflare builds both Workers (2–4 minutes). `astro-app` should keep serving the app until the address moves. **If the app stops loading and `astro-api`'s build isn't finished yet,** do step 2 of "Going back" below at once (it puts the address back on `astro-app`), then tell Claude.
 2. Open **astro-api → Deployments** and wait for the newest build to finish.
    - **It says Success:** the address has moved by itself. Go to step 3.
    - **It failed with a message about the domain being in use:** move it by hand (about 30 seconds without the app):
@@ -566,9 +566,10 @@ In a private window:
 
 1. `https://astroapp.midnightpoetry.studio/api/health` shows `{"ok":true}`.
 2. `https://astroapp.midnightpoetry.studio/today` shows Today. Draw a guest card.
-3. Sign in. Open Today, the journal, a reading, Patterns and Account.
-4. As a reader: open the Desk and My log (these still come from `astro-app`).
-5. Tell Claude. Claude reads each request's processing time in **astro-api → Observability** (the gate: ordinary requests under 6 ms, none over 10 ms).
+3. Sign in. Draw today's one card and today's three cards. Open Today, the journal, a reading, Patterns and Account.
+4. Sign out, then sign in again. If your account uses two-step, sign in with it once.
+5. As a reader: open the Desk and My log (these still come from `astro-app`).
+6. Tell Claude. Claude reads each request's processing time in **astro-api → Observability**. The gate: ordinary requests under 6 ms; draw start, sign-in and the first page after a quiet spell under 10 ms; no "exceeded CPU" errors. **If any of those is regularly over 10 ms, or people see errors, go back** (below).
 
 ### Going back (if something is wrong)
 
@@ -576,8 +577,9 @@ Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers u
 
 1. **astro-api → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
 2. **astro-app → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
+3. **astro-api → Settings → Build → Git repository → Disconnect.** Otherwise the next change to the code (even an automatic package update) rebuilds `astro-api`, and its build takes the address back. Reconnecting later uses the settings in §17 and §18.
 
-`astro-app` still has every page, so the app works as before. Then tell Claude. Until Claude has prepared the fix, don't retry `astro-api`'s build: it would take the address back.
+`astro-app` still has every page, so the app works as before. Then tell Claude.
 
 ## Release safety
 
@@ -587,7 +589,8 @@ Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers u
 - Workers answer only on their real addresses (no `workers.dev` or preview addresses).
 - Non-production branch builds stay off for any Worker whose build holds the migrator password.
 - Development shortcuts (fake email, Turnstile off, leaked-password check off) are refused by the app on its real address.
-- Passwords are stored as bcrypt (strength 12) over a SHA-256 of the password, computed inside the database. The password travels only over the encrypted Hyperdrive connection.
+- Passwords are stored as bcrypt (strength 12) over a SHA-256 of the password, computed inside the database. The password travels only over encrypted connections (Neon's HTTPS endpoint from `astro-api`; Hyperdrive from the portal and `astro-app`).
+- Error logs record only the kind of error, never a failed query's values (password digests, hashes, tokens, emails).
 - Deck orders, orientations and salts never leave the server until a reading is complete; tests check for leaks.
 - Developer setup and commands are in `docs/DEVELOPMENT.md`; they aren't needed to deploy.
 - To do: pin GitHub Actions to exact commit SHAs.
