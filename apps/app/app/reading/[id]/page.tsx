@@ -66,8 +66,9 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
     return (
       <article className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8">
         <p className="eyebrow">{tr("app.reading.one_eyebrow", { date: dayLabel(reading) })}</p>
-        <div className="flex justify-center py-2">
+        <div className="flex flex-col items-center gap-2 py-2">
           <FlipCard width={104} height={176}><CardFace id={t.card.id} size="lg" reversed={t.reversed} /></FlipCard>
+          {t.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
         </div>
         <header className="flex flex-col gap-2 text-center">
           <h1 className="m-0 font-display text-5xl font-medium leading-none">{t.title}</h1>
@@ -105,8 +106,14 @@ export default async function ReadingPage({ params }: { params: Promise<{ id: st
           <section key={pos} aria-labelledby={`h-${pos}`} className="panel flex flex-col gap-4 p-5">
             <h2 id={`h-${pos}`} className="eyebrow">{tr(LABEL[pos])}</h2>
             <div className="flex items-end gap-3">
-              <FlipCard width={92} height={156} delay={i * 160}><CardFace id={m.card.id} size="md" reversed={m.reversed} className="!h-full !w-full" /></FlipCard>
-              <FlipCard width={76} height={124} delay={i * 160 + 80}><CardFace id={c.card.id} size="sm" label={tr("app.card.clarifier")} reversed={c.reversed} className="!h-full !w-full bg-[#1A1736]" /></FlipCard>
+              <div className="flex flex-col items-center gap-1.5">
+                <FlipCard width={92} height={156} delay={i * 160}><CardFace id={m.card.id} size="md" reversed={m.reversed} className="!h-full !w-full" /></FlipCard>
+                {m.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <FlipCard width={76} height={124} delay={i * 160 + 80}><CardFace id={c.card.id} size="sm" label={tr("app.card.clarifier")} reversed={c.reversed} className="!h-full !w-full bg-[#1A1736]" /></FlipCard>
+                {c.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
+              </div>
             </div>
             <p className="m-0 font-display text-2xl leading-snug">{m.title} <span className="text-muted">{tr("app.reading.with")}</span> {c.title}</p>
             <p data-testid="meaning-summary" className="m-0 leading-relaxed">{m.meaning.positions[pos]} {m.side.summary}.</p>

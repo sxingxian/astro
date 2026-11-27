@@ -1,6 +1,6 @@
 import { majors } from "@astro/cards";
 import { expect, type Page } from "@playwright/test";
-import { newVisitor, signUpVerified, test, uniqueEmail } from "./helpers";
+import { newVisitor, signUpVerified, sql, test, uniqueEmail } from "./helpers";
 
 const FINGERPRINT = /^[0-9a-f]{4}( [0-9a-f]{4}){7}$/;
 
@@ -27,6 +27,19 @@ test("a guest draws today's card, once", async ({ page }) => {
   await expect(page.getByText(/You've drawn today, back at/)).toBeVisible();
   await page.goto("/draw/one");
   await expect(page).toHaveURL(readingUrl);
+});
+
+test("a reversed card is shown upside down, with \"Reversed\" underneath", async ({ page }) => {
+  await sql`update app_setting set value = '1'::jsonb where key = 'reversal_rate'`;
+  try {
+    await drawGuestCard(page);
+  } finally {
+    await sql`update app_setting set value = '0.3'::jsonb where key = 'reversal_rate'`;
+  }
+  const card = page.getByRole("img", { name: /, reversed$/ });
+  await expect(card).toBeVisible();
+  await expect(card).toHaveCSS("transform", /matrix\(-1, .*-1, 0, 0\)/);
+  await expect(page.getByText("Reversed", { exact: true }).first()).toBeVisible();
 });
 
 test("a member draws three pairs in two stages", async ({ page }) => {

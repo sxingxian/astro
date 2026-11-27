@@ -10,5 +10,7 @@
   position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
   text-align: center; background: var(--astro-ink); border: 1px solid var(--astro-gold); border-radius: 12px; color: var(--astro-moon);
 }
+.card-figure { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
+.card-reversed { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--astro-gold); }
 .card-face::after { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(216, 180, 106, 0.32); border-radius: 8px; pointer-events: none; }
 }
