@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The data Worker (free-plan design, Stage 0). Serves only /api/v2/* on the app's address; this route takes
+  // precedence over astro-app's custom domain, so the browser sends the app's existing sign-in cookie.
+  "name": "astro-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "astroapp.midnightpoetry.studio/api/v2/*", "zone_name": "midnightpoetry.studio" }],
+  // Secrets, set in the Cloudflare dashboard (docs/DEPLOYMENT.md): DATABASE_URL (Neon, astro_web role),
+  // BETTER_AUTH_SECRET (the same value as astro-app), PASS_SECRET (new, 32+ characters).
+  "vars": { "APP_URL": "https://astroapp.midnightpoetry.studio" },
+  "keep_vars": true,
+  "observability": { "enabled": true },
+  "dev": { "ip": "127.0.0.1", "port": 8791, "local_protocol": "http", "upstream_protocol": "http" }
+}

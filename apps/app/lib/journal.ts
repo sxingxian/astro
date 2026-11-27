@@ -1,5 +1,5 @@
 import { getCard } from "@astro/cards";
-import { and, desc, eq, inArray, isNotNull, lt, or, schema, sql, type Db } from "@astro/db";
+import { and, desc, eq, inArray, isNotNull, lt, or, schema, sql, type Db, type AnyDb } from "@astro/db";
 
 export type JournalFilter = "all" | "one" | "three";
 
@@ -32,7 +32,7 @@ function decodeCursor(cursor?: string): { at: Date; id: string } | null {
 }
 
 /** Completed readings for the journal, newest first, 20 at a time. */
-export async function listReadings(db: Db, userId: string, { filter = "all", cursor, limit = 20 }: { filter?: JournalFilter; cursor?: string; limit?: number }): Promise<{ items: JournalItem[]; nextCursor: string | null }> {
+export async function listReadings(db: AnyDb, userId: string, { filter = "all", cursor, limit = 20 }: { filter?: JournalFilter; cursor?: string; limit?: number }): Promise<{ items: JournalItem[]; nextCursor: string | null }> {
   const s = schema.drawSession;
   const after = decodeCursor(cursor);
   const rows = await db

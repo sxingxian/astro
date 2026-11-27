@@ -6,6 +6,7 @@ export * from "./origin";
 export * from "./password-hash";
 export * from "./step-up";
 export * from "./totp";
+export * from "./pass";
 export * from "./roles";
 export * from "./mail-templates";
 export * from "./limits";

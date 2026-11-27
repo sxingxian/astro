@@ -1,4 +1,4 @@
-import { eq, inArray, schema, type Db } from "@astro/db";
+import { eq, inArray, schema, type AnyDb, type Db } from "@astro/db";
 import { z } from "zod";
 import { HttpError } from "./http";
 import { can, type Action, type Role } from "./roles";
@@ -29,7 +29,7 @@ export function parseSetting<K extends SettingKey>(key: K, value: unknown) {
 }
 
 /** A stored value if it's still valid, otherwise the default. Never throws on bad data. */
-export async function getSetting<K extends SettingKey>(db: Pick<Db, "select">, key: K): Promise<SettingValue<K>> {
+export async function getSetting<K extends SettingKey>(db: Pick<AnyDb, "select">, key: K): Promise<SettingValue<K>> {
   const [row] = await db.select({ value: schema.appSetting.value }).from(schema.appSetting).where(eq(schema.appSetting.key, key)).limit(1);
   const parsed = row ? parseSetting(key, row.value) : null;
   return parsed?.success ? parsed.data : (SETTINGS[key].default as SettingValue<K>);
