@@ -577,7 +577,7 @@ Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers u
 
 1. **astro-api → Settings → Domains & Routes** → `astroapp.midnightpoetry.studio` → **⋯ → Remove**.
 2. **astro-app → Settings → Domains & Routes → Add → Custom domain** → `astroapp.midnightpoetry.studio` → **Add**.
-3. **astro-api → Settings → Build → Git repository → Disconnect.** Otherwise the next change to the code (even an automatic package update) rebuilds `astro-api`, and its build takes the address back. Reconnecting later uses the settings in §17 and §18.
+3. **astro-api → Settings → Builds → Disable builds: on.** Otherwise the next change to the code (even an automatic package update) rebuilds `astro-api`, and its build takes the address back. Turn it off again once Claude has the fix.
 
 `astro-app` still has every page, so the app works as before. Then tell Claude.
 
