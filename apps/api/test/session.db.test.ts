@@ -1,5 +1,7 @@
-import { createHmac, randomUUID } from "node:crypto";
-import { createDb, createHttpDb, type AnyDb } from "@astro/db";
+import { randomUUID } from "node:crypto";
+import { serializeSignedCookie } from "better-call";
+import { createDb, type AnyDb } from "@astro/db";
+import { createHttpDb } from "@astro/db/http";
 import { neonFetchOverPostgres, resetAndMigrate } from "@astro/db/testing";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -15,8 +17,11 @@ const tcp = createDb(webUrl);
 const fake = neonFetchOverPostgres(webUrl);
 const http = createHttpDb(webUrl, { fetch: fake.fetch });
 
-/** The cookie value Better Auth sets: `token.base64(HMAC-SHA-256(secret, token))`, URL-encoded. */
-export const signedCookie = (token: string, secret = SECRET) => encodeURIComponent(`${token}.${createHmac("sha256", secret).update(token).digest("base64")}`);
+/** The cookie value exactly as Better Auth sets it (signed by better-call itself, so a format change shows here). */
+async function signedCookie(token: string, secret = SECRET) {
+  const header = await serializeSignedCookie("x", token, secret);
+  return header.slice(2, header.indexOf(";") > 0 ? header.indexOf(";") : undefined);
+}
 
 async function person(opts: { surface?: string; expired?: boolean; disabled?: boolean; reader?: boolean } = {}) {
   const uid = randomUUID();
@@ -37,16 +42,22 @@ afterAll(async () => {
 });
 
 describe("sessionToken", () => {
-  it("reads the signed sign-in cookie, under either name", async () => {
-    expect(await sessionToken(`astro.session_token=${signedCookie("abc")}`, SECRET)).toBe("abc");
-    expect(await sessionToken(`x=1; __Secure-astro.session_token=${signedCookie("abc")}; y=2`, SECRET)).toBe("abc");
+  it("reads the signed sign-in cookie under the name Better Auth uses for this address", async () => {
+    expect(await sessionToken(`astro.session_token=${await signedCookie("abc")}`, SECRET, false)).toBe("abc");
+    expect(await sessionToken(`x=1; __Secure-astro.session_token=${await signedCookie("abc")}; y=2`, SECRET, true)).toBe("abc");
+  });
+
+  it("ignores the other name, so a cookie planted by another subdomain can't stand in for the real one", async () => {
+    expect(await sessionToken(`astro.session_token=${await signedCookie("abc")}`, SECRET, true)).toBeNull();
+    expect(await sessionToken(`astro.session_token=${await signedCookie("evil")}; __Secure-astro.session_token=${await signedCookie("abc")}`, SECRET, true)).toBe("abc");
+    expect(await sessionToken(`__Secure-astro.session_token=${await signedCookie("abc")}`, SECRET, false)).toBeNull();
   });
 
   it("refuses a missing cookie, a bad signature or another secret", async () => {
-    expect(await sessionToken(null, SECRET)).toBeNull();
-    expect(await sessionToken("astro.session_token=abc.notasignature", SECRET)).toBeNull();
-    expect(await sessionToken(`astro.session_token=${signedCookie("abc", "another-secret-0123456789abcdef")}`, SECRET)).toBeNull();
-    expect(await sessionToken("astro.session_token=%%%", SECRET)).toBeNull();
+    expect(await sessionToken(null, SECRET, false)).toBeNull();
+    expect(await sessionToken("astro.session_token=abc.notasignature", SECRET, false)).toBeNull();
+    expect(await sessionToken(`astro.session_token=${await signedCookie("abc", "another-secret-0123456789abcdef")}`, SECRET, false)).toBeNull();
+    expect(await sessionToken("astro.session_token=%%%", SECRET, false)).toBeNull();
   });
 });
 

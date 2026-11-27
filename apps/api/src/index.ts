@@ -1,6 +1,8 @@
-import { createHttpDb, type AnyDb } from "@astro/db";
+import type { AnyDb } from "@astro/db";
+import { createHttpDb } from "@astro/db/http";
 import { neonConfig } from "@neondatabase/serverless";
-import { PASS_COOKIE, PASS_TTL_S, readPass, securityHeaders, signPass } from "@astro/server";
+import { securityHeaders } from "@astro/server/csp";
+import { PASS_COOKIE, PASS_TTL_S, readPass, signPass } from "@astro/server/pass";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { checkEnv, type Env } from "./env";
@@ -12,7 +14,7 @@ interface Who {
   reader: boolean;
   tz: string;
 }
-type Vars = { env: Env; db: AnyDb };
+type Vars = { env: Env; db: () => AnyDb };
 type C = Context<{ Bindings: Partial<Env>; Variables: Vars }>;
 
 export interface Deps {
@@ -22,9 +24,13 @@ export interface Deps {
 }
 
 /** The data Worker (free-plan design, Stage 0): reads only, under /api/v2. */
+// One HTTPS client per isolate: it holds no connection, and building it reads the whole schema.
+const clients = new Map<string, AnyDb>();
 function httpDb(env: Env): AnyDb {
   if (env.NEON_FETCH_ENDPOINT) neonConfig.fetchEndpoint = env.NEON_FETCH_ENDPOINT;
-  return createHttpDb(env.DATABASE_URL);
+  let client = clients.get(env.DATABASE_URL);
+  if (!client) clients.set(env.DATABASE_URL, (client = createHttpDb(env.DATABASE_URL)));
+  return client;
 }
 
 export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
@@ -44,21 +50,22 @@ export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
       return c.json({ error: "server_error" }, 500);
     }
     c.set("env", env);
-    c.set("db", db(env));
+    let client: AnyDb | undefined;
+    c.set("db", () => (client ??= db(env)));
     await next();
   });
 
   /** Who is signed in: from the pass when it is genuine and current, otherwise from Neon (and a fresh pass). */
   async function who(c: C): Promise<Who | null> {
     const env = c.get("env");
-    const token = await sessionToken(c.req.header("cookie"), env.BETTER_AUTH_SECRET);
+    const token = await sessionToken(c.req.header("cookie"), env.BETTER_AUTH_SECRET, env.APP_URL.startsWith("https://"));
     if (!token) return null;
     const pass = await readPass(getCookie(c, PASS_COOKIE), token, env.PASS_SECRET, now());
     if (pass) {
       c.header("x-astro-pass", "hit");
       return { uid: pass.uid, reader: pass.reader, tz: pass.tz };
     }
-    const s = await lookupSession(c.get("db"), token);
+    const s = await lookupSession(c.get("db")(), token);
     if (!s) {
       deleteCookie(c, PASS_COOKIE, { path: "/api", secure: true, httpOnly: true, sameSite: "Lax" });
       return null;
@@ -79,12 +86,14 @@ export function createApp({ db = httpDb, now = Date.now }: Deps = {}) {
   app.get("/today", async (c) => {
     const w = await who(c);
     if (!w) return c.json({ error: "signed_out" }, 401);
-    return c.json(await todayFor(c.get("db"), w.uid, w.tz));
+    return c.json(await todayFor(c.get("db")(), w.uid, w.tz));
   });
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((e, c) => {
-    console.error("astro-api:", e instanceof Error ? e.message : String(e));
+    // The error's kind and database code only: Drizzle's messages carry the query's values (a session token).
+    const code = (e as { cause?: { code?: unknown } }).cause?.code;
+    console.error("astro-api:", e instanceof Error ? e.name : "error", typeof code === "string" ? code : "");
     return c.json({ error: "server_error" }, 500);
   });
   return app;

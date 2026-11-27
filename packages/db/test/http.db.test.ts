@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, createHttpDb, rowsOf, sql } from "../src/index";
+import { createHttpDb } from "../src/http";
+import { createDb, rowsOf, sql } from "../src/index";
 import { neonFetchOverPostgres, resetAndMigrate } from "../src/testing";
 
 const url = process.env.DATABASE_URL_TEST;

@@ -5,9 +5,15 @@
  *
  *   tsx scripts/cpu-budget.ts --budget 6 [--entry test/fixtures/spin-worker.ts] /api/v2/me /api/v2/today
  *
- * Exits 1 if the median CPU of the warm calls to any path, with a pass (the usual request), is over the budget (ms),
- * or over twice the budget without one (the request that checks Neon). The profiler adds overhead, so the local
- * budget is a regression guard, not the live number (that comes from Cloudflare's logs).
+ * Exits 1 if any call doesn't answer 200 with the expected pass state (`x-astro-pass`: `refresh` without a pass,
+ * `hit` with one), or if the median CPU of the warm calls to a path is over the budget (ms) with a pass (the usual
+ * request) or over twice the budget without one (the request that checks Neon). p90 and max are printed too.
+ *
+ * Limits: the profiler adds overhead and samples every 0.1 ms, and the local machine isn't Cloudflare's. It does
+ * count time in the runtime's native Web Crypto (`test/cpu-budget.cpu.test.ts` proves both kinds). So this is a
+ * regression guard; the gate is Cloudflare's own CPU numbers (Observability). Local readings vary by 2–3× from run
+ * to run (shared machine, profiler), so the default budget (25 ms) is set to catch a Next.js-sized regression
+ * (30–100 ms per request) without failing on noise.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
@@ -25,9 +31,9 @@ const opt = (name: string, fallback?: string) => {
   args.splice(i, 2);
   return v;
 };
-const budget = Number(opt("--budget", "10"));
+const budget = Number(opt("--budget", "25"));
 const entry = opt("--entry");
-const runs = Number(opt("--runs", "7"));
+const runs = Number(opt("--runs", "13"));
 const paths = args.length ? args : ["/api/v2/me", "/api/v2/today"];
 
 const url = process.env.DATABASE_URL_TEST;
@@ -73,7 +79,8 @@ function startWorker(): ChildProcess {
   };
   const cli = ["exec", "wrangler", "dev", ...(entry ? [entry] : []), "--port", String(PORT), "--inspector-port", String(INSPECTOR)];
   for (const [k, v] of Object.entries(vars)) cli.push("--var", `${k}:${v}`);
-  return spawn("pnpm", cli, { cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+  // Its own process group, so stopping it also stops wrangler and workerd under pnpm.
+  return spawn("pnpm", cli, { cwd: root, stdio: ["ignore", "pipe", "pipe"], detached: true });
 }
 
 async function waitFor(u: string, ms = 90_000) {
@@ -103,9 +110,13 @@ async function inspector() {
     }
   });
   const send = <T>(method: string, params: object = {}) =>
-    new Promise<T>((r) => {
+    new Promise<T>((resolve, reject) => {
       const i = ++id;
-      pending.set(i, r as (v: unknown) => void);
+      const timer = setTimeout(() => reject(new Error(`inspector: no answer to ${method}`)), 15_000);
+      pending.set(i, (v) => {
+        clearTimeout(timer);
+        resolve(v as T);
+      });
       ws.send(JSON.stringify({ id: i, method, params }));
     });
   await send("Profiler.enable");
@@ -120,9 +131,9 @@ interface Profile {
 }
 
 /** CPU time (ms) the Worker spent on one request: sampled time outside idle. */
-async function measure(send: Awaited<ReturnType<typeof inspector>>["send"], path: string, cookie: string): Promise<{ ms: number; status: number }> {
+async function measure(send: Awaited<ReturnType<typeof inspector>>["send"], path: string, cookie: string): Promise<{ ms: number; status: number; pass: string | null }> {
   await send("Profiler.start");
-  const res = await fetch(`http://127.0.0.1:${PORT}${path}`, { headers: { cookie } });
+  const res = await fetch(`http://127.0.0.1:${PORT}${path}`, { headers: { cookie }, signal: AbortSignal.timeout(15_000) });
   await res.text();
   const { profile } = await send<{ profile: Profile }>("Profiler.stop");
   const name = new Map(profile.nodes.map((n) => [n.id, n.callFrame.functionName]));
@@ -131,10 +142,10 @@ async function measure(send: Awaited<ReturnType<typeof inspector>>["send"], path
     const fn = name.get(s);
     if (fn !== "(idle)" && fn !== "(program)") busy += profile.timeDeltas[i]! / 1000;
   });
-  return { ms: busy, status: res.status };
+  return { ms: busy, status: res.status, pass: res.headers.get("x-astro-pass") };
 }
 
-const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+const pct = (xs: number[], p: number) => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * p))]!;
 
 const neon = await startNeon();
 const worker = startWorker();
@@ -145,22 +156,30 @@ try {
   const { send, close } = await inspector();
   for (const path of paths) {
     // Each path twice: without a pass (checks Neon, issues one) and with it (the usual case).
-    const first = await fetch(`http://127.0.0.1:${PORT}${path}`, { headers: { cookie } });
+    const first = await fetch(`http://127.0.0.1:${PORT}${path}`, { headers: { cookie }, signal: AbortSignal.timeout(15_000) });
     const pass = /astro\.pass=([^;]*)/.exec(first.headers.get("set-cookie") ?? "")?.[1];
-    for (const [label, c] of [["no pass", cookie], ["with pass", pass ? `${cookie}; astro.pass=${pass}` : cookie]] as const) {
+    for (const [label, c, expected] of [["no pass", cookie, "refresh"], ["with pass", pass ? `${cookie}; astro.pass=${pass}` : cookie, "hit"]] as const) {
       const results = [];
       for (let k = 0; k < runs; k++) results.push(await measure(send, path, c));
+      // A cheap error page must never pass for a fast route: every call has to be a real, signed-in answer.
+      const wrong = results.find((r) => r.status !== 200 || r.pass !== expected);
       const warm = results.slice(1).map((r) => r.ms);
-      const m = median(warm);
+      const m = pct(warm, 0.5);
       const limit = label === "no pass" ? budget * 2 : budget;
       const over = m > limit;
-      failed ||= over;
-      console.log(`${over ? "OVER " : "ok   "} ${path} (${label}) status ${results[1]!.status}: median ${m.toFixed(1)} ms [${warm.map((x) => x.toFixed(1)).join(", ")}] budget ${limit} ms`);
+      failed ||= over || Boolean(wrong);
+      const stats = `median ${m.toFixed(1)} ms, p90 ${pct(warm, 0.9).toFixed(1)}, max ${Math.max(...warm).toFixed(1)} [${warm.map((x) => x.toFixed(1)).join(", ")}] budget ${limit} ms`;
+      if (wrong) console.log(`WRONG ${path} (${label}): status ${wrong.status}, x-astro-pass ${wrong.pass ?? "none"} (expected 200, ${expected})`);
+      else console.log(`${over ? "OVER " : "ok   "} ${path} (${label}): ${stats}`);
     }
   }
   close();
 } finally {
-  worker.kill("SIGTERM");
+  try {
+    process.kill(-worker.pid!, "SIGTERM");
+  } catch {
+    /* already gone */
+  }
   neon.server.close();
   await neon.end();
 }

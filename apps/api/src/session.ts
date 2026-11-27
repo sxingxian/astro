@@ -1,6 +1,10 @@
 import { rowsOf, sql, type AnyDb } from "@astro/db";
 
-const COOKIE = /(?:^|;\s*)(?:__Secure-)?astro\.session_token=([^;]+)/;
+// Better Auth names the cookie by the address: `__Secure-astro.session_token` on https, `astro.session_token` on
+// local http. Only that one name is read, as Better Auth does, so a same-named cookie planted by a sibling
+// subdomain can never stand in for the real one.
+const SECURE_COOKIE = /(?:^|;\s*)__Secure-astro\.session_token=([^;]+)/;
+const PLAIN_COOKIE = /(?:^|;\s*)astro\.session_token=([^;]+)/;
 const enc = new TextEncoder();
 const keys = new Map<string, Promise<CryptoKey>>();
 const keyFor = (secret: string) => {
@@ -11,10 +15,11 @@ const keyFor = (secret: string) => {
 
 /**
  * The session token from Better Auth's sign-in cookie (`token.base64(HMAC-SHA-256(secret, token))`, URL-encoded),
- * if its signature is genuine. Accepts the `__Secure-` name production uses. Never throws.
+ * if its signature is genuine. `secure`: the app runs on https (production), so the cookie has the `__Secure-`
+ * name. Never throws.
  */
-export async function sessionToken(cookieHeader: string | null | undefined, secret: string): Promise<string | null> {
-  const m = cookieHeader ? COOKIE.exec(cookieHeader) : null;
+export async function sessionToken(cookieHeader: string | null | undefined, secret: string, secure: boolean): Promise<string | null> {
+  const m = cookieHeader ? (secure ? SECURE_COOKIE : PLAIN_COOKIE).exec(cookieHeader) : null;
   if (!m?.[1]) return null;
   let value: string;
   try {
