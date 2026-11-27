@@ -50,7 +50,7 @@ describe("screen reads: same data as the Next.js pages, one database request eac
     const r = await measured("/api/today", m.cookie);
     expect(r.status).toBe(200);
     expect(r.body).toEqual(
-      json({ one: await findToday(tcp, m.actor, "one"), three: await findToday(tcp, m.actor, "three"), due: await dueCheckIns(tcp, m.uid), recent: (await listReadings(tcp, m.uid, { limit: 3 })).items, reader: await readerStatus(tcp, m.uid) })
+      json({ signedIn: true, one: await findToday(tcp, m.actor, "one"), three: await findToday(tcp, m.actor, "three"), due: await dueCheckIns(tcp, m.uid), recent: (await listReadings(tcp, m.uid, { limit: 3 })).items, reader: await readerStatus(tcp, m.uid) })
     );
     expect(r.body.due.length).toBe(2);
     expect(r.requests).toBe(1);
@@ -102,7 +102,7 @@ describe("screen reads: same data as the Next.js pages, one database request eac
   it("the session: signed out, then signed in, with wording and the maintenance state", async () => {
     const out = await get("/api/session");
     expect(out.status).toBe(200);
-    expect(await out.json()).toMatchObject({ user: null, wording: { app: {}, meanings: {} }, maintenance: { on: false }, preview: false });
+    expect(await out.json()).toMatchObject({ user: null, wording: { app: {}, meanings: {} }, maintenance: { on: false }, preview: false, config: { turnstileMode: "off", turnstileSiteKey: env.PUBLIC_TURNSTILE_SITE_KEY } });
     const m = await person();
     const r = await measured("/api/session", m.cookie);
     expect(r.body.user).toMatchObject({ id: m.uid, timeZone: "Asia/Singapore", reader: false });
@@ -117,8 +117,28 @@ describe("screen reads: same data as the Next.js pages, one database request eac
     expect((await get("/api/legal/cookies")).status).toBe(404);
   });
 
+  it("the preview bar shows only while the preview link is current, whatever it previews", async () => {
+    await admin`insert into text_preview (id, kind, snapshot, expires_at) values ('reads-live-terms-00000', 'terms', '{}'::jsonb, now() + interval '30 minutes'), ('reads-old-app-00000000', 'app', '{"app.sign_in.title":"Stale"}'::jsonb, now() - interval '1 minute')`;
+    const live = (await (await get("/api/session?astro-preview=reads-live-terms-00000")).json()) as { preview: boolean };
+    const old = (await (await get("/api/session?astro-preview=reads-old-app-00000000")).json()) as { preview: boolean; wording: { app: Record<string, string> } };
+    expect(live.preview).toBe(true);
+    expect(old.preview).toBe(false);
+    expect(old.wording.app["app.sign_in.title"]).toBeUndefined();
+  });
+
   it("signed out: every member screen is 401", async () => {
-    for (const path of ["/api/today", "/api/journal", "/api/patterns", "/api/account", "/api/check-in/x"]) expect((await get(path)).status).toBe(401);
+    for (const path of ["/api/journal", "/api/patterns", "/api/account", "/api/check-in/x"]) expect((await get(path)).status).toBe(401);
+    // Today is for guests too: signed out, it shows only a guest's one-card reading (none here).
+    expect(await (await get("/api/today")).json()).toEqual({ signedIn: false, one: null, three: null, due: [], recent: [], reader: null });
+  });
+
+  it("a guest who drew today sees that reading on Today, found by their guest cookie", async () => {
+    const start = await app.request("/api/draw/start", { method: "POST", headers: { "content-type": "application/json", origin: env.APP_URL, "cf-connecting-ip": "203.0.113.77" }, body: JSON.stringify({ spread: "one", timeZone: "Asia/Singapore" }) }, env);
+    expect(start.status).toBe(200);
+    const guest = start.headers.getSetCookie().find((c) => c.startsWith("astro_guest="))!.split(";")[0]!;
+    const { sessionId } = (await start.json()) as { sessionId: string };
+    const body = (await (await get("/api/today", guest)).json()) as { signedIn: boolean; one: { sessionId: string } | null; three: unknown };
+    expect(body).toMatchObject({ signedIn: false, three: null, one: { sessionId } });
   });
 
   it("while paused: 503 everywhere except health, the landing wording and the session", async () => {

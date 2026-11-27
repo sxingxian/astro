@@ -1,5 +1,5 @@
 import { dueCheckInsQuery, dueCheckInsShape } from "@astro/app-core/check-ins";
-import { liveSnapshot, PREVIEW_ID, previewSnapshot } from "@astro/app-core/copy";
+import { liveSnapshot, PREVIEW_ID, previewLive, previewSnapshot } from "@astro/app-core/copy";
 import { existingGuestHash } from "@astro/app-core/draw/guest";
 import { findTodayQuery, findTodayShape, getReadingQuery, getReadingShape, type Actor } from "@astro/app-core/draw/service";
 import { listReadingsQuery, listReadingsShape, noteQuery } from "@astro/app-core/journal";
@@ -37,21 +37,28 @@ const signedOut = (c: C) => fail(c, 401, "signed_out");
 export function readRoutes(app: App) {
   /** Who is signed in, the published wording (app and card meanings) and whether the app is paused. */
   app.get("/session", async (c) => {
-    const [w, app, meanings, paused] = await Promise.all([who(c), wordingFor(c, "app"), wordingFor(c, "meanings"), maintenance(c)]);
+    const [w, app, meanings, paused, preview] = await Promise.all([who(c), wordingFor(c, "app"), wordingFor(c, "meanings"), maintenance(c), previewLive(c.get("db")(), previewOf(c))]);
     return c.json({
       user: w ? { id: w.uid, email: w.email, emailVerified: w.emailVerified, twoFactor: w.twoFactor, reader: w.reader, timeZone: w.tz } : null,
       wording: { app, meanings },
       maintenance: paused,
-      preview: previewOf(c) !== null
+      preview,
+      // Public settings the pages need (they are static files and can't read the Worker's vars).
+      config: { turnstileMode: c.get("env").TURNSTILE_MODE, turnstileSiteKey: c.get("env").PUBLIC_TURNSTILE_SITE_KEY }
     });
   });
 
   app.get("/today", async (c) => {
     const w = await who(c);
-    if (!w) return signedOut(c);
+    const now = new Date(c.get("now")());
+    if (!w) {
+      // Signed out: Today still shows a guest's one-card reading from their guest cookie.
+      const guestHash = await existingGuestHash(c.req.raw.headers);
+      const one = guestHash ? findTodayShape(await findTodayQuery(c.get("db")(), { kind: "guest", guestHash, ipHash: "", timeZone: "UTC" }, "one"), now) : null;
+      return c.json({ signedIn: false, one, three: null, due: [], recent: [], reader: null });
+    }
     const db = c.get("db")();
     const actor: Actor = { kind: "user", userId: w.uid, timeZone: w.tz };
-    const now = new Date(c.get("now")());
     const [one, three, due, recent, reader] = await runBatch(db, [
       findTodayQuery(db, actor, "one"),
       findTodayQuery(db, actor, "three"),
@@ -60,6 +67,7 @@ export function readRoutes(app: App) {
       readerStatusQuery(db, w.uid)
     ] as const);
     return c.json({
+      signedIn: true,
       one: findTodayShape(one, now),
       three: findTodayShape(three, now),
       due: dueCheckInsShape(due),

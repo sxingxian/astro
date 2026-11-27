@@ -12,7 +12,8 @@
     "test": "vitest run --passWithNoTests",
     "test:db": "vitest run --config vitest.db.config.ts",
     "cpu": "tsx scripts/cpu-budget.ts",
-    "test:cpu": "vitest run --config vitest.cpu.config.ts"
+    "test:cpu": "vitest run --config vitest.cpu.config.ts",
+    "stack": "tsx scripts/local-stack.ts"
   },
   "dependencies": {
     "@astro/app-core": "workspace:*",

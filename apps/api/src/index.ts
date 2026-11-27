@@ -4,6 +4,7 @@ import { authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
 import { isLegacy } from "./legacy";
+import { PASS_COOKIE } from "@astro/server/pass";
 import { drawRoutes } from "./routes/draw";
 import { maintenance, readRoutes } from "./routes/reads";
 import { writeRoutes } from "./routes/writes";
@@ -16,7 +17,9 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
     await next();
     for (const [k, v] of Object.entries(securityHeaders)) c.res.headers.set(k, v);
     c.res.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-    c.res.headers.set("Cache-Control", "no-store");
+    c.res.headers.set("X-Robots-Tag", "noindex");
+    // Nothing is cached unless a route says so (only the public landing wording does).
+    if (!c.res.headers.has("Cache-Control")) c.res.headers.set("Cache-Control", "no-store");
   });
   app.use("*", async (c, next) => {
     const env = checkEnv(c.env);
@@ -79,8 +82,18 @@ const app = createApp();
 
 /** Reader pages go to the old app; everything else under /api to this Worker (pages are static files). */
 export function handle(request: Request, env: RawEnv, ctx: ExecutionContext): Response | Promise<Response> {
-  if (isLegacy(new URL(request.url).pathname)) return env.LEGACY ? env.LEGACY.fetch(request) : new Response("Not found", { status: 404 });
+  if (isLegacy(new URL(request.url).pathname)) return env.LEGACY ? forward(request, env) : new Response("Not found", { status: 404 });
   return app.fetch(request, env, ctx);
+}
+
+/** A successful change there (giving up or taking on the reader role) may change what the pass says, so drop it. */
+async function forward(request: Request, env: RawEnv): Promise<Response> {
+  const res = await env.LEGACY!.fetch(request);
+  if (request.method !== "POST" || !res.ok) return res;
+  const out = new Response(res.body, res);
+  const secure = typeof env.APP_URL === "string" && env.APP_URL.startsWith("https://");
+  out.headers.append("set-cookie", `${PASS_COOKIE}=; Max-Age=0; Path=/api; HttpOnly${secure ? "; Secure" : ""}; SameSite=Lax`);
+  return out;
 }
 
 export default { fetch: handle } satisfies ExportedHandler<RawEnv>;

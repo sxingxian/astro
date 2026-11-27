@@ -180,6 +180,8 @@ export function writeRoutes(app: App) {
       .where(eq(schema.textVersion.kind, "landing"))
       .orderBy(desc(schema.textVersion.id))
       .limit(1);
+    // Public and read-only (it is on the landing page anyway), read by the landing build.
+    c.header("Cache-Control", "public, max-age=60");
     if (!row) return c.body(null, 204);
     return c.json({ version: row.id, overrides: row.snapshot });
   });

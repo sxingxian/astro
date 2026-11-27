@@ -19,6 +19,20 @@ describe("reader pages forwarded to the old app", () => {
     expect(await seen?.text()).toBe('{"x":1}');
   });
 
+  it("drops the pass after a forwarded change, so a new reader role shows at once", async () => {
+    const LEGACY = { fetch: async () => new Response("ok", { status: 200, headers: { "set-cookie": "old=1; Path=/" } }) };
+    const post = (path: string) => handle(new Request(`https://astroapp.example${path}`, { method: "POST" }), { LEGACY, APP_URL: "https://astroapp.example" } as never, {} as ExecutionContext);
+    const res = await post("/api/reader/give-up");
+    const cookies = res.headers.getSetCookie();
+    expect(cookies).toContain("old=1; Path=/");
+    expect(cookies.find((c) => c.startsWith("astro.pass="))).toMatch(/Max-Age=0.*Path=\/api.*HttpOnly.*Secure.*SameSite=Lax/);
+    const get = await handle(new Request("https://astroapp.example/desk"), { LEGACY, APP_URL: "https://astroapp.example" } as never, {} as ExecutionContext);
+    expect(get.headers.getSetCookie().some((c) => c.startsWith("astro.pass="))).toBe(false);
+    const failed = { fetch: async () => new Response("no", { status: 403 }) };
+    const refused = await handle(new Request("https://astroapp.example/api/offer/accept", { method: "POST" }), { LEGACY: failed, APP_URL: "https://astroapp.example" } as never, {} as ExecutionContext);
+    expect(refused.headers.getSetCookie()).toEqual([]);
+  });
+
   it("never sends the rebuilt screens' API to the old app", async () => {
     let called = false;
     const LEGACY = { fetch: async () => ((called = true), new Response("old app")) };
@@ -28,5 +42,17 @@ describe("reader pages forwarded to the old app", () => {
 
   it("answers 404 for a reader path when the binding is missing", async () => {
     expect((await handle(new Request("http://127.0.0.1:8791/desk"), {} as never, {} as ExecutionContext)).status).toBe(404);
+  });
+});
+
+describe("wrangler config", () => {
+  it("sends every reader path to the Worker before the page files", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { LEGACY_ROUTES } = await import("../src/legacy");
+    const text = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+    const config = JSON.parse(text.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"));
+    const first: string[] = config.assets.run_worker_first;
+    for (const r of LEGACY_ROUTES) expect(r.startsWith("/api/") ? first.includes("/api/*") : first.includes(r), r).toBe(true);
+    expect(config.services).toEqual([{ binding: "LEGACY", service: "astro-app" }]);
   });
 });

@@ -1,10 +1,6 @@
 import { resetAndMigrate } from "@astro/db/testing";
 import { signPass } from "@astro/server/pass";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { dueCheckIns } from "@astro/app-core/check-ins";
-import { findToday, pick, startDraw } from "@astro/app-core/draw/service";
-import { listReadings } from "@astro/app-core/journal";
-import { readerStatus } from "@astro/app-core/readers";
 import { createApp } from "../src/index";
 import { admin, closeAll, dbUrl, env, fake, http, passFrom, person, tcp } from "./helpers";
 
@@ -44,6 +40,7 @@ describe("data Worker", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
   });
 
   it("signed in: issues the pass, then answers from it without a database call", async () => {
@@ -83,33 +80,6 @@ describe("data Worker", () => {
     const later = await get("/api/me", `${p.cookie}; astro.pass=${pass}`);
     expect(later.status).toBe(401);
     expect(later.headers.get("set-cookie")).toMatch(/astro\.pass=;.*Max-Age=0/);
-  });
-
-  it("serves Today's data: the same values the Today page uses now", async () => {
-    const p = await person();
-    const actor = { kind: "user" as const, userId: p.uid, timeZone: "Asia/Singapore" };
-    // A finished reading from 8 days ago (in the journal, with a check-in due) and one in progress today.
-    const old = new Date(Date.now() - 8 * 86_400_000);
-    const past = await startDraw(tcp, actor, "one", old);
-    await pick(tcp, actor, past.sessionId, "single", [5], old);
-    await startDraw(tcp, actor, "one");
-    const res = await get("/api/today", p.cookie);
-    expect(res.status).toBe(200);
-    const expected = {
-      one: await findToday(tcp, actor, "one"),
-      three: await findToday(tcp, actor, "three"),
-      due: await dueCheckIns(tcp, p.uid),
-      recent: (await listReadings(tcp, p.uid, { limit: 3 })).items,
-      reader: await readerStatus(tcp, p.uid)
-    };
-    expect(await res.json()).toEqual(JSON.parse(JSON.stringify(expected)));
-    expect(expected.one).not.toBeNull();
-    expect(expected.recent.length).toBeGreaterThan(0);
-    expect(expected.due.length).toBeGreaterThan(0);
-  });
-
-  it("Today needs a sign-in", async () => {
-    expect((await get("/api/today")).status).toBe(401);
   });
 
   it("unknown paths are 404", async () => {

@@ -129,10 +129,13 @@ describe("account", () => {
 
 describe("landing wording", () => {
   it("answers 204 before anything is published, then the published version", async () => {
-    expect((await app.request("/api/copy/landing", {}, env)).status).toBe(204);
+    const none = await app.request("/api/copy/landing", {}, env);
+    expect(none.status).toBe(204);
+    expect(none.headers.get("cache-control")).toBe("public, max-age=60");
     await admin`insert into text_version (kind, snapshot, published_by) select 'landing', '{"landing.hero.title":"Hello"}'::jsonb, null`;
     const res = await app.request("/api/copy/landing", {}, env);
     expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
     expect(((await res.json()) as { overrides: Record<string, string> }).overrides["landing.hero.title"]).toBe("Hello");
   });
 });
