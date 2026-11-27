@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, lte, schema, type Db } from "@astro/db";
+import { and, asc, eq, gte, inArray, isNull, lte, schema, type Db, type AnyDb } from "@astro/db";
 import type { Orientation } from "@astro/draw";
 
 export type Outcome = "fit" | "partly" | "not" | "skipped";
@@ -24,7 +24,7 @@ const DAY = 86_400_000;
 export const NOTE_MAX = 500;
 
 /** Readings 7–30 days old with no check-in yet, oldest first, if the person has check-ins on. */
-export async function dueCheckIns(db: Db, userId: string, now: Date = new Date(), limit = 5): Promise<DueCheckIn[]> {
+export async function dueCheckIns(db: AnyDb, userId: string, now: Date = new Date(), limit = 5): Promise<DueCheckIn[]> {
   const s = schema.drawSession;
   const rows = await db
     .select({ id: s.id, completedAt: s.completedAt, spread: s.spread })

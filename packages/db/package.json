@@ -18,6 +18,7 @@
     "migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.1",
     "drizzle-orm": "^0.45.4",
     "postgres": "^4.1.1"
   },

@@ -3,6 +3,7 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 export { schema };
+export { createHttpDb, rowsOf, type AnyDb } from "./http";
 export type Db = ReturnType<typeof createDb>;
 
 /** A Drizzle client on postgres.js. On Workers, pass Hyperdrive's connection string. */

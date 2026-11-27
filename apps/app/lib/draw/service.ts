@@ -1,5 +1,5 @@
 import { majors, minors, allCards } from "@astro/cards";
-import { and, desc, eq, schema, sql, type Db } from "@astro/db";
+import { and, desc, eq, schema, sql, type Db, type AnyDb } from "@astro/db";
 import { createDeck, isTimeZone, localDay, nextLocalMidnight, type Orientation } from "@astro/draw";
 import { getSetting } from "@astro/server";
 import { DrawError } from "./errors";
@@ -72,7 +72,7 @@ function deckView(d: DeckRow): DeckView {
 
 const stageRank = (s: Stage) => ({ single: 0, majors: 0, minors: 1 })[s];
 
-async function decksFor(db: Exec, sessionId: string): Promise<DeckRow[]> {
+async function decksFor(db: Pick<AnyDb, "select">, sessionId: string): Promise<DeckRow[]> {
   const rows = await db.select().from(schema.drawDeck).where(eq(schema.drawDeck.sessionId, sessionId));
   return rows.sort((a, b) => stageRank(a.stage) - stageRank(b.stage));
 }
@@ -82,7 +82,7 @@ function startResult(s: SessionRow, decks: DeckRow[]): StartResult {
 }
 
 /** The person's reading for this spread that still counts as "today" in the reading's own timezone, if any. */
-async function todays(db: Exec, actor: Actor, spread: Spread, now: Date): Promise<SessionRow | null> {
+async function todays(db: Pick<AnyDb, "select">, actor: Actor, spread: Spread, now: Date): Promise<SessionRow | null> {
   const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread)) : ownerFilter(actor);
   const [latest] = await db.select().from(schema.drawSession).where(where).orderBy(desc(schema.drawSession.createdAt)).limit(1);
   if (!latest) return null;
@@ -109,7 +109,7 @@ async function takeGuestSlot(db: Exec, ipHash: string, now: Date) {
 }
 
 /** Today's reading for this spread if one exists, without creating anything. */
-export async function findToday(db: Db, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult | null> {
+export async function findToday(db: AnyDb, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult | null> {
   const s = await todays(db, actor, spread, now);
   return s ? startResult(s, await decksFor(db, s.id)) : null;
 }
