@@ -491,6 +491,44 @@ All of these are done in a browser.
 - **A Worker:** Cloudflare → the Worker → **Deployments** → pick the previous version → **Rollback**. Instant, no rebuild.
 - **The database:** updates aren't undone automatically. They're written so the previous app version still works with them. If data must be restored, use Neon → **Restore** (to a point in time) or the branch you made before a big change.
 
+## 17. Data Worker `astro-api` (free-plan Stage 0: measurement)
+
+> **Why:** on Workers Free each request may use 10 ms of processing time, and the Next.js app uses far more. The data Worker is the first piece of the fix (design: `docs/spec/2026-11-27-free-plan-architecture-design.md`). In this stage it only answers `astroapp.midnightpoetry.studio/api/v2/…`, so its real processing time can be read before any page changes. The app itself is untouched.
+
+At **dash.cloudflare.com** → **Workers & Pages → Create → Import a repository** → `sxingxian/astro`:
+
+- **Project name:** `astro-api` (exactly this)
+- **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:api`
+- **Deploy command:** `pnpm cf:deploy:api` (no database updates: the app's deploy does those)
+- **Root directory:** `/`
+
+Open the Worker → **Settings → Build**:
+
+- **Git branch (production):** `main`
+- **Non-production branch builds: off.**
+- **Build variables and secrets:** add `NODE_VERSION` = `22` (Text). Nothing else: this build needs no database password.
+- **Build watch paths → Include:** `apps/api/*`, `apps/app/lib/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
+
+Then **Settings → Variables and Secrets → Add**, choosing type **Secret** for each:
+
+| Name | Value |
+| --- | --- |
+| `DATABASE_URL` | the **astro_web** database address from step 4 (the one you gave Hyperdrive in step 5). It must be the Neon project and database where Astro's data actually lives. |
+| `BETTER_AUTH_SECRET` | **the same value** as `astro-app`'s, from your password manager (Cloudflare never shows a saved secret again). The data Worker uses it to recognise the app's sign-in cookie. |
+| `PASS_SECRET` | a **new** 64-character value from your password manager, letters and numbers. It signs the 5-minute pass. Changing it later only makes everyone's next request check the database once. |
+
+Finally, **Deployments → Retry build**. The deploy creates the route `astroapp.midnightpoetry.studio/api/v2/*`; every other address keeps going to `astro-app`.
+
+**Check it:** open `https://astroapp.midnightpoetry.studio/api/v2/health`. It should show `{"ok":true}`.
+
+**Measure (then tell Claude):**
+
+1. Sign in to the app in the same browser.
+2. Open `https://astroapp.midnightpoetry.studio/api/v2/today` and reload it about ten times over a minute. You should see your Today data as text. (A page saying `signed_out` means the sign-in cookie wasn't sent: sign in again.)
+3. Tell Claude. Claude reads each request's processing time in **astro-api → Observability** and decides with you whether to go on to Stage 1 (the gate: under 6 ms for ordinary requests).
+
+To remove it again: **astro-api → Settings → Delete**. The app is unaffected.
+
 ## Release safety
 
 - GitHub holds no deploy or database passwords. Its only job is running tests on pull requests.
