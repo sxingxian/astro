@@ -13,6 +13,8 @@ export interface Pass {
   /** SHA-256 of the session token, base64url: the pass only counts alongside that sign-in cookie. */
   th: string;
   reader: boolean;
+  /** The person's timezone (their "today"); a change reaches the pass within five minutes. */
+  tz: string;
   /** Expiry, seconds since the epoch. */
   exp: number;
 }
@@ -42,8 +44,8 @@ function keyFor(secret: string): Promise<CryptoKey> {
 const tokenHash = async (token: string) => b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(token))));
 
 /** A pass for this person, bound to their session token. */
-export async function signPass(who: Pick<Pass, "uid" | "sid" | "reader">, sessionToken: string, secret: string, now = Date.now()): Promise<string> {
-  const payload: Pass = { uid: who.uid, sid: who.sid, reader: who.reader, th: await tokenHash(sessionToken), exp: Math.floor(now / 1000) + PASS_TTL_S };
+export async function signPass(who: Pick<Pass, "uid" | "sid" | "reader" | "tz">, sessionToken: string, secret: string, now = Date.now()): Promise<string> {
+  const payload: Pass = { uid: who.uid, sid: who.sid, reader: who.reader, tz: who.tz, th: await tokenHash(sessionToken), exp: Math.floor(now / 1000) + PASS_TTL_S };
   const body = b64url(enc.encode(JSON.stringify(payload)));
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await keyFor(secret), enc.encode(body)));
   return `${body}.${b64url(sig)}`;
@@ -66,7 +68,7 @@ export async function readPass(cookie: string | undefined, sessionToken: string 
     return null;
   }
   const ok =
-    typeof p.uid === "string" && p.uid !== "" && typeof p.sid === "string" && p.sid !== "" && typeof p.th === "string" && typeof p.reader === "boolean" && typeof p.exp === "number";
+    typeof p.uid === "string" && p.uid !== "" && typeof p.sid === "string" && p.sid !== "" && typeof p.th === "string" && typeof p.reader === "boolean" && typeof p.tz === "string" && typeof p.exp === "number";
   if (!ok) return null;
   if (p.exp! * 1000 <= now) return null;
   if (p.th !== (await tokenHash(sessionToken))) return null;
