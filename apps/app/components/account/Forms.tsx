@@ -143,6 +143,28 @@ export function SignOutButton() {
   );
 }
 
+/** A reader giving up their own role. Their log is locked, not deleted. */
+export function GiveUpReader() {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const { busy, error, run } = useAction();
+  if (!open) return <button type="button" className="btn-ghost" onClick={() => setOpen(true)}>{t("app.account.give_up")}</button>;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-sm leading-relaxed text-haze">{t("app.account.give_up_warning")}</p>
+      <FormError message={error} />
+      <div className="flex gap-3">
+        <button type="button" className="btn-gold flex-1" disabled={busy} onClick={() => void run(async () => {
+          const res = await postJson("/api/reader/give-up", {});
+          if (!res.ok) throw new Error(t("app.common.went_wrong"));
+          window.location.assign("/account");
+        })}>{t("app.account.give_up_confirm")}</button>
+        <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{t("app.account.cancel")}</button>
+      </div>
+    </div>
+  );
+}
+
 export function DeleteAccount() {
   const t = useT();
   const [open, setOpen] = useState(false);

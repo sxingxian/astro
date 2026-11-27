@@ -12,6 +12,7 @@
   --color-muted: #8C88A6;
   --color-haze: #B9B4CF;
   --color-error: #E26D6D;
+  --color-ok: #7FC8A0; /* same success green as the portal */
   --font-display: var(--font-display), "Cormorant Garamond", Georgia, serif;
   --font-sans: var(--font-ui), Inter, system-ui, sans-serif;
 }

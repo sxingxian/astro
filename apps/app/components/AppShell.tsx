@@ -1,6 +1,10 @@
 import type { AppKey } from "@astro/copy";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import { getSessionUser } from "@/lib/auth";
 import { getCopy } from "@/lib/copy";
+import { getDb } from "@/lib/db";
+import { readerStatus } from "@/lib/readers";
 
 export type ShellTab = "today" | "ask" | "journal" | "patterns" | "account" | "desk";
 
@@ -23,10 +27,15 @@ const ITEMS: { tab: ShellTab; href: string; label: AppKey }[] = [
 
 /**
  * Every signed-in-style screen: a side menu on desktop (≥ 1024 px), bottom tabs on phones (mockups D1–D4).
- * Patterns lives inside Journal on phones, so the phone tabs leave it out; readers get Desk.
+ * Patterns lives inside Journal on phones, so the phone tabs leave it out; readers get Desk. Whether the signed-in
+ * person is a reader is looked up here unless the page already knows.
  */
-export async function AppShell({ current, reader = false, children }: { current: ShellTab; reader?: boolean; children: ReactNode }) {
+export async function AppShell({ current, reader, children }: { current: ShellTab; reader?: boolean; children: ReactNode }) {
   const t = await getCopy();
+  if (reader === undefined) {
+    const user = await getSessionUser(await headers());
+    reader = user ? (await readerStatus(getDb(), user.id)).reader : false;
+  }
   const phoneTabs = ITEMS.filter((i) => i.tab !== "patterns");
   const phoneCurrent = current === "patterns" ? "journal" : current;
   return (

@@ -37,6 +37,12 @@ test("an invitation is accepted in the app: account, then authenticator, then th
 
   await page.goto("/invite");
   await page.getByRole("button", { name: "Accept invitation" }).click();
+  // A reader invite asks for the reader guidelines first, and can't be accepted until the person agrees.
+  await expect(page.getByText("Readers agree to the reader guidelines")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Reader guidelines" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept invitation" })).toBeDisabled();
+  await page.getByLabel("I've read the reader guidelines and agree to them").check();
+  await page.getByRole("button", { name: "Accept invitation" }).click();
   await expect(page.getByRole("heading", { name: "You're on the team" })).toBeVisible();
   const [row] = await sql<{ n: number }[]>`select count(*)::int as n from reader_role r join "user" u on u.id = r.user_id where u.email = ${email} and r.revoked_at is null`;
   expect(row?.n).toBe(1);

@@ -1,12 +1,13 @@
 import { desc, eq, schema } from "@astro/db";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ChangePassword, CheckInsToggle, DeleteAccount, RevokeSession, SignOutButton, TimeZoneForm } from "@/components/account/Forms";
+import { ChangePassword, CheckInsToggle, DeleteAccount, GiveUpReader, RevokeSession, SignOutButton, TimeZoneForm } from "@/components/account/Forms";
 import { TwoStepSetup } from "@/components/account/TwoStepSetup";
 import { AppShell } from "@/components/AppShell";
 import { getCopy, type T } from "@/lib/copy";
 import { getSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { readerStatus } from "@/lib/readers";
 
 export async function generateMetadata() {
   return { title: (await getCopy())("app.account.meta") };
@@ -39,10 +40,11 @@ export default async function AccountPage() {
     .orderBy(desc(schema.session.createdAt))
     .limit(20);
   const zones = Intl.supportedValuesOf("timeZone");
+  const { reader } = await readerStatus(getDb(), user.id);
   const t = await getCopy();
 
   return (
-    <AppShell current="account">
+    <AppShell current="account" reader={reader}>
     <div data-page className="mx-auto flex max-w-[560px] flex-col gap-7 px-5 pb-32 pt-8 lg:max-w-[880px] lg:pb-16">
       <header className="flex items-center gap-4">
         <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-nebula font-display text-2xl text-gold">{user.name.slice(0, 1).toUpperCase()}</span>
@@ -72,6 +74,12 @@ export default async function AccountPage() {
         <TimeZoneForm current={user.timeZone} zones={zones} />
         <CheckInsToggle enabled={user.checkInsEnabled} />
       </Group>
+
+      {reader ? (
+        <Group id="reader" title={t("app.account.reader")}>
+          <GiveUpReader />
+        </Group>
+      ) : null}
 
       <Group id="privacy" title={t("app.account.privacy")}>
         <DeleteAccount />

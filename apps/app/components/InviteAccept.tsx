@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import type { AppKey } from "@astro/copy";
 import { FormError } from "./AuthShell";
 import { useT } from "./CopyProvider";
@@ -12,6 +13,9 @@ interface Props {
   email: string | null;
   twoFactorEnabled: boolean;
   adminUrl: string | null;
+  /** The reader guidelines version shown in `children`, for reader invites. */
+  guidelinesVersion: number;
+  children?: ReactNode;
 }
 
 const REASONS: Record<string, AppKey> = {
@@ -19,7 +23,9 @@ const REASONS: Record<string, AppKey> = {
   expired: "app.invite.expired",
   wrong_email: "app.invite.wrong_email",
   two_step_required: "app.invite.two_step_required",
-  has_role: "app.invite.has_role"
+  has_role: "app.invite.has_role",
+  staff_reader_owner_only: "app.invite.owner_only",
+  guidelines_changed: "app.invite.guidelines_changed"
 };
 const ROLE_NAME: Record<string, AppKey> = { admin: "app.invite.role_admin", moderator: "app.invite.role_moderator" };
 
@@ -45,8 +51,13 @@ function Filled({ text, email }: { text: string; email: string | null }) {
 }
 
 /** Accepting a team invitation in the app (mockup "P3 · Accept invite"). The token comes from the link's #fragment. */
-export function InviteAccept({ signedIn, email, twoFactorEnabled, adminUrl }: Props) {
+export function InviteAccept({ signedIn, email, twoFactorEnabled, adminUrl, guidelinesVersion, children }: Props) {
   const t = useT();
+  const router = useRouter();
+  // The invite's role is only known to the server. A reader invite sent without a guidelines version answers
+  // guidelines_changed and writes nothing; that's when this page shows the guidelines and asks the person to agree.
+  const [needGuidelines, setNeedGuidelines] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -67,11 +78,16 @@ export function InviteAccept({ signedIn, email, twoFactorEnabled, adminUrl }: Pr
     if (!token) return;
     setBusy(true);
     setError(null);
-    const res = await postJson<{ role: string }>("/api/invite/accept", { token });
+    const res = await postJson<{ role: string }>("/api/invite/accept", { token, guidelines: needGuidelines && agreed ? guidelinesVersion : null });
     setBusy(false);
     if (res.ok) {
       clearPendingInvite();
       return setRole(res.data.role);
+    }
+    if (res.data.error === "guidelines_changed") {
+      setAgreed(false);
+      if (!needGuidelines) return setNeedGuidelines(true);
+      router.refresh(); // loads the newly published guidelines and their version
     }
     if (res.data.error === "invalid" || res.data.error === "expired") clearPendingInvite();
     const reason = REASONS[res.data.error ?? ""];
@@ -117,8 +133,18 @@ export function InviteAccept({ signedIn, email, twoFactorEnabled, adminUrl }: Pr
       ) : (
         <>
           <p className="m-0 text-sm leading-relaxed text-haze"><Filled text={t("app.invite.ready_text")} email={email} /></p>
+          {needGuidelines ? (
+            <>
+              <p className="m-0 text-sm leading-relaxed text-haze">{t("app.invite.guidelines_text")}</p>
+              {children}
+              <label className="flex items-start gap-2.5 text-sm leading-relaxed">
+                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-[18px] flex-none accent-gold" />
+                {t("app.offer.agree")}
+              </label>
+            </>
+          ) : null}
           <FormError message={error} />
-          <button type="button" className="btn-gold" disabled={busy} onClick={accept}>{busy ? t("app.invite.accept_busy") : t("app.invite.accept")}</button>
+          <button type="button" className="btn-gold" disabled={busy || (needGuidelines && !agreed)} onClick={accept}>{busy ? t("app.invite.accept_busy") : t("app.invite.accept")}</button>
         </>
       )}
     </div>
