@@ -1,6 +1,10 @@
 # Astro on Workers Free: pre-built pages and a small data Worker
 
-Status: draft for the owner's approval (27 Nov 2026). No code changes until approved.
+Status: draft for the owner's approval (27 Nov 2026, revised the same day). No code changes until approved.
+
+Revision: the owner keeps Astro on Neon (27 Nov). The data Worker follows the pattern of the owner's Zotikos API
+(Workers Free): it checks who is signed in from a signed token without a database call, and reaches the database
+over HTTPS instead of a Postgres connection with a login on every request.
 
 ## Why
 
@@ -18,8 +22,16 @@ Measured on 27 Nov:
 | Local, throwaway lean Worker (no Next.js) | `/api/health` | ~0 ms |
 | Local, lean Worker | session check + one query | 9–19 ms, of which 4–7 ms is the local database login |
 
-Local numbers include profiler overhead (it inflates them). The point stands: Next.js costs about the whole budget
-before the page does anything. Code trimming cannot get a page from 112 ms to under 10 ms.
+Local numbers include profiler overhead (it inflates them). Two points stand: Next.js costs about the whole budget
+before the page does anything, so trimming cannot get a page from 112 ms to under 10 ms; and once Next.js is gone,
+most of what is left is opening a Postgres connection and logging in on every request.
+
+How the owner's other Workers Free projects avoid both (read from their repos, 27 Nov):
+
+- **Zyra and Zotikos:** React + Vite pages built ahead as static files; the Worker in front only adds security
+  headers. Sign-in runs on Supabase's servers, not the Worker.
+- **Zotikos API (Hono):** checks the sign-in token's signature (no database call) and reaches the database over
+  HTTPS through Supabase's client, so there is no database login per request.
 
 The owner's constraint: **stay on Workers Free** (set at the start of the project).
 
@@ -35,7 +47,7 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
 
 - No new features. Plan 4 Part 2 (paid readings) waits until this ships.
 - No change to the landing page (already static).
-- No change to the database (Neon via Hyperdrive) or to password hashing (already inside Postgres).
+- No change of database provider: Astro stays on Neon (owner, 27 Nov). Password hashing stays inside Postgres.
 
 ## Anti-goals
 
@@ -47,7 +59,7 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
 1. **Pre-built single-page app (Vite + React) served as static files, plus a small data Worker for `/api/*`.**
    Cloudflare serves the files for free with no Worker run (Workers static assets, with its built-in "single-page
    application" fallback, so every app address opens the same shell without a Worker). The data Worker is plain
-   TypeScript with a small router, no React on the server. **Recommended.**
+   TypeScript with Hono (a small router), no React on the server. **Recommended.**
    - For: the cheapest runtime possible; a strict page security policy is simple (all scripts are files, no inline
      scripts); one build for all routes.
    - Against: every page file changes from Next.js server components to client components that load their data;
@@ -58,9 +70,9 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
      `/desk/log/[id]`) can't be pre-built, so they need a Worker rewrite or a change to query strings; Next.js puts
      many inline scripts in every page, so the security policy needs per-page hashes generated after each build.
 3. **Keep Next.js on the Worker and trim.** Rejected: the framework alone uses the budget (table above).
-4. **Move the data from Neon to Cloudflare D1.** No database login per request, so data calls would be cheapest.
-   Rejected for now: replaces the database the project is built on. Kept as the fallback if the gate in stage 0
-   fails.
+4. **Move to Supabase like Zyra and Zotikos.** Rejected by the owner: Astro stays on Neon. It would also mean
+   moving every account and the whole sign-in system.
+5. **Move the data to Cloudflare D1.** Rejected: Astro stays on Neon.
 
 ## Design (approach 1)
 
@@ -70,23 +82,41 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
   (`@astro/ui`, `@astro/tokens`, `@astro/copy`, `@astro/cards`, `@astro/meanings`, `@astro/draw`). Built to static
   files and served by Workers static assets. Every page loads its data from the data Worker and shows the existing
   loading states.
-- **Data Worker (`/api/*`):** one Worker on the same address (`astroapp.midnightpoetry.studio`), invoked only for
-  `/api/*` (`run_worker_first: ["/api/*"]`). Everything else is a static file. Endpoints:
+- **Data Worker (`/api/*`):** Hono, as in Zotikos. One Worker on the same address (`astroapp.midnightpoetry.studio`),
+  invoked only for `/api/*` (`run_worker_first: ["/api/*"]`). Everything else is a static file, with the
+  single-page-app fallback handled by Cloudflare's static assets, so no Worker runs for pages. Endpoints:
   - the existing `POST`/`DELETE` routes (draws, account, reader, invite, offer, reading notes, check-ins), moved
     over with their tests;
   - new read endpoints that replace the server components' queries, one per screen
     (e.g. `GET /api/today`, `/api/journal`, `/api/reading/:id`, `/api/desk/log`), each answering in **one database
     round trip**;
-  - sign-in, sign-up, password reset and two-step through Better Auth, on the same paths as now (`/api/auth/*`).
+  - sign-in, sign-up, password reset and two-step through Better Auth, on the same paths as now (`/api/auth/*`),
+    which also issue the short-lived token described below.
 - **Same origin:** pages and API share one address, so cookies stay `HttpOnly`, `Secure`, `SameSite=Lax`, and no
   CORS is opened.
 
 ### Keeping each request small
 
-- **Session check without the framework:** the session cookie is verified (HMAC, as Better Auth signs it) and the
-  session, user, roles and disabled flag are read in one query. Better Auth stays for the sign-in, sign-up, reset
-  and two-step flows, where a slower request is rare.
-- **One database connection per request** (`max: 1`), one round trip per screen, closed after the response.
+- **Who is signed in, without a database call.** Sign-in, sign-up, reset and two-step stay on Better Auth, and the
+  session list stays in Neon (so "sign out everywhere", disabling a person and role changes still work). After
+  sign-in, the data Worker also sets a short-lived signed cookie (HMAC-SHA-256 with a Worker secret; `HttpOnly`,
+  `Secure`, `SameSite=Lax`) holding the user id, session id, roles, disabled flag and an expiry of **5 minutes**.
+  Ordinary requests only check that signature. When it has expired, the Worker re-reads the session in Neon and
+  issues a fresh one. Better Auth's own signed session cache (`session.cookieCache`) is the reference for this.
+- **Always checked in the database, never from the token:** changing the password or email, two-step on/off,
+  deleting the account, signing out other sessions, accepting an invite or role offer, giving up the reader role,
+  exporting My log, and anything a reader or staff role allows that writes data.
+- **The database over HTTPS:** the data Worker uses Neon's HTTPS driver (`@neondatabase/serverless` with Drizzle's
+  `neon-http`) instead of postgres.js through Hyperdrive. Each query is one HTTPS request: no connection handshake
+  or database login on the Worker.
+  - The connection string for the `astro_web` role becomes a Worker secret (it now lives in the Hyperdrive
+    configuration). The admin portal keeps Hyperdrive until stage 3.
+  - That driver has no open-ended transactions. The five places that use one (accept invite, accept role offer,
+    give up reader, saving a draw, writing an audit row) move into Postgres functions, as `accept_invite` and
+    `accept_role_offer` already are, so each is a single call and stays all-or-nothing.
+  - Better Auth runs with its transactions off on this driver, or on Neon's WebSocket driver for the sign-in
+    routes only (rare requests). Stage 0 measures both and picks.
+- **One HTTPS round trip per screen:** each read endpoint answers with one query (or one batch).
 - **Wording:** the published app wording keeps its ~1-minute publish. The data Worker keeps the latest snapshot in
   memory per isolate (as now), and pages fetch it once with their data.
 - **Maintenance mode:** checked by the data Worker (cached per isolate, as now). While paused, the API answers 503
@@ -96,6 +126,9 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
 
 - Pages hold no private data. Every permission check (session, roles, guidelines, staff-or-reader rules) runs in
   the data Worker or in the database, as now.
+- **The token** carries no private data beyond ids and roles, is signed with a secret only the Worker holds, and is
+  bound to the sign-in cookie: it holds a hash of the session token and is rejected if the two don't match.
+  Rotating the secret signs everyone's token out of the fast path, never out of their account.
 - **Page security policy (CSP):** a fixed header from `_headers` (static assets), `script-src 'self'` plus
   Turnstile, no inline scripts, `frame-ancestors 'none'`, `upgrade-insecure-requests`. The other security headers
   move to `_headers` as well. This replaces the per-request nonce, which a pre-built file can't carry.
@@ -112,10 +145,11 @@ The owner's constraint: **stay on Workers Free** (set at the start of the projec
 
 ## Stages
 
-0. **Measure on Cloudflare first (gate).** Deploy the data Worker with the session check and `GET /api/today`
-   only, on a separate test route, and read its real CPU time in Cloudflare's logs. The production database login
-   goes to Hyperdrive, not a local Postgres, so the local 4–7 ms may differ. **If the median is over 6 ms, stop and
-   come back to the owner** (options: Better Auth's signed-cookie session cache, or D1).
+0. **Measure on Cloudflare first (gate).** Deploy the data Worker with sign-in, the token check, the Neon HTTPS
+   driver and `GET /api/today` only, on a separate test address, and read its real CPU time in Cloudflare's logs:
+   a token-only request, a request that refreshes the token, `GET /api/today`, and a sign-in.
+   **If the median for ordinary requests is over 6 ms, stop and come back to the owner** before any page is
+   rebuilt.
 1. **Core screens:** Today, draw one, draw three, reading, verify, journal, Patterns, account, sign-in/up, reset,
    two-step, terms, privacy. The current Next.js Worker is retired for the app when this ships.
 2. **The rest:** Ask, check-ins, Desk and My log, invite, offer, reader guidelines, maintenance page.
@@ -127,8 +161,17 @@ dashboard steps are written for the browser only.
 
 ## What the owner decides
 
-- Approve approach 1 (pre-built single-page app) over approach 2 (Next.js static export).
+- Approve approach 1 (pre-built React + Vite pages, as in Zyra and Zotikos) over approach 2 (Next.js static export).
+- Approve the 5-minute token: signing out everywhere, disabling a person or removing a role reaches ordinary pages
+  within 5 minutes at most (the sensitive actions listed above are checked at once). A shorter time costs more
+  database reads; 5 minutes is the suggested balance.
 - Approve the gate in stage 0, including stopping if the live number is too high.
+
+## Related, separate
+
+Astro's live data sits in the niko-knowledge Neon project (found 27 Nov); the astro Neon project is empty. Moving
+it is its own step, planned with the owner. Since this change needs a new connection string anyway, that is a
+natural moment, but it is not part of this design.
 
 ## Left to the builder
 
@@ -138,5 +181,5 @@ dashboard steps are written for the browser only.
 
 ## Not changing
 
-Neon project and roles, migrations, Hyperdrive, Resend, Turnstile, Better Auth for sign-in flows, the landing page,
-the admin portal until stage 3, the approved designs.
+Neon and its roles, migrations (new functions are added, nothing removed), Resend, Turnstile, Better Auth for the
+sign-in flows, the landing page, the admin portal until stage 3 (still on Hyperdrive), the approved designs.
