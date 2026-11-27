@@ -33,7 +33,7 @@ export async function liveSnapshot(db: AnyDb, kind: Kind, useCache = true): Prom
     live.set(kind, { snapshot, at: Date.now() });
     return snapshot;
   } catch (e) {
-    console.error(`published ${kind} wording unavailable, using the last known wording`, e);
+    console.error(`published ${kind} wording unavailable, using the last known wording`, e instanceof Error ? e.name : "error");
     const snapshot = hit?.snapshot ?? {};
     live.set(kind, { snapshot, at: Date.now() - TTL_MS + RETRY_MS });
     return snapshot;
@@ -65,7 +65,7 @@ export async function previewSnapshot(db: AnyDb, kind: Kind, previewId: string |
     );
     return row?.snapshot ?? null;
   } catch (e) {
-    console.error("preview wording unavailable", e);
+    console.error("preview wording unavailable", e instanceof Error ? e.name : "error");
     return null;
   }
 }

@@ -29,7 +29,7 @@ async function published(db: AnyDb, page: LegalPage, useCache: boolean): Promise
     live.set(page, { value, at: Date.now() });
     return value;
   } catch (e) {
-    console.error(`published ${page} page unavailable, using the last known version`, e);
+    console.error(`published ${page} page unavailable, using the last known version`, e instanceof Error ? e.name : "error");
     return hit?.value ?? { value: null, version: 0, publishedAt: null };
   }
 }

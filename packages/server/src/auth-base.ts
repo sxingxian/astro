@@ -60,6 +60,15 @@ async function isDisabled(db: AnyDb, email: string): Promise<boolean> {
 }
 
 /** Turnstile protects the endpoints a bot would hammer. */
+/** The kind of each logged value only: an error's name and database code. Messages can hold query values. */
+function logKinds(args: unknown[]): string[] {
+  return args.map((a) => {
+    if (!(a instanceof Error)) return typeof a;
+    const code = (a as { cause?: { code?: unknown } }).cause?.code;
+    return typeof code === "string" ? `${a.name} ${code}` : a.name;
+  });
+}
+
 export const CAPTCHA_ENDPOINTS = ["/sign-up/email", "/sign-in/email", "/request-password-reset"];
 
 /**
@@ -78,6 +87,8 @@ export function buildAuthOptions(env: BaseAuthEnv, { db, sendMail, waitUntil }: 
 
   return {
     appName: "Astro",
+    // Better Auth's own log would print failed queries with their values (password digests, hashes, tokens).
+    logger: { log: (level: string, _message: string, ...args: unknown[]) => console.error("better-auth:", level, ...logKinds(args)) },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: surface.baseURL,
     basePath: surface.basePath,

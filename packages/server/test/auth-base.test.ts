@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { acceptSession, buildAuthOptions, type AuthSurface } from "../src/auth-base";
 
 const env = { BETTER_AUTH_SECRET: "x".repeat(40), TURNSTILE_MODE: "on" as const, TURNSTILE_SECRET_KEY: "secret", HIBP_CHECK: "on" as const };
@@ -53,3 +53,17 @@ describe("session surfaces", () => {
     expect(acceptSession({ surface: "app" }, { disabledAt: new Date() }, "app")).toBe(false);
   });
 });
+
+describe("Better Auth's log", () => {
+  it("never writes query values (password digests, hashes, tokens, emails), only the kind of error", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const err = Object.assign(new Error("Failed query: select crypt($1, $2) as h params: U0VDUkVULURJR0VTVA==,$2b$12$hash"), { name: "DrizzleQueryError", cause: { code: "57P01" } });
+    buildAuthOptions(env, deps, app).logger?.log?.("error", "Failed query: select crypt($1, $2) as h params: U0VDUkVULURJR0VTVA==,$2b$12$hash", err, { email: "a@example.com" });
+    const written = spy.mock.calls.flat().map((a) => (a instanceof Error ? `${a.name}: ${a.message} ${JSON.stringify(a)}` : JSON.stringify(a))).join(" ");
+    spy.mockRestore();
+    expect(written).not.toMatch(/U0VDUkVU|\$2b\$|a@example\.com|params/);
+    expect(written).toContain("DrizzleQueryError");
+    expect(written).toContain("57P01");
+  });
+});
+

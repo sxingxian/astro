@@ -52,7 +52,8 @@ export function createMutation<U>({ allowedOrigin, getUser }: MutationConfig<U>)
         if (e instanceof ForbiddenOrigin) return forbidden();
         if (e instanceof HttpError) return fail(e.status, e.code);
         if (e instanceof APIError) return fail(e.statusCode, e.body?.code ? String(e.body.code).toLowerCase() : "request_failed", { message: e.body?.message });
-        console.error("route failed", e instanceof Error ? e.message : e);
+        // The kind only: a failed query's message carries its values.
+        console.error("route failed", e instanceof Error ? e.name : "error");
         return fail(500, "server_error");
       }
     };
