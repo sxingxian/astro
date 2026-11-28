@@ -1,7 +1,6 @@
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import type { AnyDb } from "./rows";
-import * as schema from "./schema";
 
 export type { AnyDb };
 
@@ -12,6 +11,7 @@ export type { AnyDb };
  */
 export function createHttpDb(connectionString: string, opts: { fetch?: typeof fetch } = {}): AnyDb {
   if (opts.fetch) neonConfig.fetchFunction = opts.fetch;
-  return drizzle({ client: neon(connectionString), schema }) as unknown as AnyDb;
+  // No `schema`: nothing uses relational queries, and building their metadata cost ~2 ms of a fresh isolate's first request.
+  return drizzle({ client: neon(connectionString) }) as unknown as AnyDb;
 }
 

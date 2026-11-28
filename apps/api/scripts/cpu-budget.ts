@@ -173,6 +173,7 @@ async function measure(send: Awaited<ReturnType<typeof inspector>>["send"], c: C
   const res = await call(c);
   await res.text();
   const { profile } = await send<{ profile: Profile }>("Profiler.stop");
+  if (process.env.CPU_PROFILE_OUT) (await import("node:fs")).appendFileSync(process.env.CPU_PROFILE_OUT, JSON.stringify(profile) + "\n");
   const name = new Map(profile.nodes.map((n) => [n.id, n.callFrame.functionName]));
   let busy = 0;
   const self = new Map<string, number>();
@@ -202,8 +203,13 @@ let failed = false;
 try {
   const person = await testPerson();
   const { cookie } = person;
-  await waitFor(`${ORIGIN}/api/health`);
+  // Wait on the profiler, not the Worker, so the first request below is the first the isolate ever handles.
+  await waitFor(`http://127.0.0.1:${INSPECTOR}/json`);
   const { send, close } = await inspector();
+  // The first request after the isolate starts (Workers Free restarts isolates often): nothing cached yet.
+  const cold = await measure(send, { path: "/api/session", cookie });
+  if (cold.status !== 200) throw new Error(`the first request answered ${cold.status}`);
+  console.log(`${cold.ms > WARN_MS ? "WARN " : "ok   "} /api/session (fresh isolate, first request): ${cold.ms.toFixed(1)} ms`);
 
   /** Runs one case `runs` times; the first call warms the isolate and isn't counted. */
   /** `c` may be a setup run (unmeasured) before each call, for requests that can't repeat (a fresh draw). */
@@ -255,8 +261,8 @@ try {
     const withPass = `${cookie}; astro.pass=${/astro\.pass=([^;]*)/.exec(first.headers.get("set-cookie") ?? "")?.[1]}`;
     await check("/api/legal/terms (public)", { path: "/api/legal/terms" }, (r) => r.status === 200, budget);
     await check("POST /api/reading/:id/note (with pass)", { method: "POST", path: `/api/reading/${sessionId}/note`, cookie: withPass, body: () => ({ body: `Note ${Math.random()}` }) }, (r) => r.status === 200, budget);
-    // Returns today's three-card reading in progress after the first call: the advisory lock on the WebSocket driver each time.
-    await check("POST /api/draw/start (WebSocket driver)", { method: "POST", path: "/api/draw/start", cookie: withPass, body: () => ({ spread: "three" }) }, (r) => r.status === 200, budget * 2);
+    // Returns today's three-card reading in progress after the first call (start_draw takes the lock each time).
+    await check("POST /api/draw/start (today's reading again)", { method: "POST", path: "/api/draw/start", cookie: withPass, body: () => ({ spread: "three" }) }, (r) => r.status === 200, budget * 2);
     await check("POST /api/draw/start fresh (shuffle and save)", async () => ({ method: "POST", path: "/api/draw/start", cookie: (await freshPerson()).cookie, body: () => ({ spread: "three" }) }), (r) => r.status === 200, budget * 2);
     await check("POST /api/draw/pick", async () => {
       const p = await freshPerson("one");

@@ -23,7 +23,7 @@ export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function liveSnapshot(db: AnyDb, kind: Kind, useCache = true): Promise<Record<string, string>> {
   const hit = live.get(kind);
-  if (useCache && hit && Date.now() - hit.at < TTL_MS) return hit.snapshot;
+  if (useCache && liveFresh(kind)) return hit!.snapshot;
   try {
     const [row] = await withTimeout(
       db.select({ snapshot: schema.textVersion.snapshot }).from(schema.textVersion).where(eq(schema.textVersion.kind, kind)).orderBy(desc(schema.textVersion.id)).limit(1),
@@ -38,6 +38,18 @@ export async function liveSnapshot(db: AnyDb, kind: Kind, useCache = true): Prom
     live.set(kind, { snapshot, at: Date.now() - TTL_MS + RETRY_MS });
     return snapshot;
   }
+}
+
+/** Whether this isolate's copy of a kind's published wording is recent enough to use. */
+export function liveFresh(kind: Kind): boolean {
+  const hit = live.get(kind);
+  const age = hit ? Date.now() - hit.at : Infinity;
+  return age >= 0 && age < TTL_MS; // an entry dated in the future (the clock moved back) is out of date
+}
+
+/** Keeps a snapshot read elsewhere (in a combined query), as `liveSnapshot` would. */
+export function rememberLive(kind: Kind, snapshot: Record<string, string>): void {
+  live.set(kind, { snapshot, at: Date.now() });
 }
 
 /** A draft snapshot shown to whoever has a valid, unexpired preview id. Never cached. */

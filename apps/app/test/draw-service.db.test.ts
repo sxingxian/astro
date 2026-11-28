@@ -55,6 +55,24 @@ describe("startDraw", () => {
     expect(decks.map((d) => d.stage).sort()).toEqual(["majors", "minors"]);
   });
 
+  it("before the start_draw migration has run, falls back to a transaction (still one session under concurrent starts)", async () => {
+    const a = await member();
+    // A client on which start_draw doesn't exist yet: Postgres's "undefined function".
+    const noFunction = new Proxy(db, {
+      get(target, key, receiver) {
+        if (key !== "execute") return Reflect.get(target, key, receiver);
+        return (query: Parameters<typeof db.execute>[0]) => {
+          const text = JSON.stringify(query);
+          if (text.includes("start_draw(")) return Promise.reject(Object.assign(new Error("function start_draw does not exist"), { cause: { code: "42883" } }));
+          return target.execute(query);
+        };
+      }
+    });
+    const results = await Promise.all(Array.from({ length: 5 }, () => startDraw(noFunction, a, "three", noon, () => db)));
+    expect(new Set(results.map((r) => r.sessionId)).size).toBe(1);
+    expect(await db.select().from(schema.drawSession).where(eq(schema.drawSession.userId, a.userId))).toHaveLength(1);
+  });
+
   it("refuses the three-pair spread to guests", async () => {
     expect((await errorOf(startDraw(db, guest(), "three", noon))).code).toBe("guest_spread");
   });

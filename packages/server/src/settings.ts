@@ -36,7 +36,7 @@ export async function getSetting<K extends SettingKey>(db: Pick<AnyDb, "select">
 }
 
 /** Several settings in one query, each falling back to its default. */
-export async function getSettings<K extends SettingKey>(db: Db, keys: readonly K[]): Promise<{ [P in K]: SettingValue<P> }> {
+export async function getSettings<K extends SettingKey>(db: Pick<AnyDb, "select">, keys: readonly K[]): Promise<{ [P in K]: SettingValue<P> }> {
   const rows = await db.select().from(schema.appSetting).where(inArray(schema.appSetting.key, keys as unknown as string[]));
   const out = {} as { [P in K]: SettingValue<P> };
   for (const k of keys) {

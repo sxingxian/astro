@@ -28,8 +28,16 @@ export function describeDbError(e: unknown): string {
 export function makeMaintenanceCheck<V = boolean>(read: () => Promise<V>, initial: V = false as V) {
   let cached: { on: V; at: number } | null = null;
   let inFlight: Promise<V> | null = null;
-  return async function isMaintenance(ttlSeconds: number, timeoutMs: number, now: () => number = Date.now): Promise<V> {
-    if (cached && now() - cached.at < ttlSeconds * 1000) return cached.on;
+  /** Whether the last answer is recent enough to use. */
+  // An answer dated in the future (the clock moved back) counts as out of date.
+  const age = (now: () => number) => (cached ? now() - cached.at : Infinity);
+  const fresh = (ttlSeconds: number, now: () => number = Date.now) => age(now) >= 0 && age(now) < ttlSeconds * 1000;
+  /** Keeps an answer read elsewhere (in a combined query), as a read here would. */
+  const remember = (on: V, now: () => number = Date.now) => {
+    cached = { on, at: now() };
+  };
+  return Object.assign(async function isMaintenance(ttlSeconds: number, timeoutMs: number, now: () => number = Date.now): Promise<V> {
+    if (cached && fresh(ttlSeconds, now)) return cached.on;
     if (!inFlight) {
       const startedAt = now();
       inFlight = read()
@@ -55,7 +63,7 @@ export function makeMaintenanceCheck<V = boolean>(read: () => Promise<V>, initia
     } finally {
       clearTimeout(timer);
     }
-  };
+  }, { fresh, remember });
 }
 
 /** Reads the flag and the notice's published wording in one query, with a short-lived client. */
@@ -68,6 +76,28 @@ export async function readMaintenanceWith(db: AnyDb): Promise<MaintenanceState> 
       from (select 1) one left join lateral (select snapshot from text_version where kind = 'app' order by id desc limit 1) v on true`)
   );
   return { on: row?.flag === true, title: row?.title ?? NOT_PAUSED.title, body: row?.body ?? NOT_PAUSED.body };
+}
+
+const parsed = (v: unknown): Record<string, string> => (typeof v === "string" ? JSON.parse(v) : (v ?? {})) as Record<string, string>;
+
+/**
+ * The maintenance state and the newest published app and card-meaning wording: what a fresh isolate's first page
+ * needs, in one query instead of three.
+ */
+export async function readSiteStateWith(db: AnyDb): Promise<{ maintenance: MaintenanceState; app: Record<string, string>; meanings: Record<string, string> }> {
+  const [row] = rowsOf<{ flag: unknown; app: unknown; meanings: unknown }>(
+    await db.execute(sql`
+      select (select value from app_setting where key = 'maintenance_mode') as flag,
+             (select snapshot from text_version where kind = 'app' order by id desc limit 1) as app,
+             (select snapshot from text_version where kind = 'meanings' order by id desc limit 1) as meanings`)
+  );
+  const app = parsed(row?.app);
+  const flag = typeof row?.flag === "string" ? JSON.parse(row.flag) : row?.flag;
+  return {
+    maintenance: { on: flag === true, title: app["app.maintenance.title"] ?? NOT_PAUSED.title, body: app["app.maintenance.body"] ?? NOT_PAUSED.body },
+    app,
+    meanings: parsed(row?.meanings)
+  };
 }
 
 export async function readMaintenance(connectionString: string): Promise<MaintenanceState> {
