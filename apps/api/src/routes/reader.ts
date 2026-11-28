@@ -63,8 +63,7 @@ export function readerRoutes(app: App) {
       const w = await who(c);
       if (!w) return signedOut(c);
       const db = c.get("db")();
-      const csv = await exportCsv(db, w.uid);
-      const rows = csv.match(/\r\n"\d{4}-\d{2}-\d{2}"/g)?.length ?? 0; // each entry's line starts with its date
+      const { csv, rows } = await exportCsv(db, w.uid);
       await audit(db, { actorId: w.uid, actorRole: "reader", action: "reader.log_export", entity: "user", entityId: w.uid, summary: { rows }, ip: ip(c) }, c.get("env").BETTER_AUTH_SECRET);
       return c.body(csv, 200, { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="astro-reader-log.csv"', "cache-control": "no-store" });
     })

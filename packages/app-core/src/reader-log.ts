@@ -1,4 +1,5 @@
 import { allCards, getCard } from "@astro/cards";
+import { formatDate } from "@astro/copy/dates";
 import { rowsOf, sql, type AnyDb } from "@astro/db";
 import { HttpError } from "@astro/server";
 import { z } from "zod";
@@ -138,15 +139,15 @@ const PLACE = { in_person: "In person", online: "Online", event: "At an event" }
 const SPREAD = { one: "One card", three_any: "Three cards", three_pairs: "Major, then Minor" } as const;
 const pick = (c: { id: string; reversed: boolean }) => `${getCard(c.id).name}${c.reversed ? " (reversed)" : ""}`;
 
-/** Every entry of the reader's log as CSV, newest first. */
-export async function exportCsv(db: AnyDb, readerId: string): Promise<string> {
+/** Every entry of the reader's log as CSV, newest first, dates as "01 Jan 2016" like everywhere else; and how many. */
+export async function exportCsv(db: AnyDb, readerId: string): Promise<{ csv: string; rows: number }> {
   await mustBeReader(db, readerId);
   const rows = rowsOf<Row>(await db.execute(sql`select ${COLUMNS} from reader_log_entry where reader_id = ${readerId} order by read_on desc, created_at desc`)).map(toEntry);
   const lines = [["Date", "Where", "Name", "Question", "Spread", "Cards", "Accompanying cards", "Notes", "Consent"]];
   for (const e of rows) {
     const cards = e.cards.positions.map((p) => `${p.label}: ${pick(p.card)}${p.clarifier ? ` + ${pick(p.clarifier)}` : ""}`).join("; ");
     const extras = e.cards.extras.map((x) => `${pick(x.card)}${x.attachedTo === null ? "" : ` (with ${e.cards.positions[x.attachedTo]?.label ?? ""})`}`).join("; ");
-    lines.push([e.readOn, PLACE[e.place], e.name, e.question ?? "", SPREAD[e.spread], cards, extras, e.notes ?? "", e.consent ? "Yes" : "No"]);
+    lines.push([formatDate(e.readOn), PLACE[e.place], e.name, e.question ?? "", SPREAD[e.spread], cards, extras, e.notes ?? "", e.consent ? "Yes" : "No"]);
   }
-  return lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  return { csv: lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n", rows: rows.length };
 }

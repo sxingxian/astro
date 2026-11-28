@@ -122,7 +122,9 @@ describe("My log", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/csv");
     expect(res.headers.get("content-disposition")).toContain("attachment");
-    expect(await res.text()).toContain(`"'=SUM(A1)"`);
+    const text = await res.text();
+    expect(text).toContain(`"'=SUM(A1)"`);
+    expect(text).toContain('"20 Nov 2026"');
     const [row] = await admin<{ keys: string; rows: string }[]>`select (select string_agg(k, ',') from jsonb_object_keys(summary) k) as keys, summary->>'rows' as rows from audit_log where actor_id = ${r.uid} and action = 'reader.log_export'`;
     expect(row).toEqual({ keys: "rows", rows: "1" }); // nothing from the log itself
   });

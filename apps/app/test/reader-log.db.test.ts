@@ -36,7 +36,11 @@ describe("a reader's log", () => {
     const list = await listEntries(db, "ra", {});
     expect(list.items.map((e) => e.id)).toEqual([aId]);
     expect(list.items[0]).toMatchObject({ name: "Hannah", spread: "three_any", place: "in_person" });
-    expect(await exportCsv(db, "ra")).toContain("Hannah");
+    const out = await exportCsv(db, "ra");
+    expect(out.csv).toContain("Hannah");
+    expect(out.csv).toContain('"26 Nov 2026"'); // the one date format, in the download too
+    expect(out.csv).not.toContain("2026-11-26");
+    expect(out.rows).toBeGreaterThan(0);
     expect((await listEntries(db, "rb", {})).items).toHaveLength(0);
   });
 
