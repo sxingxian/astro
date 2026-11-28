@@ -29,7 +29,7 @@ export async function signUp(page: Page, email: string, password = PASSWORD) {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
   await page.getByLabel(/I agree/).check();
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create a free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 }
 

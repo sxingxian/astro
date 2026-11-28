@@ -7,6 +7,7 @@ import type { Reading } from "@/lib/draw/service";
 import { ApiError } from "../api";
 import { Failed, Loading, useData } from "../data";
 import { go } from "../nav";
+import { pairText } from "@astro/meanings";
 import { useMeaning } from "../meaning";
 import { useSession, useTitle } from "../session";
 
@@ -92,6 +93,7 @@ export default function ReadingPage() {
         if (!major || !minor) return null;
         const m = describe(major.cardId, major.orientation, tr, meaningOf);
         const c = describe(minor.cardId, minor.orientation, tr, meaningOf);
+        const text = pairText({ meaning: m.meaning, name: m.card.name, reversed: m.reversed }, { meaning: c.meaning, name: c.card.name, reversed: c.reversed }, pos);
         return (
           <section key={pos} aria-labelledby={`h-${pos}`} className="panel flex flex-col gap-4 p-5">
             <h2 id={`h-${pos}`} className="eyebrow">{tr(LABEL[pos])}</h2>
@@ -106,8 +108,8 @@ export default function ReadingPage() {
               </div>
             </div>
             <p className="m-0 font-display text-2xl leading-snug">{m.title} <span className="text-muted">{tr("app.reading.with")}</span> {c.title}</p>
-            <p data-testid="meaning-summary" className="m-0 leading-relaxed">{m.meaning.positions[pos]} {m.side.summary}.</p>
-            <p className="m-0 leading-relaxed text-haze">{m.meaning.asTheme} {c.meaning.asClarifier} {c.side.summary}.</p>
+            <p data-testid="meaning-summary" className="m-0 leading-relaxed">{text.theme}</p>
+            <p className="m-0 leading-relaxed text-haze">{text.clarifier}</p>
             <details className="text-sm">
               <summary className="cursor-pointer text-gold">{tr("app.reading.read_both")}</summary>
               <div className="mt-3 flex flex-col gap-3 leading-relaxed text-haze">

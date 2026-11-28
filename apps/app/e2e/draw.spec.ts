@@ -20,11 +20,11 @@ test("a guest draws today's card, once", async ({ page }) => {
   await drawGuestCard(page);
   await expect(page.getByTestId("meaning-summary").first()).not.toBeEmpty();
   await expect(page.getByText("For reflection and entertainment.")).toBeVisible();
-  await expect(page.getByRole("link", { name: /create a free account/i })).toBeVisible();
+  await expect(page.locator("main").getByRole("link", { name: /create a free account/i })).toBeVisible();
   const readingUrl = page.url();
 
   await page.goto("/today");
-  await expect(page.getByText(/You've drawn today, back at/)).toBeVisible();
+  await expect(page.getByText(/Drawn today. Your next draw opens at/)).toBeVisible();
   await page.goto("/draw/one");
   await expect(page).toHaveURL(readingUrl);
 });

@@ -111,7 +111,11 @@ export default function PatternsPage() {
             </li>
           ))}
         </ul>
-        <p className="m-0 text-sm leading-relaxed text-haze">{t("app.patterns.checked_in", { done: String(p.checkedIn.done), eligible: String(p.checkedIn.eligible) })}</p>
+        <p className="m-0 text-sm leading-relaxed text-haze">
+          {p.checkedIn.eligible === 0
+            ? t("app.patterns.checked_in_none")
+            : t(p.checkedIn.eligible === 1 ? "app.patterns.checked_in_one" : "app.patterns.checked_in", { done: String(p.checkedIn.done), eligible: String(p.checkedIn.eligible) })}
+        </p>
       </Panel>
       </div>
 

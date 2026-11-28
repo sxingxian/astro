@@ -27,7 +27,7 @@ export default function CheckInPage() {
         <div className="flex flex-col gap-1.5">
           <p className="eyebrow">{tr("app.check_in.eyebrow", { date: when })}</p>
           <h1 className="m-0 font-display text-3xl font-medium leading-tight">{tr("app.check_in.title", { card: t.card.name })}</h1>
-          <p className="m-0 text-sm leading-relaxed text-haze">{due.position === "present" ? tr("app.check_in.present_position") : ""}“{t.side.summary}.”</p>
+          <p className="m-0 text-sm leading-relaxed text-haze">{due.position === "present" ? `${tr("app.check_in.present_position")} ` : ""}“{t.side.summary}.”</p>
         </div>
       </div>
       <CheckInForm sessionId={due.sessionId} />
