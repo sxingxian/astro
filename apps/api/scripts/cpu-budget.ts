@@ -101,7 +101,10 @@ function startWorker(wsProxy: string): ChildProcess {
   const cli = ["exec", "wrangler", "dev", ...(entry ? [entry] : []), "--port", String(PORT), "--host", `127.0.0.1:${PORT}`, "--inspector-port", String(INSPECTOR)];
   for (const [k, v] of Object.entries(vars)) cli.push("--var", `${k}:${v}`);
   // Its own process group, so stopping it also stops wrangler and workerd under pnpm.
-  return spawn("pnpm", cli, { cwd: root, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const child = spawn("pnpm", cli, { cwd: root, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  // The Worker's own errors (a failed startup warm-up, say) are shown; the rest of wrangler's output isn't.
+  for (const out of [child.stdout, child.stderr]) out?.on("data", (d: Buffer) => d.toString().split("\n").filter((l) => /ERROR|astro-api:/.test(l)).forEach((l) => console.error(`worker: ${l.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"), "")}`)));
+  return child;
 }
 
 async function waitFor(u: string, ms = 90_000) {
@@ -223,10 +226,11 @@ try {
     const m = pct(warm, 0.5);
     const over = m > limit;
     failed ||= over || Boolean(wrong);
-    const stats = `median ${m.toFixed(1)} ms, p90 ${pct(warm, 0.9).toFixed(1)}, max ${Math.max(...warm).toFixed(1)} [${warm.map((x) => x.toFixed(1)).join(", ")}] budget ${limit} ms`;
+    const first = results[0]!.ms; // this isolate's first call of the case (for sign-in: its first Better Auth request)
+    const stats = `median ${m.toFixed(1)} ms, p90 ${pct(warm, 0.9).toFixed(1)}, max ${Math.max(...warm).toFixed(1)}, first ${first.toFixed(1)} [${warm.map((x) => x.toFixed(1)).join(", ")}] budget ${limit} ms`;
     // Locally over ~8 ms is worth a look before it meets the live 10 ms (the local run has profiler overhead).
     if (wrong) console.log(`WRONG ${label}: status ${wrong.status}, x-astro-pass ${wrong.pass ?? "none"}`);
-    else console.log(`${over ? "OVER " : m > WARN_MS ? "WARN " : "ok   "} ${label}: ${stats}`);
+    else console.log(`${over ? "OVER " : m > WARN_MS || first > WARN_MS ? "WARN " : "ok   "} ${label}: ${stats}`);
   }
 
   /** A new person each time, with a sign-in cookie (and pass) and, if asked, today's reading started. */
@@ -268,6 +272,7 @@ try {
       const p = await freshPerson("one");
       return { method: "POST", path: "/api/draw/pick", cookie: p.cookie, body: () => ({ sessionId: p.sessionId, stage: "single", positions: [7] }) };
     }, (r) => r.status === 200, budget);
+    await check("POST /api/auth/sign-out", async () => ({ method: "POST", path: "/api/auth/sign-out", cookie: (await testPerson()).cookie }), (r) => r.status === 200, budget);
     await check("POST /api/auth/sign-in/email (bcrypt in Postgres)", { method: "POST", path: "/api/auth/sign-in/email", body: () => ({ email: person.email, password: PASSWORD }) }, (r) => r.status === 200, budget * 2);
   }
   close();

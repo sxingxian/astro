@@ -64,11 +64,23 @@ describe("Better Auth in the data Worker", () => {
     const pass = passFrom(me);
     expect(pass).toBeTruthy();
 
+    const before = fake.calls();
     const out = await post("/api/auth/sign-out", {}, { cookie: `${cookie}; astro.pass=${pass}` });
     expect(out.status).toBe(200);
-    expect(out.headers.getSetCookie().join("\n")).toMatch(/astro\.pass=;.*Max-Age=0/);
+    expect(await out.json()).toEqual({ success: true });
+    // One database request (the session row), without Better Auth: it cost 15-55 ms of CPU live.
+    expect(fake.calls() - before).toBe(1);
+    const cleared = out.headers.getSetCookie().join("\n");
+    expect(cleared).toMatch(/astro\.pass=;.*Max-Age=0/);
+    expect(cleared).toMatch(/astro\.session_token=;.*Max-Age=0/);
+    expect(cleared).toMatch(/astro\.session_data=;.*Max-Age=0/);
+    expect(cleared).toMatch(/astro\.dont_remember=;.*Max-Age=0/);
     const after = await app.request("/api/me", { headers: { cookie } }, env);
     expect(after.status).toBe(401);
+    // Signing out again (or with no session) still answers success and clears the cookies.
+    const again = await post("/api/auth/sign-out", {}, { cookie });
+    expect(again.status).toBe(200);
+    expect(again.headers.getSetCookie().join("\n")).toMatch(/astro\.session_token=;.*Max-Age=0/);
   });
 
   it("refuses an auth POST with no Origin at all", async () => {
@@ -101,5 +113,18 @@ describe("Better Auth in the data Worker", () => {
     await post("/api/auth/sign-in/email", { email, password: "correct horse battery staple" });
     // Recorded so a regression shows: Better Auth's sign-in makes several reads and writes of its own.
     expect(fake.calls() - before).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("Better Auth built once per isolate", () => {
+  it("reuses the instance for equal settings even as a different object (the startup copy and each request's)", async () => {
+    const { authFor } = await import("../src/auth");
+    const { checkEnv } = await import("../src/env");
+    const a = checkEnv({ ...env })!;
+    const b = checkEnv({ ...env })!;
+    expect(a).not.toBe(b);
+    expect(authFor(a, http)).toBe(authFor(b, http));
+    // Different settings get their own.
+    expect(authFor(checkEnv({ ...env, TURNSTILE_MODE: "on", TURNSTILE_SECRET_KEY: "t" })!, http)).not.toBe(authFor(a, http));
   });
 });
