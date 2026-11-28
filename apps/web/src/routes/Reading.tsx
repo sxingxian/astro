@@ -56,14 +56,14 @@ export default function ReadingPage() {
     return (
       <article data-page className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(220px,300px)_1fr] lg:items-start lg:gap-x-12">
         <p className="eyebrow lg:col-span-2">{tr("app.reading.one_eyebrow", { date: dayLabel(reading) })}</p>
-        <div className="flex flex-col items-center gap-2 py-2 lg:sticky lg:top-8 lg:row-span-4">
+        <div className="flex flex-col items-start gap-2 py-2 lg:sticky lg:top-8 lg:row-span-4">
           <FlipCard width={104} height={176}><CardFace id={t.card.id} size="lg" reversed={t.reversed} /></FlipCard>
           {t.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
         </div>
-        <header className="flex flex-col gap-2 text-center lg:text-left">
+        <header className="flex flex-col gap-2">
           <h1 className="m-0 font-display text-5xl font-medium leading-none">{t.title}</h1>
           <p className="m-0 text-sm text-muted">{t.line}</p>
-          <ul className="m-0 flex list-none flex-wrap justify-center gap-2 p-0 lg:justify-start">
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
             {t.card.keywords.map((k) => <li key={k} className="rounded-full border border-gold/30 px-3 py-1 text-xs text-haze">{k}</li>)}
           </ul>
         </header>
@@ -97,7 +97,7 @@ export default function ReadingPage() {
             <h2 id={`h-${pos}`} className="eyebrow">{tr(LABEL[pos])}</h2>
             <div className="flex items-end gap-3">
               <div className="flex flex-col items-center gap-1.5">
-                <FlipCard width={92} height={156} delay={i * 160}><CardFace id={m.card.id} size="md" reversed={m.reversed} className="!h-full !w-full" /></FlipCard>
+                <FlipCard width={92} height={156} delay={i * 160}><CardFace id={m.card.id} size="sm" reversed={m.reversed} className="!h-full !w-full" /></FlipCard>
                 {m.reversed ? <span className="card-reversed">{tr("app.card.reversed")}</span> : null}
               </div>
               <div className="flex flex-col items-center gap-1.5">

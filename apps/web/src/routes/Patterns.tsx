@@ -34,6 +34,7 @@ export default function PatternsPage() {
   if (error) return <Failed error={error} />;
   if (!p) return <Loading />;
   const copy = patternsCopy(p, range, t);
+  const early = p.readings < 3; // one "not yet" message instead of one per panel
   const maxSuit = Math.max(1, ...p.elements.map((e) => e.count));
   const outcomes = [
     { label: t("app.check_in.fit"), count: p.outcomes.fit },
@@ -48,14 +49,20 @@ export default function PatternsPage() {
         <span className="text-sm text-muted">{t(p.readings === 1 ? "app.patterns.count_one" : "app.patterns.count_many", { n: String(p.readings) })}</span>
       </div>
       <JournalSwitch current="patterns" />
-      <nav aria-label={t("app.patterns.range_label")} className="flex gap-2">
+      <nav aria-label={t("app.patterns.range_label")} className="flex flex-wrap gap-2">
         {RANGES.map((r) => (
-          <a key={r.key} href={r.key === "30d" ? "/journal/patterns" : `/journal/patterns?range=${r.key}`} aria-current={r.key === range ? "page" : undefined} className={`flex min-h-11 items-center rounded-full border px-4 text-sm no-underline ${r.key === range ? "border-gold text-moon" : "border-gold/30 text-haze"}`}>{t(r.label)}</a>
+          <a key={r.key} href={r.key === "30d" ? "/journal/patterns" : `/journal/patterns?range=${r.key}`} aria-current={r.key === range ? "page" : undefined} className="chip">{t(r.label)}</a>
         ))}
       </nav>
 
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
-      <Panel eyebrow={t("app.patterns.returning")} title={copy.repeatsTitle}>
+      {early ? (
+        <p className="m-0 rounded-xl bg-gold/8 px-4 py-3 text-sm leading-relaxed text-moon">
+          <span className="font-semibold">{t("app.patterns.waiting")}.</span> {t("app.patterns.waiting_repeats")}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2">
+      <Panel eyebrow={t("app.patterns.returning")} title={early ? undefined : copy.repeatsTitle}>
         {p.repeats.length ? (
           <ul className="m-0 flex list-none gap-3 p-0">
             {p.repeats.map((r) => (
@@ -66,20 +73,22 @@ export default function PatternsPage() {
             ))}
           </ul>
         ) : null}
-        <p className="m-0 text-sm leading-relaxed text-haze">{copy.repeatsLine}</p>
+        {early ? null : <p className="m-0 text-sm leading-relaxed text-haze">{copy.repeatsLine}</p>}
       </Panel>
 
-      <Panel eyebrow={t("app.patterns.elements")} title={copy.elementsTitle}>
+      <Panel eyebrow={t("app.patterns.elements")} title={early ? undefined : copy.elementsTitle}>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {p.elements.map((e) => (
-            <li key={e.suit} className="grid grid-cols-[96px_1fr_28px] items-center gap-2.5 text-sm">
-              <span>{t(ELEMENT_KEY[e.suit])} <span className="text-muted">· {t(SUIT_KEY[e.suit])}</span></span>
-              <span aria-hidden="true" className="h-2 overflow-hidden rounded-full bg-nebula"><span className="block h-full rounded-full bg-gold" style={{ width: `${Math.round((100 * e.count) / maxSuit)}%` }} /></span>
-              <span className="text-right text-haze">{e.count}</span>
+            <li key={e.suit} className="flex flex-col gap-1.5 text-sm">
+              <span className="flex justify-between gap-3">
+                <span>{t(ELEMENT_KEY[e.suit])} <span className="text-muted">· {t(SUIT_KEY[e.suit])}</span></span>
+                <span className="text-haze">{e.count}</span>
+              </span>
+              <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-nebula"><span className="block h-full rounded-full bg-gold" style={{ width: `${Math.round((100 * e.count) / maxSuit)}%` }} /></span>
             </li>
           ))}
         </ul>
-        <p className="m-0 text-sm leading-relaxed text-haze">{copy.elementsLine}</p>
+        {early ? null : <p className="m-0 text-sm leading-relaxed text-haze">{copy.elementsLine}</p>}
       </Panel>
 
       <div className="grid grid-cols-2 gap-3">

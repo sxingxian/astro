@@ -15,13 +15,13 @@ export function PickerLayout({ eyebrow, title, lede, note, slots, fan, footer }:
   return (
     <section aria-labelledby="pick-h" className="picker flex flex-col gap-3 lg:gap-4 lg:rounded-3xl lg:border lg:border-gold/15 lg:p-7">
       <div className="flex flex-col gap-4 px-5 lg:flex-row lg:items-end lg:justify-between lg:px-0">
-        <div className="flex flex-col gap-2 text-center lg:text-left">
+        <div className="flex flex-col gap-2">
           <p className="eyebrow">{eyebrow}</p>
           {note ? <p className="m-0 text-sm text-muted">{note}</p> : null}
           <h1 id="pick-h" className="m-0 font-display text-[32px] font-medium leading-tight lg:text-4xl">{title}</h1>
           {lede ? <p className="m-0 text-haze">{lede}</p> : null}
         </div>
-        <ol aria-label={t("app.draw.picks_label", { n: String(filled), total: String(slots.length) })} className="m-0 flex list-none justify-center gap-2.5 p-0 lg:flex-none">
+        <ol aria-label={t("app.draw.picks_label", { n: String(filled), total: String(slots.length) })} className="m-0 flex list-none gap-2.5 p-0 lg:flex-none">
           {slots.map((s) => (
             <li key={s.label} className="flex flex-col items-center gap-1.5">
               <span data-filled={s.filled || undefined} className="picker-slot">{s.filled ? <CardBack /> : null}</span>

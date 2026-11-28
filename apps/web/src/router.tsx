@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { createBrowserRouter, Navigate, Outlet, ScrollRestoration, useLocation, useMatches, useNavigate } from "react-router";
 import { PreviewBar } from "@/components/PreviewBar";
 import { Failed, Main, ProgressLine, RouteLoading } from "./data";
+import { busy } from "./busy";
 import { interceptLinks, setNavigator } from "./nav";
 import Maintenance from "./routes/Maintenance";
 import { ApiError } from "./api";
@@ -71,8 +72,19 @@ function Frame() {
   const { t, preview, maintenance } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
+  // A move counts as loading until the new screen is on screen: React keeps the old one up while the next one's
+  // code downloads, and the progress line shows that wait.
+  const moving = useRef<(() => void) | null>(null);
   useEffect(() => {
-    setNavigator((to, { replace }) => void navigate(to, { replace }));
+    moving.current?.();
+    moving.current = null;
+  }, [location.key]);
+  useEffect(() => {
+    setNavigator((to, { replace }) => {
+      moving.current?.();
+      moving.current = busy.start();
+      void navigate(to, { replace });
+    });
     const stop = interceptLinks(document);
     return () => {
       stop();

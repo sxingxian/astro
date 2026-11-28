@@ -34,31 +34,29 @@ function SpreadArt({ count }: { count: 1 | 3 }) {
 }
 
 function SpreadCard({ t, count, title, sub, today, start, locked }: { t: T; count: 1 | 3; title: string; sub: string; today: StartResult | null; start: { href: string; label: string }; locked?: { href: string; label: string } }) {
-  let action: ReactNode = (
-    <a className="btn-gold min-h-11 px-5 lg:self-start" href={start.href}>
-      <span className="lg:hidden">{t("app.today.draw_short")}</span>
-      <span className="hidden lg:inline">{start.label}</span>
-    </a>
-  );
-  let status = sub;
-  if (locked) action = <a className="btn-ghost min-h-11 px-4 text-sm max-lg:basis-full lg:self-start" href={locked.href}>{locked.label}</a>;
-  else if (today?.status === "picking") action = <a className="btn-gold min-h-11 px-5 lg:self-start" href={start.href}>{t("app.today.continue")}</a>;
+  let action: ReactNode = <a className="btn-gold" href={start.href}>{start.label}</a>;
+  let note: string | null = null;
+  if (locked) action = <a className="btn-ghost" href={locked.href}>{locked.label}</a>;
+  else if (today?.status === "picking") action = <a className="btn-gold" href={start.href}>{t("app.today.continue")}</a>;
   else if (today?.status === "complete") {
     const next = nextLocalMidnight(new Date(), today.timeZone);
-    status = t("app.today.drawn_note", {
+    note = t("app.today.drawn_note", {
       time: next.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: today.timeZone }),
       day: next.toLocaleDateString("en-GB", { weekday: "long", timeZone: today.timeZone })
     });
-    action = <a className="btn-ghost min-h-11 px-4 text-sm lg:self-start" href={`/reading/${today.sessionId}`}>{t("app.today.see_reading")}</a>;
+    action = <a className="btn-ghost" href={`/reading/${today.sessionId}`}>{t("app.today.see_reading")}</a>;
   }
   return (
-    <section className={`panel flex flex-wrap items-center gap-4 p-4 lg:flex-nowrap lg:flex-col lg:items-stretch lg:gap-5 lg:p-6 ${locked ? "border-dashed" : ""}`}>
-      <SpreadArt count={count} />
-      <div className="min-w-0 flex-1">
-        <h2 className="m-0 font-display text-[26px] font-medium leading-tight lg:text-3xl">{title}</h2>
-        <p className="m-0 text-sm text-muted">{status}</p>
+    <section className={`panel flex flex-col gap-4 p-5 lg:p-6 ${locked ? "border-dashed" : ""}`}>
+      <div className="flex items-center gap-4 lg:flex-col lg:items-start">
+        <SpreadArt count={count} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="m-0 font-display text-[26px] font-medium leading-tight lg:text-3xl">{title}</h2>
+          <p className="m-0 text-sm text-haze">{sub}</p>
+        </div>
       </div>
-      {action}
+      {note ? <p className="m-0 text-sm leading-relaxed text-haze">{note}</p> : null}
+      <div className="actions mt-auto">{action}</div>
     </section>
   );
 }
@@ -87,7 +85,7 @@ export default function TodayPage() {
         </div>
         {user ? null : <p className="-mt-2 m-0 text-haze">{t("app.today.title")}</p>}
 
-        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
+        <div className={`flex flex-col gap-5 lg:gap-6 ${user ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start" : ""}`}>
           <div className="flex flex-col gap-4 lg:gap-6">
             {user ? (
               <section aria-labelledby="ask-h" className="panel relative flex flex-col gap-4 overflow-hidden border-gold/50 bg-[radial-gradient(120%_120%_at_100%_0%,#2A2350_0%,#14142A_60%)] p-5 lg:flex-row lg:items-center lg:gap-8 lg:p-8">
@@ -98,7 +96,9 @@ export default function TodayPage() {
                   </p>
                   <h2 id="ask-h" className="m-0 font-display text-[28px] font-medium leading-tight lg:text-[40px]">{t("app.ask.title")}</h2>
                   <p className="m-0 hidden text-[15px] leading-relaxed text-haze lg:block">{t("app.today.ask_text")}</p>
-                  <a href="/ask" className="btn-gold min-h-11 self-start px-6">{t("app.today.ask_button")}</a>
+                  <div className="actions">
+                    <a href="/ask" className="btn-gold">{t("app.today.ask_button")}</a>
+                  </div>
                 </div>
                 <span aria-hidden="true" className="relative hidden h-[180px] w-[190px] flex-none lg:block">
                   {[-14, -4, 12].map((r, i) => (

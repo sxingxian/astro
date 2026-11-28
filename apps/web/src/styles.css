@@ -24,3 +24,18 @@ html.astro-fonts { --font-display: "Cormorant Garamond"; --font-ui: "Inter"; }
   .progress-line::after { width: 100%; transform: none; opacity: 0.7; }
   .progress-line.is-on::after { animation: none; }
 }
+
+/* Buttons (Stage 2 standard): 48 px, labels never wrap. Desktop: as wide as the label, never stretched by a column.
+   Phones: a row of actions stacks, full width, main one first. A narrow form card's submit spans it (.form-card). */
+@layer components {
+  .btn-gold, .btn-ghost { min-height: 48px; font-size: 15px; white-space: nowrap; }
+  .actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  @media (min-width: 1024px) {
+    .btn-gold, .btn-ghost { align-self: flex-start; }
+    .actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .actions > .btn-gold, .actions > .btn-ghost { flex: none; }
+    .form-card .btn-gold { align-self: stretch; }
+  }
+  .chip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid rgb(216 180 106 / 0.35); color: var(--astro-haze); font-size: 14px; text-decoration: none; white-space: nowrap; }
+  .chip[aria-current="page"], .chip[aria-pressed="true"] { background: var(--astro-gold); border-color: var(--astro-gold); color: var(--astro-night); font-weight: 600; }
+}

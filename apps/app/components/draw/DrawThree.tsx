@@ -57,7 +57,6 @@ export function DrawThree() {
       footer={
         deck ? (
           <>
-            <p className="m-0 hidden text-sm text-haze lg:block">{t("app.draw.desktop_hint")}</p>
             <FormError message={error} />
             <button type="button" className="btn-gold lg:self-start lg:px-10" disabled={selected.length !== 3 || busy} onClick={() => void next()}>{stage === "majors" ? t("app.draw.next_clarifiers") : t("app.draw.turn_six")}</button>
             {majorsDeck ? <FingerprintText fingerprint={majorsDeck.fingerprint} label={t("app.draw.majors_fingerprint")} /> : null}

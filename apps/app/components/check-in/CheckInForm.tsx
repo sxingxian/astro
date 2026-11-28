@@ -47,11 +47,11 @@ export function CheckInForm({ sessionId }: { sessionId: string }) {
         <textarea id="ci-note" name="note" rows={3} maxLength={500} className="input resize-none py-3" />
       </div>
       <FormError message={error} />
-      <div className="mt-auto flex flex-col gap-1">
+      <div className="actions mt-auto">
         <button type="submit" className="btn-gold" disabled={busy}>{t("app.check_in.save")}</button>
-        <button type="button" className="btn-ghost border-0" disabled={busy} onClick={() => void send("skipped")}>{t("app.check_in.skip")}</button>
-        <p className="mb-0 mt-2 text-center text-xs text-muted">{t("app.check_in.privacy")}</p>
+        <button type="button" className="btn-ghost" disabled={busy} onClick={() => void send("skipped")}>{t("app.check_in.skip")}</button>
       </div>
+      <p className="m-0 text-xs text-muted">{t("app.check_in.privacy")}</p>
     </form>
   );
 }
