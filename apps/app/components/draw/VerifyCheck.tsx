@@ -32,7 +32,7 @@ export function VerifyCheck({ title, order, names, orientations, salt: initialSa
     <section aria-labelledby={`${id}-h`} className="panel flex flex-col gap-4 p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 id={`${id}-h`} className="m-0 font-display text-2xl font-medium">{title}</h2>
-        <span aria-live="polite" className={`rounded-full px-3 py-1 text-sm font-semibold ${computed === null ? "text-muted" : matches ? "bg-gold text-night" : "bg-error text-night"}`}>
+        <span aria-live="polite" className={`flex-none whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold ${computed === null ? "text-muted" : matches ? "bg-gold text-night" : "bg-error text-night"}`}>
           {computed === null ? t("app.verify.checking") : matches ? t("app.verify.matches") : t("app.verify.no_match")}
         </span>
       </div>

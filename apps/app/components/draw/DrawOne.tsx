@@ -55,7 +55,6 @@ export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string
       footer={
         deck ? (
           <>
-            <p className="m-0 hidden text-sm text-haze lg:block">{t("app.draw.desktop_hint")}</p>
             <p className="m-0 text-sm text-haze" aria-live="polite">{selected.length ? t("app.draw.chosen_one") : t("app.draw.chosen_none")}</p>
             <FormError message={error} />
             <button type="button" className="btn-gold lg:self-start lg:px-10" disabled={selected.length !== 1 || busy} onClick={() => void turn()}>{t("app.draw.turn")}</button>

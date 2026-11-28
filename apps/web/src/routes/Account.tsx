@@ -73,11 +73,11 @@ export default function AccountPage() {
         </Group>
       ) : null}
 
+      <SignOutButton />
+
       <Group id="privacy" title={t("app.account.privacy")}>
         <DeleteAccount />
       </Group>
-
-      <SignOutButton />
     </div>
   );
 }

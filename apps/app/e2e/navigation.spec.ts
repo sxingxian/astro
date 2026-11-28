@@ -40,7 +40,7 @@ test("after a draw, the reading opens in place; its back arrow returns to Today"
   await signUpVerified(page, uniqueEmail("navdraw"));
   await page.goto("/today");
   await mark(page);
-  await page.getByRole("link", { name: "Draw", exact: true }).first().click();
+  await page.getByRole("link", { name: "Draw today's card" }).click();
   await expect(page).toHaveURL(/\/draw\/one/);
   await pickCard(page, 12, 78);
   await page.getByRole("button", { name: "Turn the card" }).click();

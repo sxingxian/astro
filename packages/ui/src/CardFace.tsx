@@ -35,7 +35,7 @@ export function CardFace({ id, size = "md", label, reversed = false, reversedLab
       <svg width={s.glyph} height={s.glyph} viewBox="0 0 64 60" aria-hidden="true">
         <path d={glyphFor(card.id, card.suit)} fill="none" stroke="#D8B46A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className={`font-display leading-tight ${s.name}`}>{card.name}</span>
+      <span className={`w-full text-balance font-display leading-tight [overflow-wrap:anywhere] ${s.name}`}>{card.name}</span>
     </div>
   );
   if (!reversed || !reversedLabel) return face;

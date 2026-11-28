@@ -23,7 +23,7 @@ export default function CheckInPage() {
   return (
     <div data-page className="flex flex-col gap-6">
       <div className="flex items-center gap-4 lg:gap-6">
-        <CardFace id={due.cardId} size="sm" reversed={t.reversed} reversedLabel={tr("app.card.reversed")} />
+        <div className="flex-none"><CardFace id={due.cardId} size="sm" reversed={t.reversed} reversedLabel={tr("app.card.reversed")} /></div>
         <div className="flex flex-col gap-1.5">
           <p className="eyebrow">{tr("app.check_in.eyebrow", { date: when })}</p>
           <h1 className="m-0 font-display text-3xl font-medium leading-tight">{tr("app.check_in.title", { card: t.card.name })}</h1>

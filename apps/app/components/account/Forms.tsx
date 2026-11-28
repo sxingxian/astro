@@ -60,8 +60,8 @@ export function ChangePassword() {
       {next.fields}
       <FormError message={error} />
       {note ? <p role="status" className="m-0 text-sm text-gold">{note}</p> : null}
-      <div className="flex gap-3">
-        <button type="submit" className="btn-gold flex-1" disabled={busy}>{t("app.account.save_password")}</button>
+      <div className="actions">
+        <button type="submit" className="btn-gold" disabled={busy}>{t("app.account.save_password")}</button>
         <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{t("app.account.cancel")}</button>
       </div>
     </form>
@@ -136,7 +136,7 @@ export function CheckInsToggle({ enabled: initial }: { enabled: boolean }) {
 export function SignOutButton() {
   const t = useT();
   return (
-    <button type="button" className="btn-ghost w-full" onClick={async () => {
+    <button type="button" className="btn-ghost" onClick={async () => {
       await postJson("/api/auth/sign-out", {});
       window.location.assign("/sign-in");
     }}>{t("app.account.sign_out")}</button>
@@ -153,8 +153,8 @@ export function GiveUpReader() {
     <div className="flex flex-col gap-3">
       <p className="m-0 text-sm leading-relaxed text-haze">{t("app.account.give_up_warning")}</p>
       <FormError message={error} />
-      <div className="flex gap-3">
-        <button type="button" className="btn-gold flex-1" disabled={busy} onClick={() => void run(async () => {
+      <div className="actions">
+        <button type="button" className="btn-gold" disabled={busy} onClick={() => void run(async () => {
           const res = await postJson("/api/reader/give-up", {});
           if (!res.ok) throw new Error(t("app.common.went_wrong"));
           window.location.assign("/account");
@@ -184,8 +184,8 @@ export function DeleteAccount() {
       <div className="field"><label htmlFor="del-password">{t("app.account.current_password")}</label><input id="del-password" name="password" type="password" autoComplete="current-password" required className="input" /></div>
       <div className="field"><label htmlFor="del-confirm">{t("app.account.delete_confirm")}</label><input id="del-confirm" name="confirm" required pattern="DELETE" className="input" /></div>
       <FormError message={error} />
-      <div className="flex gap-3">
-        <button type="submit" className="btn-gold flex-1 bg-error" disabled={busy}>{t("app.account.delete_button")}</button>
+      <div className="actions">
+        <button type="submit" className="btn-gold bg-error" disabled={busy}>{t("app.account.delete_button")}</button>
         <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>{t("app.account.cancel")}</button>
       </div>
     </form>

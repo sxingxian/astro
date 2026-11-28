@@ -30,7 +30,7 @@ export default function AskPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-sm text-haze">{t("app.ask.guest_note")}</p>
-            <a href="/sign-up" className="btn-gold self-start">{t("app.ask.guest_cta")}</a>
+            <div className="actions"><a href="/sign-up" className="btn-gold">{t("app.ask.guest_cta")}</a></div>
           </div>
         )}
       </div>

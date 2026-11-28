@@ -62,8 +62,8 @@ export function TwoStepSetup({ enabled: initial }: { enabled: boolean }) {
           <input id="tfa-password" name="password" type="password" autoComplete="current-password" required className="input" />
         </div>
         <FormError message={error} />
-        <div className="flex gap-3">
-          <button type="submit" className="btn-gold flex-1" disabled={busy}>{step === "password" ? t("app.tfa.continue") : t("app.tfa.turn_off_button")}</button>
+        <div className="actions">
+          <button type="submit" className="btn-gold" disabled={busy}>{step === "password" ? t("app.tfa.continue") : t("app.tfa.turn_off_button")}</button>
           <button type="button" className="btn-ghost" onClick={() => { setStep("idle"); setError(null); }}>{t("app.account.cancel")}</button>
         </div>
       </form>

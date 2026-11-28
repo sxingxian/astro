@@ -277,11 +277,11 @@ export function FanPicker({ size, selected, limit, locked = false, label, onTogg
   const focusText =
     focus >= 0
       ? t(selected.includes(focus) ? "app.draw.fan_focus_picked" : "app.draw.fan_focus", { n: String(focus + 1), total: String(size) })
-      : t("app.draw.fan_hint");
+      : t(g === DESKTOP_FAN ? "app.draw.desktop_hint" : "app.draw.fan_hint"); // one instruction line, worded for the pointer in use
 
   return (
     <div className="fan-wrap">
-      <p className="m-0 px-5 text-center text-sm text-haze" aria-hidden="true">{focusText}</p>
+      <p className="m-0 px-5 text-sm text-haze lg:px-0" aria-hidden="true">{focusText}</p>
       <div
         ref={stageRef}
         role="group"
