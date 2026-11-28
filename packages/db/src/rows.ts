@@ -22,3 +22,15 @@ export async function runBatch<T extends readonly Runnable[]>(db: AnyDb, queries
   if (typeof batch === "function" && queries.length) return (await batch.call(db, queries)) as { [K in keyof T]: Awaited<T[K]> };
   return (await Promise.all(queries)) as { [K in keyof T]: Awaited<T[K]> };
 }
+
+/**
+ * Runs queries that depend on each other, in order: one HTTPS request on Neon's driver (a batch runs in order, in one
+ * transaction), one after another on postgres.js. Results come back in order.
+ */
+export async function runInOrder<T extends readonly Runnable[]>(db: AnyDb, queries: T): Promise<{ [K in keyof T]: Awaited<T[K]> }> {
+  const batch = (db as unknown as { batch?: (q: readonly unknown[]) => Promise<unknown[]> }).batch;
+  if (typeof batch === "function" && queries.length) return (await batch.call(db, queries)) as { [K in keyof T]: Awaited<T[K]> };
+  const out: unknown[] = [];
+  for (const q of queries) out.push(await q);
+  return out as { [K in keyof T]: Awaited<T[K]> };
+}

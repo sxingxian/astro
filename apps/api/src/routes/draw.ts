@@ -26,8 +26,8 @@ export function drawRoutes(app: App) {
       const body = StartBody.parse(await c.req.json().catch(() => null));
       const env = c.get("env");
       const user = await who(c);
-      // Starting a reading takes a lock and writes several rows: one interactive transaction (WebSocket client).
-      if (user) return c.json(await startDraw(c.get("txDb")(), { kind: "user", userId: user.uid, timeZone: user.tz }, body.spread));
+      // One database function over HTTPS; the WebSocket client only until its migration has run.
+      if (user) return c.json(await startDraw(c.get("db")(), { kind: "user", userId: user.uid, timeZone: user.tz }, body.spread, new Date(c.get("now")()), c.get("txDb")));
 
       const now = new Date(c.get("now")());
       const guest = await guestIdentity(c.req.raw, env.BETTER_AUTH_SECRET, now);
@@ -42,7 +42,7 @@ export function drawRoutes(app: App) {
         const limited = env.GUEST_DRAWS ? !(await env.GUEST_DRAWS.limit({ key: guest.ipHash })).success : false;
         if (limited) return fail(c, 429, "rate_limited");
       }
-      return c.json(await startDraw(c.get("txDb")(), actor, body.spread, now));
+      return c.json(await startDraw(c.get("db")(), actor, body.spread, now, c.get("txDb")));
     } catch (e) {
       return failure(c, e);
     }

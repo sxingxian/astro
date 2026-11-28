@@ -69,3 +69,25 @@ describe("runBatch", () => {
     expect(rowsOf(d)).toEqual([{ two: 2 }]);
   });
 });
+
+describe("runInOrder", () => {
+  it("runs dependent queries in order: one HTTPS request (a transaction) on Neon's driver, one after another on postgres.js", async () => {
+    const { runInOrder } = await import("../src/index");
+    for (const db of [http, tcp]) {
+      const key = `order-${Math.random()}`;
+      await tcp.execute(sql`delete from app_setting where key = ${key}`);
+      const before = fake.calls();
+      const [, seen] = await runInOrder(db, [db.execute(sql`insert into app_setting (key, value) values (${key}, '1'::jsonb)`), db.execute(sql`select count(*)::int as n from app_setting where key = ${key}`)] as const);
+      expect(rowsOf(seen)).toEqual([{ n: 1 }]);
+      if (db === http) expect(fake.calls()).toBe(before + 1);
+      await tcp.execute(sql`delete from app_setting where key = ${key}`);
+    }
+  });
+});
+
+describe("createHttpDb", () => {
+  it("doesn't build Drizzle's relational metadata (unused; it cost ~2 ms of a fresh Worker's first request)", () => {
+    expect(Object.keys((http as unknown as { query: object }).query)).toEqual([]);
+  });
+});
+

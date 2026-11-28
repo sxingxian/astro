@@ -57,6 +57,13 @@
       "when": 1795755774251,
       "tag": "0007_reader_log",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795823296449,
+      "tag": "0008_start_draw",
+      "breakpoints": true
     }
   ]
 }
