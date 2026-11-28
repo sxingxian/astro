@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { AppKey } from "@astro/copy";
-import { passwordHint } from "@/lib/password";
+import { passwordHint } from "@astro/app-core/password";
 import { useT } from "./CopyProvider";
 
 /**

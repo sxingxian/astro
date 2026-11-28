@@ -1,5 +1,5 @@
-/* The app's own styles, shared with the Next.js app until Stage 2. */
-@import "../../app/app/globals.css";
+/* The app's own styles. Components shared from apps/app are scanned for their classes too. */
+@import "./globals.css";
 @source "../../app/components";
 @source "./";
 

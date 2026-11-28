@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { csvCell } from "@/lib/reader-log";
+import { csvCell } from "@astro/app-core/reader-log";
 
 describe("csvCell", () => {
   it("neutralises cells a spreadsheet would run as a formula", () => {

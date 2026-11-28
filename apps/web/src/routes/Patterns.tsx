@@ -2,7 +2,7 @@ import { getCard } from "@astro/cards";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { CardFace } from "@astro/ui";
-import type { PatternRange, Patterns } from "@/lib/patterns";
+import type { PatternRange, Patterns } from "@astro/app-core/patterns";
 import { ELEMENT_KEY, patternsCopy, SUIT_KEY } from "@/lib/patterns-copy";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";

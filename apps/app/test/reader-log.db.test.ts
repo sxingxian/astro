@@ -1,7 +1,7 @@
 import { createDb } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { deleteEntry, exportCsv, getEntry, listEntries, saveEntry } from "@/lib/reader-log";
+import { deleteEntry, exportCsv, getEntry, listEntries, saveEntry } from "@astro/app-core/reader-log";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

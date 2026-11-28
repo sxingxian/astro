@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import type { JournalFilter, JournalItem } from "@/lib/journal";
+import type { JournalFilter, JournalItem } from "@astro/app-core/journal";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";
 import { JournalSwitch } from "../shell/JournalSwitch";

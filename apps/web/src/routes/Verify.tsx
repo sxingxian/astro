@@ -1,7 +1,7 @@
 import { getCard } from "@astro/cards";
 import { useParams } from "react-router";
 import { VerifyCheck } from "@/components/draw/VerifyCheck";
-import type { Reading } from "@/lib/draw/service";
+import type { Reading } from "@astro/app-core/draw/service";
 import { Failed, Loading, useData } from "../data";
 import { go } from "../nav";
 import { useSession, useTitle } from "../session";

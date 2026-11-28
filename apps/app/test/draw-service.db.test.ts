@@ -2,8 +2,8 @@ import { createDb, eq, schema, sql } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { verifyCommitment } from "@astro/draw";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DrawError } from "@/lib/draw/errors";
-import { getReading, pick, startDraw, type Actor } from "@/lib/draw/service";
+import { DrawError } from "@astro/app-core/draw/errors";
+import { getReading, pick, startDraw, type Actor } from "@astro/app-core/draw/service";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
@@ -55,9 +55,9 @@ describe("startDraw", () => {
     expect(decks.map((d) => d.stage).sort()).toEqual(["majors", "minors"]);
   });
 
-  it("before the start_draw migration has run, falls back to a transaction (still one session under concurrent starts)", async () => {
+  it("needs the start_draw function: without it, starting fails instead of falling back to a transaction", async () => {
     const a = await member();
-    // A client on which start_draw doesn't exist yet: Postgres's "undefined function".
+    // A client on which start_draw doesn't exist: Postgres's "undefined function".
     const noFunction = new Proxy(db, {
       get(target, key, receiver) {
         if (key !== "execute") return Reflect.get(target, key, receiver);
@@ -68,9 +68,8 @@ describe("startDraw", () => {
         };
       }
     });
-    const results = await Promise.all(Array.from({ length: 5 }, () => startDraw(noFunction, a, "three", noon, () => db)));
-    expect(new Set(results.map((r) => r.sessionId)).size).toBe(1);
-    expect(await db.select().from(schema.drawSession).where(eq(schema.drawSession.userId, a.userId))).toHaveLength(1);
+    await expect(startDraw(noFunction, a, "three", noon)).rejects.toThrow("start_draw does not exist");
+    expect(await db.select().from(schema.drawSession).where(eq(schema.drawSession.userId, a.userId))).toHaveLength(0);
   });
 
   it("refuses the three-pair spread to guests", async () => {

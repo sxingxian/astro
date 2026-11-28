@@ -1,8 +1,8 @@
 import { createDb, schema } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { computePatterns } from "@/lib/patterns";
-import { loadCopy } from "@/lib/copy";
+import { computePatterns } from "@astro/app-core/patterns";
+import { loadCopy } from "@astro/app-core/copy";
 import { patternsCopy } from "@/lib/patterns-copy";
 
 const url = process.env.DATABASE_URL_TEST;

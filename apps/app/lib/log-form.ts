@@ -1,6 +1,6 @@
 import type { LogFormValue } from "@/components/reader-log/LogForm";
 import type { T } from "@astro/copy";
-import type { Entry } from "./reader-log";
+import type { Entry } from "@astro/app-core/reader-log";
 
 /** What the record form starts with: an existing entry, or a blank one-card reading dated today. */
 export function formValue(t: T, today: string, e?: Entry): LogFormValue {

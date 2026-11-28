@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import { LogForm } from "@/components/reader-log/LogForm";
 import { formValue } from "@/lib/log-form";
-import type { Entry } from "@/lib/reader-log";
+import type { Entry } from "@astro/app-core/reader-log";
 import { ApiError } from "../api";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";

@@ -1,8 +1,8 @@
 import { createDb, schema } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { JournalError, getNote, listReadings, setNote, setPrivate } from "@/lib/journal";
-import { pick, startDraw, type Actor } from "@/lib/draw/service";
+import { JournalError, getNote, listReadings, setNote, setPrivate } from "@astro/app-core/journal";
+import { pick, startDraw, type Actor } from "@astro/app-core/draw/service";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

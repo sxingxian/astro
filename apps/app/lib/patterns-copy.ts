@@ -1,7 +1,7 @@
 import { getCard } from "@astro/cards";
 import type { Suit } from "@astro/cards";
 import type { T } from "@astro/copy";
-import type { Patterns, PatternRange } from "./patterns";
+import type { Patterns, PatternRange } from "@astro/app-core/patterns";
 
 export interface PatternsCopy {
   repeatsTitle: string;

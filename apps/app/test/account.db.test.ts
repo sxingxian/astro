@@ -1,7 +1,7 @@
 import { createDb, schema } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setTimeZone, takePasswordAttempt } from "@/lib/account";
+import { setTimeZone, takePasswordAttempt } from "@astro/app-core/account";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

@@ -3,8 +3,15 @@ import { getMeaning } from "@astro/meanings";
 import { createDb } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadCopy } from "@/lib/copy";
-import { loadMeanings } from "@/lib/meanings";
+import { liveSnapshot, loadCopy } from "@astro/app-core/copy";
+import { applyOverrides } from "@astro/meanings";
+import type { AnyDb } from "@astro/db";
+
+/** The card meanings with the published overrides on top, as the app builds them from the session's snapshot. */
+const loadMeanings = async (d: AnyDb, opts: { cache?: boolean }) => {
+  const overrides = await liveSnapshot(d, "meanings", opts.cache ?? true);
+  return (cardId: string) => applyOverrides(getMeaning(cardId), overrides);
+};
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");
