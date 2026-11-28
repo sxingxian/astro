@@ -4,7 +4,7 @@ import { getNote, listReadings, setNote } from "@astro/app-core/journal";
 import { computePatterns } from "@astro/app-core/patterns";
 import { readerStatus } from "@astro/app-core/readers";
 import { resetAndMigrate } from "@astro/db/testing";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/index";
 import { admin, closeAll, dbUrl, env, fake, http, passFrom, person, tcp } from "./helpers";
 
@@ -43,6 +43,32 @@ beforeAll(async () => {
   await resetAndMigrate(dbUrl);
 });
 afterAll(closeAll);
+
+describe("a fresh isolate's first /api/session", () => {
+  it("reads wording and the maintenance flag in one request, beside the sign-in check: two in all", async () => {
+    await admin`insert into text_version (kind, snapshot, published_by) select 'app', '{"app.sign_in.title":"Fresh title","app.maintenance.title":"Back soon"}'::jsonb, null`;
+    const p = await person();
+    // Every per-isolate cache (wording 60 s, maintenance 60 s) out of date.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 10 * 60_000);
+    try {
+      const before = fake.calls();
+      const res = await get("/api/session", p.cookie);
+      const body = (await res.json()) as { user: { id: string } | null; wording: { app: Record<string, string> }; maintenance: { on: boolean; title: string } };
+      expect(res.status).toBe(200);
+      expect(fake.calls() - before).toBe(2);
+      expect(body.user?.id).toBe(p.uid);
+      expect(body.wording.app["app.sign_in.title"]).toBe("Fresh title");
+      expect(body.maintenance).toMatchObject({ on: false, title: "Back soon" });
+      // Now cached: the next call with the pass makes none.
+      const again = fake.calls();
+      await get("/api/session", `${p.cookie}; astro.pass=${passFrom(res)}`);
+      expect(fake.calls() - again).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("screen reads: same data as the Next.js pages, one database request each", () => {
   it("Today", async () => {
@@ -123,7 +149,7 @@ describe("screen reads: same data as the Next.js pages, one database request eac
     const old = (await (await get("/api/session?astro-preview=reads-old-app-00000000")).json()) as { preview: boolean; wording: { app: Record<string, string> } };
     expect(live.preview).toBe(true);
     expect(old.preview).toBe(false);
-    expect(old.wording.app["app.sign_in.title"]).toBeUndefined();
+    expect(old.wording.app["app.sign_in.title"]).not.toBe("Stale"); // the live wording, not the expired draft
   });
 
   it("signed out: every member screen is 401", async () => {

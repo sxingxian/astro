@@ -1,5 +1,6 @@
 import { securityHeaders } from "@astro/server/csp";
 import { Hono } from "hono";
+import { LinearRouter } from "hono/router/linear-router";
 import { authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
@@ -11,7 +12,8 @@ import { writeRoutes } from "./routes/writes";
 
 /** The data Worker: the app's API under /api (the pages themselves are static files). */
 export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {}) {
-  const app = new Hono<AppEnv>().basePath("/api");
+  // LinearRouter: no route table to compile on an isolate's first request (Workers Free restarts isolates often).
+  const app = new Hono<AppEnv>({ router: new LinearRouter() }).basePath("/api");
 
   app.use("*", async (c, next) => {
     await next();

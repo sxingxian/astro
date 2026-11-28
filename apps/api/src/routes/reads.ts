@@ -1,10 +1,10 @@
 import { dueCheckInsQuery, dueCheckInsShape } from "@astro/app-core/check-ins";
-import { liveSnapshot, PREVIEW_ID, previewLive, previewSnapshot } from "@astro/app-core/copy";
+import { liveFresh, liveSnapshot, PREVIEW_ID, previewLive, previewSnapshot, READ_TIMEOUT_MS, rememberLive, withTimeout } from "@astro/app-core/copy";
 import { existingGuestHash } from "@astro/app-core/draw/guest";
 import { findTodayQuery, findTodayShape, getReadingQuery, getReadingShape, type Actor } from "@astro/app-core/draw/service";
 import { listReadingsQuery, listReadingsShape, noteQuery } from "@astro/app-core/journal";
 import { loadLegalPage } from "@astro/app-core/legal";
-import { makeMaintenanceCheck, NOT_PAUSED, readMaintenanceWith, type MaintenanceState } from "@astro/app-core/maintenance";
+import { makeMaintenanceCheck, NOT_PAUSED, readMaintenanceWith, readSiteStateWith, type MaintenanceState } from "@astro/app-core/maintenance";
 import { computePatterns } from "@astro/app-core/patterns";
 import { readerStatusQuery, readerStatusShape } from "@astro/app-core/readers";
 import { desc, eq, runBatch, schema } from "@astro/db";
@@ -26,6 +26,21 @@ const previewOf = (c: C) => {
   return id && PREVIEW_ID.test(id) ? id : null;
 };
 
+/** On a fresh isolate, fills the wording and maintenance caches with one query instead of three. */
+async function primeSiteState(c: C): Promise<void> {
+  if (previewOf(c)) return; // a preview reads its drafts anyway
+  if (liveFresh("app") && liveFresh("meanings") && isPaused.fresh(c.get("env").MAINTENANCE_CACHE_SECONDS)) return;
+  try {
+    const s = await withTimeout(readSiteStateWith(c.get("db")()), READ_TIMEOUT_MS);
+    rememberLive("app", s.app);
+    rememberLive("meanings", s.meanings);
+    isPaused.remember(s.maintenance);
+  } catch (e) {
+    // Each read below then tries on its own, with its own fallback.
+    console.error("site state unavailable", e instanceof Error ? e.name : "error");
+  }
+}
+
 async function wordingFor(c: C, kind: "app" | "meanings") {
   const db = c.get("db")();
   return (await previewSnapshot(db, kind, previewOf(c))) ?? (await liveSnapshot(db, kind));
@@ -37,7 +52,8 @@ const signedOut = (c: C) => fail(c, 401, "signed_out");
 export function readRoutes(app: App) {
   /** Who is signed in, the published wording (app and card meanings) and whether the app is paused. */
   app.get("/session", async (c) => {
-    const [w, app, meanings, paused, preview] = await Promise.all([who(c), wordingFor(c, "app"), wordingFor(c, "meanings"), maintenance(c), previewLive(c.get("db")(), previewOf(c))]);
+    const [w, , preview] = await Promise.all([who(c), primeSiteState(c), previewLive(c.get("db")(), previewOf(c))]);
+    const [app, meanings, paused] = await Promise.all([wordingFor(c, "app"), wordingFor(c, "meanings"), maintenance(c)]);
     return c.json({
       user: w ? { id: w.uid, email: w.email, emailVerified: w.emailVerified, twoFactor: w.twoFactor, reader: w.reader, timeZone: w.tz } : null,
       wording: { app, meanings },
