@@ -1,5 +1,4 @@
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 // Ported from apps/app/app/ask/page.tsx (same markup).
 /** Ask: "Coming soon" until paid readings open in Plan 4 Part 2. Collects nothing. */
@@ -13,8 +12,7 @@ export default function AskPage() {
     </div>
   );
   return (
-    <AppShell current="ask">
-      <div className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-16 pt-8 lg:max-w-none">
+      <div data-page className="flex flex-col gap-6">
         <section className="flex flex-col gap-4 rounded-3xl border border-gold bg-[radial-gradient(90%_140%_at_100%_0%,#3A2F6B_0%,#1C1838_45%,#14142A_100%)] p-6 lg:p-8">
           <p className="m-0 flex flex-wrap items-center gap-3">
             <span className="eyebrow">{t("app.ask.eyebrow")}</span>
@@ -36,6 +34,5 @@ export default function AskPage() {
           </div>
         )}
       </div>
-    </AppShell>
   );
 }

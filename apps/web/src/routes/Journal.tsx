@@ -1,7 +1,7 @@
+import { useSearchParams } from "react-router";
 import type { JournalFilter, JournalItem } from "@/lib/journal";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 import { JournalSwitch } from "../shell/JournalSwitch";
 
 // Ported from apps/app/app/journal/page.tsx (same markup); data from GET /api/journal.
@@ -14,18 +14,17 @@ const FILTERS = [
 export default function JournalPage() {
   const { t } = useSession();
   useTitle(t("app.journal.meta"));
-  const sp = new URLSearchParams(window.location.search);
+  const [sp] = useSearchParams();
   const f = sp.get("filter");
   const filter: JournalFilter = f === "one" || f === "three" ? f : "all";
   const cursor = sp.get("cursor");
   const { data, error } = useData<{ items: JournalItem[]; nextCursor: string | null }>(`/api/journal?${new URLSearchParams({ filter, ...(cursor ? { cursor } : {}) })}`);
-  if (error) return <AppShell current="journal"><Failed error={error} /></AppShell>;
-  if (!data) return <AppShell current="journal"><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!data) return <Loading />;
   const { items, nextCursor } = data;
 
   return (
-    <AppShell current="journal">
-    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
+    <div data-page className="flex flex-col gap-5">
       <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
       <JournalSwitch current="readings" />
       <nav aria-label={t("app.journal.filter_label")} className="flex flex-wrap gap-2">
@@ -53,6 +52,5 @@ export default function JournalPage() {
       )}
       {nextCursor ? <a className="btn-ghost" href={`/journal?${new URLSearchParams({ ...(filter === "all" ? {} : { filter }), cursor: nextCursor })}`}>{t("app.journal.older")}</a> : null}
     </div>
-    </AppShell>
   );
 }

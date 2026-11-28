@@ -3,31 +3,29 @@ import { useParams } from "react-router";
 import { VerifyCheck } from "@/components/draw/VerifyCheck";
 import type { Reading } from "@/lib/draw/service";
 import { Failed, Loading, useData } from "../data";
+import { go } from "../nav";
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 // Ported from apps/app/app/reading/[id]/verify/page.tsx (same markup); data from GET /api/reading/:id.
 const TITLE = { single: "app.verify.deck_single", majors: "app.verify.deck_majors", minors: "app.verify.deck_minors" } as const;
 
 export default function VerifyPage() {
   const { id = "" } = useParams();
-  const { t, user } = useSession();
+  const { t } = useSession();
   useTitle(t("app.verify.meta"));
   const { data, error } = useData<{ reading: Reading }>(`/api/reading/${encodeURIComponent(id)}`);
-  const current = user ? "journal" : "today";
-  if (error) return <AppShell current={current}><Failed error={error} /></AppShell>;
-  if (!data) return <AppShell current={current}><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!data) return <Loading />;
   const { reading } = data;
   if (!reading.reveal) {
-    window.location.replace(`/reading/${id}`);
-    return <AppShell current={current}><Loading /></AppShell>;
+    go(`/reading/${id}`, { replace: true });
+    return <Loading />;
   }
   const reveal = reading.reveal;
 
   return (
-    <AppShell current={user ? "journal" : "today"}>
-      <div data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8 lg:max-w-none lg:px-0 lg:pb-16 lg:pt-4">
-        <a href={`/reading/${id}`} className="text-sm">{t("app.verify.back")}</a>
+      <div data-page className="flex flex-col gap-6">
+        <a href={`/reading/${id}`} className="hidden text-sm lg:inline">{t("app.verify.back")}</a>
         <div className="flex max-w-[720px] flex-col gap-2">
           <h1 className="m-0 font-display text-4xl font-medium lg:text-5xl">{t("app.verify.title")}</h1>
           <p className="m-0 leading-relaxed text-haze">{t("app.verify.lede")}</p>
@@ -41,6 +39,5 @@ export default function VerifyPage() {
         </div>
         <p className="m-0 text-xs text-muted">{t("app.verify.footnote")}</p>
       </div>
-    </AppShell>
   );
 }

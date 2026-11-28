@@ -3,7 +3,6 @@ import { ChangePassword, CheckInsToggle, DeleteAccount, GiveUpReader, RevokeSess
 import { TwoStepSetup } from "@/components/account/TwoStepSetup";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle, type T } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 interface AccountData {
   user: { id: string; sessionId: string; email: string; name: string; timeZone: string; timeZoneChangedAt: string | null; checkInsEnabled: boolean; twoFactorEnabled: boolean };
@@ -32,14 +31,13 @@ export default function AccountPage() {
   const { t } = useSession();
   useTitle(t("app.account.meta"));
   const { data, error } = useData<AccountData>("/api/account");
-  if (error) return <AppShell current="account"><Failed error={error} /></AppShell>;
-  if (!data) return <AppShell current="account"><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!data) return <Loading />;
   const { user, sessions, reader } = data;
   const zones = Intl.supportedValuesOf("timeZone");
 
   return (
-    <AppShell current="account">
-    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-7 px-5 pb-32 pt-8 lg:max-w-[880px] lg:pb-16">
+    <div data-page className="flex flex-col gap-7">
       <header className="flex items-center gap-4">
         <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-nebula font-display text-2xl text-gold">{user.name.slice(0, 1).toUpperCase()}</span>
         <div>
@@ -81,6 +79,5 @@ export default function AccountPage() {
 
       <SignOutButton />
     </div>
-    </AppShell>
   );
 }

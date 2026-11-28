@@ -92,6 +92,9 @@ export const app = {
   // Every page
   "app.meta.description": { group: "Every page", label: "Search description", where: "Page metadata (the app isn't indexed)", default: "Your daily tarot reading, drawn fairly.", max: 160 },
   "app.layout.skip": { group: "Every page", label: "Skip link", where: "First thing a keyboard user reaches", default: "Skip to content", max: S },
+  "app.layout.back": { group: "Every page", label: "Back button (screen readers)", where: "Phone top bar on deeper screens, read aloud", default: "Back", max: 20 },
+  "app.layout.sign_in": { group: "Every page", label: "Sign in link", where: "Phone top bar and desktop side menu, guests", default: "Sign in", max: 20 },
+  "app.layout.loading": { group: "Every page", label: "Loading (screen readers)", where: "Read aloud while a screen loads", default: "Loading", max: 20 },
   "app.tabs.label": { group: "Every page", label: "Tab bar name (screen readers)", where: "Read aloud by screen readers", default: "App", max: S },
   "app.nav.label": { group: "Every page", label: "Side menu name (screen readers)", where: "Desktop side menu, read aloud by screen readers", default: "Main menu", max: S },
   "app.nav.patterns": { group: "Every page", label: "Side menu: Patterns", where: "Desktop side menu", default: "Patterns", max: 20 },

@@ -1,16 +1,19 @@
-// next/navigation for the pre-built pages: every link is a full page load (the pages are static files and each
-// screen fetches its own data), so router calls become plain browser navigation.
+// next/navigation for the pre-built pages. Screens this app draws open in place (see ../nav.ts); anything else is a
+// normal page load. refresh() reloads, because it is only used after a step that changes what the server shows.
+import { useLocation, useSearchParams as useRouterSearchParams } from "react-router";
+import { go } from "../nav";
+
 export function useRouter() {
   return {
-    push: (href: string) => window.location.assign(href),
-    replace: (href: string) => window.location.replace(href),
+    push: (href: string) => go(href),
+    replace: (href: string) => go(href, { replace: true }),
     refresh: () => window.location.reload(),
     back: () => window.history.back()
   };
 }
 
-export const usePathname = () => window.location.pathname;
-export const useSearchParams = () => new URLSearchParams(window.location.search);
+export const usePathname = () => useLocation().pathname;
+export const useSearchParams = () => useRouterSearchParams()[0];
 
 export function redirect(href: string): never {
   window.location.replace(href);

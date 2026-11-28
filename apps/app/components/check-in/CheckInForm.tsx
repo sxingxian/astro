@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FormError } from "../AuthShell";
 import { useT } from "../CopyProvider";
 import { postJson } from "@/lib/client";
+import { go } from "@/lib/go";
 
 const OPTIONS = [
   { value: "fit", label: "app.check_in.fit" },
@@ -22,7 +23,7 @@ export function CheckInForm({ sessionId }: { sessionId: string }) {
     setError(null);
     const res = await postJson(`/api/check-in/${sessionId}`, { outcome: value, note });
     setBusy(false);
-    if (res.ok || res.data.error === "already_done") return window.location.assign("/today");
+    if (res.ok || res.data.error === "already_done") return go("/today");
     setError(t("app.check_in.save_failed"));
   }
 

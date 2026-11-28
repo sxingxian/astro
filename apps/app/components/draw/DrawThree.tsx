@@ -7,6 +7,7 @@ import { PickerLayout } from "./PickerLayout";
 import { useT } from "../CopyProvider";
 import { FingerprintText } from "./FingerprintText";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
+import { go } from "@/lib/go";
 
 const POSITIONS = ["app.draw.past", "app.draw.present", "app.draw.future"] as const;
 
@@ -20,8 +21,8 @@ export function DrawThree() {
 
   const start = useCallback(async () => {
     const out = await startReading("three");
-    if (out.kind === "done") return window.location.replace(`/reading/${out.sessionId}`);
-    if (out.kind === "sign-up") return window.location.replace("/sign-up");
+    if (out.kind === "done") return go(`/reading/${out.sessionId}`, { replace: true });
+    if (out.kind === "sign-up") return go("/sign-up", { replace: true });
     if (out.kind === "error" || out.kind === "needs-check") return setError(out.kind === "error" ? t(out.message) : t("app.draw.sign_in_three"));
     setState(out.state);
     if ((out.state.decks.find((d) => d.stage === "majors")?.picks.length ?? 0) > 0) setStage("minors");
@@ -39,7 +40,7 @@ export function DrawThree() {
     setBusy(false);
     if (!ok) return setError(t("app.draw.failed"));
     if (stage === "majors") { setStage("minors"); setSelected([]); return; }
-    window.location.assign(`/reading/${state.sessionId}`);
+    go(`/reading/${state.sessionId}`, { replace: true }); // the finished draw screen leaves history
   }
 
   const majorsDeck = state?.decks.find((d) => d.stage === "majors");

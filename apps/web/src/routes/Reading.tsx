@@ -6,8 +6,9 @@ import { describe } from "@/lib/draw/describe";
 import type { Reading } from "@/lib/draw/service";
 import { ApiError } from "../api";
 import { Failed, Loading, useData } from "../data";
+import { go } from "../nav";
+import { useMeaning } from "../meaning";
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 // Ported from apps/app/app/reading/[id]/page.tsx (same markup); data from GET /api/reading/:id.
 const POSITIONS = ["past", "present", "future"] as const;
@@ -17,15 +18,16 @@ const dayLabel = (r: Reading) => new Date(`${r.localDay}T12:00:00Z`).toLocaleDat
 
 export default function ReadingPage() {
   const { id = "" } = useParams();
-  const { t: tr, meaning: meaningOf, user } = useSession();
+  const { t: tr, user } = useSession();
+  const meaningOf = useMeaning();
   useTitle(tr("app.reading.meta"));
   const { data, error } = useData<{ reading: Reading; note: string | null }>(`/api/reading/${encodeURIComponent(id)}`);
-  if (error) return <AppShell current="today"><Failed error={error} /></AppShell>;
-  if (!data) return <AppShell current="today"><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!data) return <Loading />;
   const { reading, note } = data;
   if (reading.status !== "complete") {
-    window.location.replace(reading.spread === "one" ? "/draw/one" : "/draw/three");
-    return <AppShell current="today"><Loading /></AppShell>;
+    go(reading.spread === "one" ? "/draw/one" : "/draw/three", { replace: true });
+    return <Loading />;
   }
 
   const footer = (
@@ -49,11 +51,10 @@ export default function ReadingPage() {
 
   if (reading.spread === "one") {
     const drawn = reading.decks[0]?.cards[0];
-    if (!drawn) return <AppShell current="today"><Failed error={new ApiError(404, "not_found")} /></AppShell>;
+    if (!drawn) return <Failed error={new ApiError(404, "not_found")} />;
     const t = describe(drawn.cardId, drawn.orientation, tr, meaningOf);
     return (
-    <AppShell current="today">
-      <article data-page className="mx-auto flex max-w-[560px] flex-col gap-6 px-5 pb-32 pt-8 lg:grid lg:max-w-none lg:grid-cols-[minmax(220px,300px)_1fr] lg:items-start lg:gap-x-12 lg:pb-16">
+      <article data-page className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(220px,300px)_1fr] lg:items-start lg:gap-x-12">
         <p className="eyebrow lg:col-span-2">{tr("app.reading.one_eyebrow", { date: dayLabel(reading) })}</p>
         <div className="flex flex-col items-center gap-2 py-2 lg:sticky lg:top-8 lg:row-span-4">
           <FlipCard width={104} height={176}><CardFace id={t.card.id} size="lg" reversed={t.reversed} /></FlipCard>
@@ -73,15 +74,13 @@ export default function ReadingPage() {
         </section>
         {footer}
       </article>
-    </AppShell>
   );
   }
 
   const majorsDeck = reading.decks.find((d) => d.stage === "majors");
   const minorsDeck = reading.decks.find((d) => d.stage === "minors");
   return (
-    <AppShell current="today">
-    <article data-page className="mx-auto flex max-w-[560px] flex-col gap-8 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
+    <article data-page className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <p className="eyebrow">{tr("app.reading.three_eyebrow", { date: dayLabel(reading) })}</p>
         <h1 className="m-0 font-display text-4xl font-medium leading-tight">{tr("app.reading.three_title")}</h1>
@@ -124,6 +123,5 @@ export default function ReadingPage() {
       </div>
       {footer}
     </article>
-    </AppShell>
   );
 }
