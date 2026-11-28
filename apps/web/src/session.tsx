@@ -1,5 +1,5 @@
-import { catalogue, type T } from "@astro/copy";
-import { applyOverrides, getMeaning, type Meaning } from "@astro/meanings";
+import type { T } from "@astro/copy";
+import { app } from "@astro/copy/app";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CopyProvider } from "@/components/CopyProvider";
 import { api } from "./api";
@@ -25,7 +25,6 @@ export type { T };
 
 interface Session extends SessionData {
   t: T;
-  meaning: (cardId: string) => Meaning;
 }
 
 const Ctx = createContext<Session | null>(null);
@@ -33,7 +32,7 @@ const Ctx = createContext<Session | null>(null);
 /** The app's wording: built-in defaults with the owner's published overrides (or a preview) on top. */
 export function appStrings(overrides: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(catalogue)) if (k.startsWith("app.")) out[k] = overrides[k] ?? v.default;
+  for (const [k, v] of Object.entries(app)) out[k] = overrides[k] ?? v.default;
   return out;
 }
 
@@ -49,7 +48,7 @@ export function SessionProvider({ children, fallback, failed }: { children: Reac
   const value = useMemo<Session | null>(() => {
     if (!data) return null;
     const strings = appStrings(data.wording.app);
-    return { ...data, t: (key, values) => fill(strings[key] ?? key, values), meaning: (cardId) => applyOverrides(getMeaning(cardId), data.wording.meanings) };
+    return { ...data, t: (key, values) => fill(strings[key] ?? key, values) };
   }, [data]);
   if (error) return <>{failed}</>;
   if (!value) return <>{fallback}</>;

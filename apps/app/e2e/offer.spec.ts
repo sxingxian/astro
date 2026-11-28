@@ -62,7 +62,7 @@ test("an offered account accepts the reader role with the current guidelines, ge
   await page.getByRole("button", { name: "Give up reader role" }).click();
   await page.getByRole("button", { name: "Give it up" }).click();
   await expect(page.getByRole("button", { name: "Give up reader role" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Main menu" }).getByRole("link", { name: "My log" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Main menu" }).getByRole("link", { name: "Desk" })).toHaveCount(0);
   await page.goto("/desk");
   await expect(page).toHaveURL(/\/today$/);
 });

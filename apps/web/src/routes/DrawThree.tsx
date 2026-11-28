@@ -1,6 +1,5 @@
 import { DrawThree } from "@/components/draw/DrawThree";
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 // Ported from apps/app/app/draw/three/page.tsx.
 export default function DrawThreePage() {
@@ -11,10 +10,8 @@ export default function DrawThreePage() {
     return null;
   }
   return (
-    <AppShell current="today">
-      <div data-page className="mx-auto flex max-w-[560px] flex-col gap-4 pb-28 pt-5 lg:max-w-none lg:pb-16 lg:pt-2">
+      <div data-page className="-mx-5 flex flex-col gap-4 lg:mx-0">
         <DrawThree />
       </div>
-    </AppShell>
   );
 }

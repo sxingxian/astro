@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { pickCard, signUpVerified, test, uniqueEmail } from "./helpers";
 
-const mainWidth = (page: Page) => page.locator("[data-page]").first().evaluate((el) => el.getBoundingClientRect().width);
+const mainWidth = (page: Page) => page.locator("[data-page]:not([aria-busy])").first().evaluate((el) => el.getBoundingClientRect().width);
 const noSideScroll = async (page: Page, width: number) => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 
 test("on desktop, screens use two columns where the mockups do; on phones they stay one column", async ({ page }) => {

@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: "next/navigation", replacement: at("./src/shims/navigation.ts") },
+      { find: "@/lib/go", replacement: at("./src/nav.ts") },
       { find: /^@\/(.*)$/, replacement: `${at("../app/")}$1` }
     ]
   },

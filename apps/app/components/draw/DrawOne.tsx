@@ -8,6 +8,7 @@ import { FingerprintText } from "./FingerprintText";
 import { FanPicker } from "./FanPicker";
 import { PickerLayout } from "./PickerLayout";
 import { pickCards, startReading, type StartState } from "@/lib/draw/client";
+import { go } from "@/lib/go";
 
 export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string }) {
   const t = useT();
@@ -20,7 +21,7 @@ export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string
   const start = useCallback(async (token?: string) => {
     setError(null);
     const out = await startReading("one", token);
-    if (out.kind === "done") return window.location.replace(`/reading/${out.sessionId}`);
+    if (out.kind === "done") return go(`/reading/${out.sessionId}`, { replace: true });
     if (out.kind === "needs-check") return setNeedsCheck(true);
     if (out.kind === "error") return setError(t(out.message));
     if (out.kind === "ready") { setNeedsCheck(false); setState(out.state); }
@@ -34,7 +35,7 @@ export function DrawOne({ mode, siteKey }: { mode: "on" | "off"; siteKey: string
     if (!state || selected.length !== 1) return;
     setBusy(true);
     const ok = await pickCards(state.sessionId, "single", selected);
-    if (ok) return window.location.assign(`/reading/${state.sessionId}`);
+    if (ok) return go(`/reading/${state.sessionId}`, { replace: true }); // the finished draw screen leaves history
     setBusy(false);
     setError(t("app.draw.failed"));
   }

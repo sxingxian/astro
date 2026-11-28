@@ -8,7 +8,6 @@ import { localGreeting } from "@/lib/greeting";
 import type { JournalItem } from "@/lib/journal";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle, type T } from "../session";
-import { AppShell } from "../shell/AppShell";
 
 interface TodayData {
   signedIn: boolean;
@@ -68,8 +67,8 @@ export default function TodayPage() {
   const { t, user } = useSession();
   useTitle(t("app.today.meta"));
   const { data, error } = useData<TodayData>("/api/today");
-  if (error) return <AppShell current="today"><Failed error={error} /></AppShell>;
-  if (!data) return <AppShell current="today"><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!data) return <Loading />;
   const { one, three, recent } = data;
   const due = data.due.map((d) => ({ ...d, completedAt: new Date(d.completedAt) }));
   const zone = user?.timeZone ?? null;
@@ -80,15 +79,7 @@ export default function TodayPage() {
   );
 
   return (
-    <AppShell current="today">
-      <div data-page className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-4 lg:max-w-none lg:gap-6 lg:px-0 lg:pb-16 lg:pt-4">
-        <header className="flex min-h-12 items-center justify-between lg:hidden">
-          <span className="flex items-center gap-2.5">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.8 7.2L21 12l-7.2 1.8L12 21l-1.8-7.2L3 12l7.2-1.8z" fill="none" stroke="#D8B46A" strokeWidth="1.3" strokeLinejoin="round" /></svg>
-            <span className="font-display text-2xl font-semibold">Astro</span>
-          </span>
-          {user ? null : <a href="/sign-up" className="btn-ghost min-h-10 px-4 text-sm">{t("app.today.sign_up")}</a>}
-        </header>
+      <div data-page className="flex flex-col gap-5 lg:gap-6">
 
         <div className="flex flex-col gap-1 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
           <Greeting timeZone={zone} initial={localGreeting(zone ?? "UTC")} />
@@ -178,7 +169,6 @@ export default function TodayPage() {
           ) : null}
         </div>
       </div>
-    </AppShell>
   );
 }
 

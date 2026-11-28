@@ -1,11 +1,11 @@
 import { getCard } from "@astro/cards";
 import type { ReactNode } from "react";
+import { useSearchParams } from "react-router";
 import { CardFace } from "@astro/ui";
 import type { PatternRange, Patterns } from "@/lib/patterns";
 import { ELEMENT_KEY, patternsCopy, SUIT_KEY } from "@/lib/patterns-copy";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";
-import { AppShell } from "../shell/AppShell";
 import { JournalSwitch } from "../shell/JournalSwitch";
 
 // Ported from apps/app/app/journal/patterns/page.tsx (same markup); data from GET /api/patterns.
@@ -28,11 +28,11 @@ function Panel({ eyebrow, title, children }: { eyebrow: string; title?: string; 
 export default function PatternsPage() {
   const { t } = useSession();
   useTitle(t("app.patterns.meta"));
-  const r = new URLSearchParams(window.location.search).get("range");
+  const r = useSearchParams()[0].get("range");
   const range: PatternRange = r === "90d" || r === "all" ? r : "30d";
   const { data: p, error } = useData<Patterns>(`/api/patterns?range=${range}`);
-  if (error) return <AppShell current="patterns"><Failed error={error} /></AppShell>;
-  if (!p) return <AppShell current="patterns"><Loading /></AppShell>;
+  if (error) return <Failed error={error} />;
+  if (!p) return <Loading />;
   const copy = patternsCopy(p, range, t);
   const maxSuit = Math.max(1, ...p.elements.map((e) => e.count));
   const outcomes = [
@@ -42,8 +42,7 @@ export default function PatternsPage() {
   ];
 
   return (
-    <AppShell current="patterns">
-    <div data-page className="mx-auto flex max-w-[560px] flex-col gap-5 px-5 pb-32 pt-8 lg:max-w-none lg:pb-16">
+    <div data-page className="flex flex-col gap-5">
       <div className="flex items-baseline justify-between">
         <h1 className="m-0 font-display text-4xl font-medium">{t("app.journal.title")}</h1>
         <span className="text-sm text-muted">{t(p.readings === 1 ? "app.patterns.count_one" : "app.patterns.count_many", { n: String(p.readings) })}</span>
@@ -109,6 +108,5 @@ export default function PatternsPage() {
 
       <p className="m-0 text-xs leading-relaxed text-muted">{t("app.patterns.footer")}</p>
     </div>
-    </AppShell>
   );
 }
