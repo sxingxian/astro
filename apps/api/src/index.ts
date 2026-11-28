@@ -1,7 +1,8 @@
 import { securityHeaders } from "@astro/server/csp";
+import { env as startupEnv } from "cloudflare:workers";
 import { Hono } from "hono";
 import { LinearRouter } from "hono/router/linear-router";
-import { authRoutes } from "./auth";
+import { authFor, authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
 import { isLegacy } from "./legacy";
@@ -81,6 +82,22 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
 }
 
 const app = createApp();
+
+/**
+ * Builds Better Auth while the isolate starts, before its first request: Workers counts startup separately from the
+ * 10 ms per request, and building it cost ~10 ms of an isolate's first sign-in. Nothing here touches the network
+ * (not allowed at startup); if anything fails, the first request builds it instead.
+ */
+export async function warmUp(raw: unknown): Promise<void> {
+  const env = checkEnv(raw as RawEnv);
+  if (!env) return;
+  try {
+    await authFor(env, httpDb(env)).$context;
+  } catch (e) {
+    console.error("astro-api: warm-up skipped", e instanceof Error ? e.name : "error");
+  }
+}
+await warmUp(startupEnv);
 
 /** Reader pages go to the old app; everything else under /api to this Worker (pages are static files). */
 export function handle(request: Request, env: RawEnv, ctx: ExecutionContext): Response | Promise<Response> {
