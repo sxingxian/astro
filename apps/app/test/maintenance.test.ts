@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeDbError, makeMaintenanceCheck } from "@/lib/maintenance";
+import { describeDbError, makeMaintenanceCheck } from "@astro/app-core/maintenance";
 
 describe("maintenance check", () => {
   it("shares one read between requests that arrive together", async () => {

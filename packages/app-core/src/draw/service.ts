@@ -1,7 +1,7 @@
 import { majors, minors, allCards } from "@astro/cards";
 import { and, desc, eq, getTableColumns, rowsOf, runInOrder, schema, sql, type AnyDb } from "@astro/db";
 import { createDeck, isTimeZone, localDay, nextLocalMidnight, type Orientation } from "@astro/draw";
-import { getSetting, getSettings } from "@astro/server";
+import { getSettings } from "@astro/server";
 import { DrawError } from "./errors";
 
 export type Actor = { kind: "user"; userId: string; timeZone: string } | { kind: "guest"; guestHash: string; ipHash: string; timeZone: string };
@@ -50,8 +50,6 @@ const STAGES: Record<Spread, { stage: Stage; cards: readonly string[]; count: nu
 };
 
 type SessionRow = typeof schema.drawSession.$inferSelect;
-/** The database or a transaction on it. */
-type Exec = Pick<AnyDb, "select" | "insert" | "update" | "delete" | "execute">;
 type DeckRow = typeof schema.drawDeck.$inferSelect;
 
 const zoneOf = (actor: Actor) => (isTimeZone(actor.timeZone) ? actor.timeZone : "UTC");
@@ -88,33 +86,6 @@ const withDecks = { ...getTableColumns(schema.drawSession), decks: decksJson };
 
 function startResult(s: SessionRow, decks: DeckRow[]): StartResult {
   return { sessionId: s.id, spread: s.spread, status: s.status, timeZone: s.timeZone, decks: decks.map(deckView) };
-}
-
-/** The person's reading for this spread that still counts as "today" in the reading's own timezone, if any. */
-async function todays(db: Pick<AnyDb, "select">, actor: Actor, spread: Spread, now: Date): Promise<SessionRow | null> {
-  const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread)) : ownerFilter(actor);
-  const [latest] = await db.select().from(schema.drawSession).where(where).orderBy(desc(schema.drawSession.createdAt)).limit(1);
-  if (!latest) return null;
-  return localDay(now, latest.timeZone) === latest.localDay ? latest : null;
-}
-
-async function purgeOldGuestReadings(db: Exec, now: Date) {
-  const cutoff = new Date(now.getTime() - GUEST_TTL_MS);
-  await db.execute(sql`
-    delete from draw_session where id in (
-      select id from draw_session where guest_hash is not null and created_at < ${cutoff.toISOString()}::timestamptz limit 200
-    )`);
-}
-
-/** Counts a new guest reading against the network's daily cap (UTC day: a guest's timezone is not trusted). */
-async function takeGuestSlot(db: Exec, ipHash: string, now: Date) {
-  const day = now.toISOString().slice(0, 10);
-  const [row] = await db
-    .insert(schema.guestDayCap)
-    .values({ ipHash, localDay: day, count: 1 })
-    .onConflictDoUpdate({ target: [schema.guestDayCap.ipHash, schema.guestDayCap.localDay], set: { count: sql`${schema.guestDayCap.count} + 1` } })
-    .returning({ count: schema.guestDayCap.count });
-  if ((row?.count ?? 0) > (await getSetting(db, "guest_daily_cap"))) throw new DrawError("rate_limited");
 }
 
 /** The query behind `findToday` (the latest reading for this spread, with its decks), for batching. */
@@ -166,10 +137,10 @@ const sessionOf = (j: SessionJson): SessionRow => ({
 
 /**
  * Starts today's reading, or returns it if it exists (`daily_limit` once it's complete). One database call (the
- * `start_draw` function: lock, today's reading, guest cap, inserts), so it works over Neon's HTTPS driver. Until that
- * function exists (a deploy that ran before its migration) it falls back to an interactive transaction on `txDb`.
+ * `start_draw` function, migration 0008: lock, today's reading, guest cap, inserts), so it works over Neon's HTTPS
+ * driver.
  */
-export async function startDraw(db: AnyDb, actor: Actor, spread: Spread, now: Date = new Date(), txDb: () => AnyDb = () => db): Promise<StartResult> {
+export async function startDraw(db: AnyDb, actor: Actor, spread: Spread, now: Date = new Date()): Promise<StartResult> {
   if (actor.kind === "guest" && spread !== "one") throw new DrawError("guest_spread");
 
   const timeZone = zoneOf(actor);
@@ -199,60 +170,8 @@ export async function startDraw(db: AnyDb, actor: Actor, spread: Spread, now: Da
     const code = pgCode(e);
     if (code === "AS429") throw new DrawError("rate_limited");
     if (code === "AS404") throw new DrawError("not_found");
-    if (code !== "42883") throw e; // anything but "the function doesn't exist yet"
+    throw e;
   }
-  return startDrawInTransaction(txDb(), actor, spread, now, day, timeZone, decks, finish);
-}
-
-/** The steps of `start_draw`, as an interactive transaction (only until the migration that adds it has run). */
-async function startDrawInTransaction(
-  db: AnyDb,
-  actor: Actor,
-  spread: Spread,
-  now: Date,
-  day: string,
-  timeZone: string,
-  decks: { stage: Stage; deck: Awaited<ReturnType<typeof createDeck>> }[],
-  finish: (session: SessionRow, rows: DeckRow[]) => StartResult
-): Promise<StartResult> {
-  const lockKey = actor.kind === "user" ? `draw:u:${actor.userId}:${spread}` : `draw:g:${actor.guestHash}`;
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
-
-    const existing = await todays(tx, actor, spread, now);
-    if (existing) return finish(existing, await decksFor(tx, existing.id));
-
-    if (actor.kind === "guest") {
-      await purgeOldGuestReadings(tx, now);
-      await takeGuestSlot(tx, actor.ipHash, now);
-    }
-
-    const [row] = await tx
-      .insert(schema.drawSession)
-      .values({
-        userId: actor.kind === "user" ? actor.userId : null,
-        guestHash: actor.kind === "guest" ? actor.guestHash : null,
-        spread,
-        localDay: day,
-        timeZone,
-        status: "picking",
-        createdAt: now
-      })
-      .onConflictDoNothing()
-      .returning();
-
-    if (row) {
-      await tx.insert(schema.drawDeck).values(decks.map(({ stage, deck }) => ({ sessionId: row.id, stage, ...deck })));
-      return startResult(row, await decksFor(tx, row.id));
-    }
-
-    // A reading already holds this calendar day in the person's current timezone (for example, after a
-    // move west). That reading is today's: continue it, or report the daily limit if it's finished.
-    const where = actor.kind === "user" ? and(ownerFilter(actor), eq(schema.drawSession.spread, spread), eq(schema.drawSession.localDay, day)) : and(ownerFilter(actor), eq(schema.drawSession.localDay, day));
-    const [held] = await tx.select().from(schema.drawSession).where(where).limit(1);
-    if (!held) throw new DrawError("not_found");
-    return finish(held, await decksFor(tx, held.id));
-  });
 }
 
 const sameList = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);

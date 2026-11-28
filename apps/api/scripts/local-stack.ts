@@ -20,11 +20,10 @@ const API_PORT = 8792;
 const NEON_PORT = 4445;
 const APP_URL = `http://127.0.0.1:${API_PORT}`;
 const api = fileURLToPath(new URL("..", import.meta.url));
-const app = fileURLToPath(new URL("../../app", import.meta.url));
 
-// The local secrets kept in apps/app/.dev.vars (the sign-in cookie's signing secret, the Turnstile test key).
+// The local secrets kept in apps/api/.dev.vars (the sign-in cookie's signing secret, the Turnstile test key).
 const devVars = Object.fromEntries(
-  readFileSync(`${app}/.dev.vars`, "utf8")
+  readFileSync(`${api}/.dev.vars`, "utf8")
     .split("\n")
     .filter((l) => /^[A-Z_]+=/.test(l))
     .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])

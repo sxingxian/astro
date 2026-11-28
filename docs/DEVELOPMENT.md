@@ -10,9 +10,8 @@ Node 22, pnpm 10 (from `packageManager`), and a local Postgres 16+ with roles `m
 pnpm install
 pnpm --filter @astro/landing dev                     # landing page at http://localhost:3000
 
-cp apps/app/.dev.vars.example apps/app/.dev.vars     # development values only (outbox mail, Turnstile off)
+cp apps/api/.dev.vars.example apps/api/.dev.vars     # development values only (outbox mail, Turnstile off)
 DATABASE_URL_MIGRATOR=postgres://migrator:migrator@127.0.0.1:5432/astro_dev pnpm db:migrate
-pnpm --filter @astro/app preview                     # OpenNext build + wrangler dev on http://127.0.0.1:8790
 
 DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/api stack
                                                      # the app as deployed (free plan): http://127.0.0.1:8792
@@ -38,7 +37,7 @@ E2E_BASE_URL=http://127.0.0.1:8787 pnpm --filter @astro/landing e2e
 
 ## Database migrations
 
-Migrations live in `packages/db/migrations` (Drizzle) and run on every `astro-app` deploy (`pnpm db:migrate && pnpm cf:deploy:app`). `pnpm db:migrate` reads `DATABASE_URL_MIGRATOR`, refuses to run without it, and prints `migrations: N applied`.
+Migrations live in `packages/db/migrations` (Drizzle) and run on every `astro-api` deploy (`pnpm db:migrate && pnpm cf:deploy:api`). `pnpm db:migrate` reads `DATABASE_URL_MIGRATOR`, refuses to run without it, and prints `migrations: N applied`.
 
 To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db generate` (or `exec drizzle-kit generate --custom --name <name>` for hand-written SQL), review the SQL, commit.
 
@@ -49,11 +48,11 @@ To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db gen
 ## The free-plan app (`apps/web` + `apps/api`)
 
 - `apps/web` is the app's pages, pre-built with Vite (React, react-router). It reuses `apps/app`'s components through the `@/` alias and shims `next/navigation`. No inline scripts: the CSP in `apps/web/public/_headers` has no nonce.
-- `apps/api` (`astro-api`) serves those files, the API under `/api` (Hono, Neon's HTTPS driver; the WebSocket driver only for the draw start's lock) including the reader pages (Desk, My log, invitations, role offers) since Stage 2. The app's browser tests (`apps/app/e2e`) run against this stack. `apps/app` still holds the shared screen components and the browser tests; its own Worker (`astro-app`) only runs the database migrations until Stage 2 retires it.
+- `apps/api` (`astro-api`) serves those files, the API under `/api` (Hono, Neon's HTTPS driver; the WebSocket driver only where a role and its audit entry must be saved together: accepting an invitation or role offer), including the reader pages. The app's browser tests (`apps/app/e2e`) run against this stack. `apps/app` holds the shared screen components and helpers, the unit tests and the browser tests; the Next.js app that lived there (`astro-app`) was retired in Stage 2.
 - The CPU check counts only time running code, not waiting for the database. Neon signs the WebSocket driver in with a plain password over TLS; to measure the draw start the same way locally, let `astro_web` use `password` (not `scram-sha-256`) for `astro_test` from 127.0.0.1 in `pg_hba.conf`. With SCRAM it reads about 15 ms higher.
 
 ## Notes
 
-- Local secrets stay in `apps/app/.dev.vars` and `apps/admin/.dev.vars` (git-ignored), never in the repo.
-- `apps/app/wrangler.jsonc` holds the production plain variables; a deploy replaces dashboard variables with the file's. Secrets are set only in the Cloudflare dashboard.
+- Local secrets stay in `apps/api/.dev.vars` and `apps/admin/.dev.vars` (git-ignored), never in the repo.
+- `apps/api/wrangler.jsonc` holds the production plain variables; a deploy replaces dashboard variables with the file's. Secrets are set only in the Cloudflare dashboard.
 - Hyperdrive caching must be off for `astro-web`: sessions and limits must read fresh data.

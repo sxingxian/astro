@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "@/lib/env";
-import { buildCsp } from "@/lib/csp";
+import { parseEnv } from "@astro/app-core/env";
+import { buildCsp } from "@astro/server";
 
 const base = {
   APP_URL: "https://astroapp.midnightpoetry.studio",

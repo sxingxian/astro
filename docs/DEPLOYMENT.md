@@ -5,7 +5,7 @@ Every step below is done on a website, in your browser: **Cloudflare**, **GitHub
 | Address | Serves | Cloudflare Worker | Status |
 | --- | --- | --- | --- |
 | `astro.midnightpoetry.studio` | Landing page | `astro-landing` | **Built (plan 1)** |
-| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts; Ask (coming soon), Terms, Privacy, reader guidelines, Desk and My log for readers | `astro-app` | **Built (plan 2; plan 4 · part 1)** |
+| `astroapp.midnightpoetry.studio` | The app: daily draw, readings, journal, accounts; Ask (coming soon), Terms, Privacy, reader guidelines, Desk and My log for readers | `astro-api` (since Stage 2; `astro-app` is retired, §20) | **Built (plan 2; plan 4 · part 1)** |
 | `astro.midnightpoetry.studio/admin` | Admin portal: text and legal pages, card meanings, team and readers, users, settings, AI services, audit log | `astro-admin` | **Built (plan 3; plan 4 · part 1)** |
 
 **Plan 4 · Part 1** (fan picker, reversed cards, desktop layout, legal pages, readers and their private log) needs no new Worker, setting or secret. It ships with the next `astro-app` and `astro-admin` deploys; the checks are in step 15.
@@ -26,13 +26,13 @@ Sections marked *(plan N)* are for parts that aren't built yet. They're here so 
 
 | Value | Made in | Goes into |
 | --- | --- | --- |
-| `migrator` database password and address | Neon (step 4) | Cloudflare → `astro-app` → build secret `DATABASE_URL_MIGRATOR` |
+| `migrator` database password and address | Neon (step 4) | Cloudflare → `astro-api` → build secret `DATABASE_URL_MIGRATOR` (before Stage 2: `astro-app`) |
 | `astro_web` database password and address | Neon (step 4) | Cloudflare → Hyperdrive `astro-web` (step 5) |
 | Hyperdrive ID (not secret) | Cloudflare (step 5) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
 | Turnstile site key (not secret) | Cloudflare (step 6) | GitHub file `apps/app/wrangler.jsonc` (step 8) |
-| Turnstile secret key | Cloudflare (step 6) | `astro-app` secret `TURNSTILE_SECRET_KEY` |
-| Resend API key | Resend (step 7) | `astro-app` secret `RESEND_API_KEY` |
-| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-app` **and** `astro-admin` secret `BETTER_AUTH_SECRET` (the same value in both) |
+| Turnstile secret key | Cloudflare (step 6) | `astro-api` secret `TURNSTILE_SECRET_KEY` |
+| Resend API key | Resend (step 7) | `astro-api` secret `RESEND_API_KEY` |
+| Sign-in secret (see step 9 for what it does) | Your password manager (64 characters) | `astro-api` **and** `astro-admin` secret `BETTER_AUTH_SECRET` (the same value in both) |
 | `astro_admin` database password and address | Neon (step 4, item 6) | Cloudflare → Hyperdrive `astro-admin` (step 5) |
 | Admin Hyperdrive ID (not secret) | Cloudflare (step 5) | GitHub file `apps/admin/wrangler.jsonc` (step 8) |
 | AI key encryption key | Your password manager (64 characters, **numbers only**) | `astro-admin` secret `AI_KEY_ENCRYPTION_KEY` (step 14) |
@@ -47,7 +47,7 @@ The values that aren't secret (the Hyperdrive IDs and the Turnstile site key) ca
 pull request on GitHub ──► GitHub runs the tests ("verify"); a pull request can't merge until they pass
 merge to main          ──► Cloudflare builds each Worker whose files changed
                            tests → build → deploy
-                           astro-app also updates the database first; if that fails, nothing is deployed
+                           astro-api also updates the database first; if that fails, nothing is deployed
 ```
 
 If any step fails, that Worker isn't deployed and the previous version keeps serving.
@@ -165,7 +165,7 @@ At **console.neon.tech**:
    - [ ] The part after the `@` doesn't contain `-pooler`.
 
    **d. Where each one goes.**
-   - **migrator address:** Cloudflare → `astro-app` → build secret `DATABASE_URL_MIGRATOR` (step 9).
+   - **migrator address:** Cloudflare → `astro-api` → build secret `DATABASE_URL_MIGRATOR` (§20; step 9 before Stage 2).
    - **astro_web address:** Cloudflare → Hyperdrive `astro-web` (step 5).
 6. **The admin portal's user, `astro_admin`** *(plan 3)*. The portal gets its own database user with fewer permissions than the app: it can manage staff, settings and AI services, read the audit log and count readings, but it can never read journal or check-in notes, or change the database structure.
 
@@ -273,7 +273,9 @@ To change them later, send the new values to Claude, or edit the file on github.
 
 ## 9. Cloudflare: app Worker `astro-app`
 
-> **Plan:** the app runs on **Workers Free**. Cloudflare allows 64 MiB per Worker on both plans (the app is about 18 MiB) and 10 ms of processing time per request on Free. Sign-in password checks run inside the database, so they don't use that time. After the first deploy, check step 15. Only if pages regularly go over 10 ms, upgrade to Workers Paid ($5 a month); nothing else changes.
+> **Retired in Stage 2 (§20).** This section records how `astro-app` was first set up. The app now runs on `astro-api` (§18–§20), which also runs the database updates.
+
+> **Plan:** the app runs on **Workers Free**. Cloudflare allows 64 MiB per Worker on both plans (the app is about 18 MiB) and 10 ms of processing time per request on Free. Sign-in password checks run inside the database, so they don't use that time. After the first deploy, check step 15. If pages regularly go over 10 ms, tell Claude.
 
 Do steps 4–8 first.
 
@@ -325,12 +327,12 @@ The app's other settings (address, sending email, Turnstile on, leaked-password 
 
 ## 10. Database updates (nothing to do)
 
-Cloudflare updates the database structure on every `astro-app` deploy (`pnpm db:migrate` in the deploy command). You don't run anything. A few things worth knowing:
+Cloudflare updates the database structure on every `astro-api` deploy (`pnpm db:migrate` in the deploy command; before Stage 2 this was `astro-app`'s). You don't run anything. A few things worth knowing:
 
 - If an update fails, the deploy stops and the current version keeps serving.
 - Every update is written so the current version and the new one both work during the switch.
 - Before a big change, Claude will say so. Make a restore point first: Neon → **Branches → Create branch** from `main`.
-- The admin Worker (`astro-admin`) never changes the database structure. Only `astro-app` does, so deploy order matters once: see step 14.
+- The admin Worker (`astro-admin`) never changes the database structure. Only `astro-api` does, so deploy order matters once: see step 14.
 - Plan 4 · Part 1 moves readers to their own table and adds the reader's log. While the previous app version is still serving, team invitations for portal roles keep working; reader invitations wait until the new version is live (a minute or two), because they now include the reader guidelines.
 
 ## 11. Stripe *(plan 4 · part 2)*
@@ -376,7 +378,7 @@ Do steps 4 (item 6), 5 and 8 for the portal first. Then, in this order:
 
 - **Project name:** `astro-admin` (exactly this)
 - **Build command:** `pnpm install --frozen-lockfile && pnpm cf:build:admin`
-- **Deploy command:** `pnpm cf:deploy:admin` (no database update: `astro-app` does that)
+- **Deploy command:** `pnpm cf:deploy:admin` (no database update: `astro-api` does that)
 - **Root directory:** `/`
 
 Then **Settings → Build**:
@@ -444,13 +446,13 @@ All of these are done in a browser.
 
 **App:**
 
-- [ ] Cloudflare → `astro-app` → **Deployments** → latest build log shows `migrations: N applied` before the deploy.
+- [ ] Cloudflare → `astro-api` → **Deployments** → latest build log shows `migrations: N applied` before the deploy.
 - [ ] Sign up, confirm the email (it arrives from your Resend domain), turn on 2-step sign-in, sign out, and sign back in with a code.
 - [ ] The Turnstile check appears on sign-up, sign-in and a guest's first draw.
 - [ ] Draw today's card as a guest and as a member. Drawing again the same day returns the same reading.
 - [ ] After a reading, the Verify screen shows "Matches ✓".
 - [ ] At **securityheaders.com**, scan `https://astroapp.midnightpoetry.studio/today`: Content-Security-Policy is listed and contains `nonce-` and `frame-ancestors 'none'`.
-- [ ] **Workers Free check:** a day after launch, open Cloudflare → `astro-app` → **Observability**. CPU time per request should stay under 10 ms for sign-in and the main pages. If it regularly doesn't, upgrade to Workers Paid (step 9).
+- [ ] **Workers Free check:** a day after launch, open Cloudflare → `astro-api` → **Observability**. CPU time per request should stay under 10 ms for sign-in and the main pages. If it regularly doesn't, tell Claude.
 
 **Admin portal** *(plan 3)*:
 
@@ -595,6 +597,28 @@ Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers u
 4. Tell Claude. Claude checks **astro-api → Observability** for errors and processing time on the new reader requests.
 
 **Going back:** tell Claude, who reverts this change (a new PR). Until Stage 2 finishes, the §18 way back (putting the address back on `astro-app`) still works too, because `astro-app` still has every page.
+
+## 20. Free-plan Stage 2, last step: database updates move to `astro-api`; `astro-app` is retired
+
+> **Why:** `astro-app` no longer serves any page (§19). Its only remaining job was running the database updates on each deploy. That moves to `astro-api`, and `astro-app` stops building. The old Next.js code is removed from the repository.
+
+**Do these in the browser before saying "merge"** (about 5 minutes). Order matters: `astro-app`'s build would fail on the new code, and `astro-api` must be able to run the updates.
+
+1. Find the **migrator address** in your password manager (step 4: it starts `postgresql://migrator:`). Cloudflare never shows a saved secret again, so it can't be copied from `astro-app`. If you don't have it, tell Claude: a new password can be set in Neon without changing anything else.
+2. **astro-api → Settings → Build:**
+   - **Build variables and secrets → Add**: name `DATABASE_URL_MIGRATOR`, type **Secret**, value = the migrator address → **Save**.
+   - **Deploy command → Edit:** `pnpm db:migrate && pnpm cf:deploy:api` → **Save**. The first half updates the database structure before each deploy; if it fails, nothing is deployed.
+   - **Non-production branch builds:** check it is **off**. The build now holds the migrator password, so it must only ever build reviewed code from `main`.
+   - **Build watch paths → Include** (replace the list): `apps/api/*`, `apps/web/*`, `apps/app/*`, `packages/*`, `package.json`, `pnpm-lock.yaml`, `turbo.json`
+3. **astro-app → Settings → Build → Git repository → Disconnect.** It stops building on every merge. (The Worker itself stays for now, with no address and no traffic.)
+4. Tell Claude these are done; then say **"merge"**.
+
+**Check afterwards:**
+
+1. **astro-api → Deployments →** the new build's log shows `migrations: 0 applied` (or a number) before the deploy, and the deploy succeeded.
+2. Open the app, draw a card, open Journal and Account: everything works as before.
+
+**A week later (optional):** **astro-app → Settings → Delete** removes the retired Worker and its old secrets. Before that, if something goes wrong, tell Claude: the previous code is still in the repository history.
 
 ## Release safety
 

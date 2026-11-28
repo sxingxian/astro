@@ -55,7 +55,7 @@ jobs:
       - run: pnpm build
       - name: Local settings for wrangler dev (development values only)
         run: |
-          cp apps/app/.dev.vars.example apps/app/.dev.vars
+          cp apps/api/.dev.vars.example apps/api/.dev.vars
           cp apps/admin/.dev.vars.example apps/admin/.dev.vars
       - name: End-to-end tests
         run: pnpm e2e

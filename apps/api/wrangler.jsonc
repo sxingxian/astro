@@ -14,11 +14,11 @@
   },
   "workers_dev": false,
   "preview_urls": false,
-  // Cutover (docs/DEPLOYMENT.md §18): the custom domain moves here from astro-app.
+  // The app's address (docs/DEPLOYMENT.md §18). Database updates run before each deploy (§20).
   "routes": [{ "pattern": "astroapp.midnightpoetry.studio", "custom_domain": true }],
   "ratelimits": [{ "name": "GUEST_DRAWS", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
   // Secrets, set in the Cloudflare dashboard (docs/DEPLOYMENT.md): DATABASE_URL (Neon, astro_web role),
-  // BETTER_AUTH_SECRET (the same value as astro-app), PASS_SECRET (32+ characters), RESEND_API_KEY, TURNSTILE_SECRET_KEY.
+  // BETTER_AUTH_SECRET (the same value as astro-admin), PASS_SECRET (32+ characters), RESEND_API_KEY, TURNSTILE_SECRET_KEY.
   "vars": {
     "APP_URL": "https://astroapp.midnightpoetry.studio",
     "ADMIN_URL": "https://astro.midnightpoetry.studio/admin",

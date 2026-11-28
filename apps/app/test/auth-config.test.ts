@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { authOptions, CAPTCHA_ENDPOINTS } from "@/lib/auth-options";
+import { authOptions as coreOptions, CAPTCHA_ENDPOINTS } from "@astro/app-core/auth-options";
+
+// The settings Better Auth runs with (now built by astro-api through @astro/app-core); emails aren't sent here.
+const noMail = async () => ({ subject: "", text: "", html: "" });
+const authOptions = (e: Parameters<typeof coreOptions>[0], d: Parameters<typeof coreOptions>[1]) => coreOptions(e, d, { verifyEmail: noMail, resetPassword: noMail, alreadyRegistered: noMail } as never);
 
 const env = {
   APP_URL: "https://astroapp.midnightpoetry.studio",

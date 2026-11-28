@@ -15,7 +15,9 @@ function files(dir: string): string[] {
 
 describe("the app never sends people to the landing site", () => {
   it("has no landing links in its code", () => {
-    const hits = ["app", "components", "lib"].flatMap((d) => files(join(root, d))).filter((f) => readFileSync(f, "utf8").includes(LANDING));
+    // The shipped screens (apps/web) and the components and helpers they share from here.
+    const dirs = [join(root, "components"), join(root, "lib"), join(root, "../web/src")];
+    const hits = dirs.flatMap(files).filter((f) => readFileSync(f, "utf8").includes(LANDING));
     expect(hits).toEqual([]);
   });
   it("has no landing links in its default wording", () => {

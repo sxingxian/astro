@@ -1,8 +1,8 @@
 import { createDb, eq, schema } from "@astro/db";
 import { resetAndMigrate } from "@astro/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { dueCheckIns, saveCheckIn } from "@/lib/check-ins";
-import { computePatterns } from "@/lib/patterns";
+import { dueCheckIns, saveCheckIn } from "@astro/app-core/check-ins";
+import { computePatterns } from "@astro/app-core/patterns";
 
 const url = process.env.DATABASE_URL_TEST;
 if (!url) throw new Error("DATABASE_URL_TEST is not set");

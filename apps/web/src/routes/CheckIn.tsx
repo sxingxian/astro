@@ -1,7 +1,7 @@
 import { CardFace } from "@astro/ui";
 import { useParams } from "react-router";
 import { CheckInForm } from "@/components/check-in/CheckInForm";
-import type { DueCheckIn } from "@/lib/check-ins";
+import type { DueCheckIn } from "@astro/app-core/check-ins";
 import { describe } from "@/lib/draw/describe";
 import { Failed, Loading, useData } from "../data";
 import { useMeaning } from "../meaning";

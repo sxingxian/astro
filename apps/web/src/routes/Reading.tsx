@@ -3,7 +3,7 @@ import { useParams } from "react-router";
 import { FlipCard } from "@/components/draw/FlipCard";
 import { ReadingNotes } from "@/components/journal/ReadingNotes";
 import { describe } from "@/lib/draw/describe";
-import type { Reading } from "@/lib/draw/service";
+import type { Reading } from "@astro/app-core/draw/service";
 import { ApiError } from "../api";
 import { Failed, Loading, useData } from "../data";
 import { go } from "../nav";

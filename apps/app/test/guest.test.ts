@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GUEST_COOKIE, guestCookie, guestIdentity } from "@/lib/draw/guest";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { GUEST_COOKIE, guestCookie, guestIdentity } from "@astro/app-core/draw/guest";
+import { verifyTurnstile } from "@astro/app-core/turnstile";
 
 const req = (headers: Record<string, string>) => new Request("https://astroapp.example/api/draw/start", { headers });
 

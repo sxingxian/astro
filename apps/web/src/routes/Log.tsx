@@ -1,6 +1,6 @@
 import { getCard } from "@astro/cards";
 import { useSearchParams } from "react-router";
-import type { Entry } from "@/lib/reader-log";
+import type { Entry } from "@astro/app-core/reader-log";
 import { ApiError } from "../api";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle, type T } from "../session";
