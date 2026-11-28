@@ -28,7 +28,7 @@ export const email = {
 
   "email.invite.subject": { group: "Team invitation", label: "Subject", where: "Inbox", default: "You're invited to join Astro", max: M },
   "email.invite.title": { group: "Team invitation", label: "Heading", where: "Top of the email", default: "You're invited to join Astro as {role}", max: M },
-  "email.invite.line1": { group: "Team invitation", label: "First paragraph", where: "Email body", default: "Open the link to accept. You'll sign in to Astro with this email address (or create an account), and turn on 2-step sign-in with an authenticator app. Your access starts after that.", max: L },
+  "email.invite.line1": { group: "Team invitation", label: "First paragraph", where: "Email body", default: "Open the link to accept. You'll sign in to Astro with this email address (or create an account) and turn on 2-step sign-in with an authenticator app. Your access starts after that.", max: L },
   "email.invite.line2": { group: "Team invitation", label: "Second paragraph", where: "Email body", default: "This invitation expires on {date}. If you weren't expecting it, you can ignore this email.", max: L },
   "email.invite.button": { group: "Team invitation", label: "Button", where: "Email body", default: "Accept invitation", max: S },
   "email.invite.role_admin": { group: "Team invitation", label: "Role words: admin", where: "Inside the heading", default: "an admin", max: S },

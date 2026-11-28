@@ -21,3 +21,4 @@ export function getMeaning(cardId: string): Meaning {
   if (!m) throw new UnknownCardError(cardId);
   return m;
 }
+export { pairText, type PairCard } from "./compose";

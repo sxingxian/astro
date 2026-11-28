@@ -7,7 +7,7 @@ test("after creating an account, the page shows only the 'Check your email' view
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByLabel("Confirm password").fill(PASSWORD);
   await page.getByLabel(/I agree/).check();
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create a free account" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Check your email");
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(page.getByText("Create your free account")).toHaveCount(0);
@@ -25,7 +25,7 @@ test("sign-up asks for the password twice and sends nothing until they match", a
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByLabel("Confirm password").fill(`${PASSWORD}x`);
   await page.getByLabel(/I agree/).check();
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create a free account" }).click();
   await expect(page.getByText("The passwords don't match.")).toBeVisible();
   await expect(page.getByLabel("Confirm password")).toHaveAttribute("aria-invalid", "true");
   expect(posted).toBe(false);
@@ -33,7 +33,7 @@ test("sign-up asks for the password twice and sends nothing until they match", a
 
   await page.getByLabel("Confirm password").fill(PASSWORD);
   await expect(page.getByText("The passwords don't match.")).toHaveCount(0);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create a free account" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 });
 
