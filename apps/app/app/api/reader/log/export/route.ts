@@ -12,8 +12,7 @@ export async function GET(request: Request) {
   if (!user) return fail(401, "signed_out");
   try {
     const db = getDb();
-    const csv = await exportCsv(db, user.id);
-    const rows = csv.match(/\r\n"\d{4}-\d{2}-\d{2}"/g)?.length ?? 0; // each entry's line starts with its date
+    const { csv, rows } = await exportCsv(db, user.id);
     await audit(db, { actorId: user.id, actorRole: "reader", action: "reader.log_export", entity: "user", entityId: user.id, summary: { rows }, ip: request.headers.get("cf-connecting-ip") }, getEnv().BETTER_AUTH_SECRET);
     return new Response(csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="astro-reader-log.csv"', "cache-control": "no-store" } });
   } catch (e) {

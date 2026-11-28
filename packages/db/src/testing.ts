@@ -16,7 +16,10 @@ export async function resetAndMigrate(url: string): Promise<void> {
  */
 export function neonFetchOverPostgres(url: string): { fetch: typeof fetch; calls: () => number; end: () => Promise<void> } {
   if (!/localhost|127\.0\.0\.1/.test(url)) throw new Error("neonFetchOverPostgres only runs against a local database");
-  const sql = postgres(url, { max: 1, onnotice: () => {}, fetch_types: false });
+  // Neon passes every parameter as text and lets Postgres cast it. postgres.js would JSON-encode a string bound for a
+  // json or jsonb column a second time, so pass those through as they are.
+  const asText = (oid: number) => ({ to: oid, from: [oid], serialize: (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v)), parse: (v: string) => v });
+  const sql = postgres(url, { max: 1, onnotice: () => {}, fetch_types: false, types: { json: asText(114), jsonb: asText(3802) } });
   let calls = 0;
   type Q = { query: string; params: unknown[] };
   const run = async ({ query, params }: Q) => {

@@ -1,4 +1,4 @@
-import { sql, type Db } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 import type { Role } from "./roles";
 
 export const INVITE_HOURS = 72;
@@ -30,10 +30,10 @@ export const ACCEPT_REASONS: ReadonlySet<string> = new Set<AcceptReason>(["inval
  * any other way. `guidelines` is the reader-guidelines version the person read (migration 0006): a reader invite is
  * refused with `guidelines_changed` unless it is the newest; 0 means the built-in default.
  */
-export async function acceptInvite(db: Db, { token, userId, guidelines = 0 }: { token: string; userId: string; guidelines?: number }): Promise<AcceptResult> {
+export async function acceptInvite(db: AnyDb, { token, userId, guidelines = 0 }: { token: string; userId: string; guidelines?: number }): Promise<AcceptResult> {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return { ok: false, reason: "invalid" };
   const hash = await hashInviteToken(token);
-  const [row] = await db.execute<{ r: string }>(sql`select accept_invite(${Buffer.from(hash)}, ${userId}, ${guidelines}) as r`);
+  const [row] = rowsOf<{ r: string }>(await db.execute(sql`select accept_invite(${Buffer.from(hash)}, ${userId}, ${guidelines}) as r`));
   const r = row?.r ?? "invalid";
   if (r.startsWith("ok:")) return { ok: true, role: r.slice(3) as Role };
   return { ok: false, reason: (ACCEPT_REASONS.has(r) ? r : "invalid") as AcceptReason };

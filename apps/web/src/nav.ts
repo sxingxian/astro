@@ -14,7 +14,9 @@ const IN_APP: readonly RegExp[] = [
   /^\/journal(\/patterns)?$/,
   /^\/account$/,
   /^\/check-in\/[^/]+$/,
-  /^\/(terms|privacy)$/
+  /^\/(terms|privacy|reader-guidelines)$/,
+  /^\/desk(\/log(\/[^/]+)?)?$/,
+  /^\/(invite|offer)$/
 ];
 
 /**

@@ -10,14 +10,15 @@ describe("appPath()", () => {
     expect(appPath("/reading/abc/verify", ORIGIN)).toBe("/reading/abc/verify");
     expect(appPath("/journal/patterns?range=30", ORIGIN)).toBe("/journal/patterns?range=30");
     expect(appPath("/", ORIGIN)).toBe("/");
+    for (const p of ["/desk", "/desk/log", "/desk/log/new", "/desk/log/abc", "/invite#t=x", "/offer", "/reader-guidelines"]) expect(appPath(p, ORIGIN)).toBe(p);
   });
 
   it("leaves everything else to the browser: other sites, the API, pages still on the old app, unknown paths", () => {
     expect(appPath("https://evil.example/today", ORIGIN)).toBeNull();
     expect(appPath("/api/auth/sign-out", ORIGIN)).toBeNull();
-    expect(appPath("/desk", ORIGIN)).toBeNull();
-    expect(appPath("/desk/log/new", ORIGIN)).toBeNull();
+    expect(appPath("/api/reader/log/export", ORIGIN)).toBeNull();
     expect(appPath("/invite/abc", ORIGIN)).toBeNull();
+    expect(appPath("/desk/log/a/b", ORIGIN)).toBeNull();
     expect(appPath("/nope", ORIGIN)).toBeNull();
     expect(appPath("/reading", ORIGIN)).toBeNull();
     expect(appPath("mailto:hi@example.com", ORIGIN)).toBeNull();

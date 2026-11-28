@@ -1,4 +1,4 @@
-import { sql, type Db } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 import { ACCEPT_REASONS, type AcceptReason } from "./invite";
 import type { Role } from "./roles";
 
@@ -11,9 +11,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * this account's, unused and unexpired, with 2-step sign-in on; only the owner's offers make staff readers; the
  * reader role needs the newest guidelines version. The app's database user can't write roles any other way.
  */
-export async function acceptRoleOffer(db: Db, { offerId, userId, guidelines }: { offerId: string; userId: string; guidelines: number }): Promise<OfferResult> {
+export async function acceptRoleOffer(db: AnyDb, { offerId, userId, guidelines }: { offerId: string; userId: string; guidelines: number }): Promise<OfferResult> {
   if (!UUID.test(offerId)) return { ok: false, reason: "invalid" };
-  const [row] = await db.execute<{ r: string }>(sql`select accept_role_offer(${offerId}::uuid, ${userId}, ${guidelines}) as r`);
+  const [row] = rowsOf<{ r: string }>(await db.execute(sql`select accept_role_offer(${offerId}::uuid, ${userId}, ${guidelines}) as r`));
   const r = row?.r ?? "invalid";
   if (r.startsWith("ok:")) {
     const parts = r.slice(3).split("+");

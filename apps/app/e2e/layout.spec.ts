@@ -75,3 +75,29 @@ test("member and guest screens follow the layout rules at 360, 768 and 1280 px",
   }
   expect(found).toEqual([]);
 });
+
+test("reader screens follow the layout rules at 360, 768 and 1280 px", async ({ page, baseURL }) => {
+  const email = uniqueEmail("layout-reader");
+  await signUpVerified(page, email);
+  const [u] = await sql<{ id: string }[]>`select id from "user" where email = ${email}`;
+  await sql`insert into reader_role (user_id, granted_by) values (${u!.id}, ${u!.id})`;
+  await sql`insert into guideline_acceptance (user_id, version) select ${u!.id}, coalesce(max(id), 0) from text_version where kind = 'guidelines'`;
+  const saved = await page.request.post("/api/reader/log", {
+    headers: { origin: baseURL ?? "" },
+    data: { readOn: "2026-11-20", place: "online", name: "Hannah", question: "", notes: "", consent: true, spread: "three_pairs", cards: { positions: [["Past", "the-fool", "two-of-cups"], ["Present", "the-hermit", "page-of-swords"], ["Future", "the-star", "ten-of-cups"]].map(([label, card, clar]) => ({ label, card: { id: card, reversed: false }, clarifier: { id: clar, reversed: true } })), extras: [] } }
+  });
+  expect(saved.ok()).toBe(true);
+  const { id } = (await saved.json()) as { id: string };
+
+  const found: string[] = [];
+  for (const width of [360, 768, 1280]) {
+    for (const path of ["/desk", "/desk/log", "/desk/log/new", `/desk/log/${id}`, "/offer", "/invite", "/reader-guidelines"]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("main [aria-busy]")).toHaveCount(0);
+      for (const p of await problems(page, width)) found.push(`${path} at ${width}: ${p}`);
+    }
+  }
+  expect(found).toEqual([]);
+});

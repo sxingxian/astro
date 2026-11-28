@@ -1,12 +1,10 @@
 /**
- * The free-plan app, locally, for development and the browser tests: the new Worker (pages, API) on :8792, the old
- * app on :8790 behind it for the reader pages (the LEGACY service binding finds it through wrangler's dev registry),
- * and stand-ins for Neon's HTTPS and WebSocket endpoints that answer from the local test Postgres.
+ * The app, locally, for development and the browser tests: the Worker (pages, API) on :8792, and stand-ins for Neon's
+ * HTTPS and WebSocket endpoints that answer from the local test Postgres.
  *
  *   DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/api stack
  *
- * The old app must be built first (`pnpm --filter @astro/app build`). Local only: the Worker honours the stand-ins
- * only while APP_URL is a local address. Stop with Ctrl+C.
+ * Local only: the Worker honours the stand-ins only while APP_URL is a local address. Stop with Ctrl+C.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -24,7 +22,7 @@ const APP_URL = `http://127.0.0.1:${API_PORT}`;
 const api = fileURLToPath(new URL("..", import.meta.url));
 const app = fileURLToPath(new URL("../../app", import.meta.url));
 
-// The old app's local secret, so both Workers read the same sign-in cookie.
+// The local secrets kept in apps/app/.dev.vars (the sign-in cookie's signing secret, the Turnstile test key).
 const devVars = Object.fromEntries(
   readFileSync(`${app}/.dev.vars`, "utf8")
     .split("\n")
@@ -44,15 +42,12 @@ await new Promise<void>((r) => neon.listen(NEON_PORT, "127.0.0.1", () => r()));
 const ws = await neonWsOverPostgres(pg.hostname, Number(pg.port || 5432));
 
 const children: ChildProcess[] = [];
-function run(cwd: string, args: string[], env: Record<string, string> = {}) {
+function run(cwd: string, args: string[]) {
   // Same process group as this script: Ctrl+C or the test runner stopping the group stops wrangler and workerd too.
-  const child = spawn("pnpm", ["exec", "wrangler", "dev", ...args], { cwd, stdio: "inherit", env: { ...process.env, ...env } });
+  const child = spawn("pnpm", ["exec", "wrangler", "dev", ...args], { cwd, stdio: "inherit", env: process.env });
   children.push(child);
 }
 
-run(app, ["--var", `APP_URL:${APP_URL}`, "--var", "MAINTENANCE_CACHE_SECONDS:1"], {
-  CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: webUrl
-});
 const vars: Record<string, string> = {
   APP_URL,
   DATABASE_URL: webUrl,

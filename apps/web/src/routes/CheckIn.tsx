@@ -6,6 +6,7 @@ import { describe } from "@/lib/draw/describe";
 import { Failed, Loading, useData } from "../data";
 import { useMeaning } from "../meaning";
 import { useSession, useTitle } from "../session";
+import { formatDate } from "@astro/copy/dates";
 
 // Ported from apps/app/app/check-in/[id]/page.tsx (same markup); data from GET /api/check-in/:id.
 export default function CheckInPage() {
@@ -18,7 +19,7 @@ export default function CheckInPage() {
   if (!data) return <Loading />;
   const due = { ...data, completedAt: new Date(data.completedAt) };
   const t = describe(due.cardId, due.orientation, tr, meaningOf);
-  const when = due.completedAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: user?.timeZone ?? "UTC" });
+  const when = formatDate(due.completedAt, user?.timeZone ?? "UTC");
 
   return (
     <div data-page className="flex flex-col gap-6">

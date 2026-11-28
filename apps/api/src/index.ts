@@ -5,9 +5,8 @@ import { LinearRouter } from "hono/router/linear-router";
 import { authFor, authRoutes } from "./auth";
 import { httpDb, who, wsDb, type AppEnv, type Deps } from "./context";
 import { checkEnv, type RawEnv } from "./env";
-import { isLegacy } from "./legacy";
-import { PASS_COOKIE } from "@astro/server/pass";
 import { drawRoutes } from "./routes/draw";
+import { readerRoutes } from "./routes/reader";
 import { maintenance, readRoutes } from "./routes/reads";
 import { writeRoutes } from "./routes/writes";
 
@@ -64,6 +63,7 @@ export function createApp({ db = httpDb, txDb = wsDb, now = Date.now }: Deps = {
   authRoutes(app);
   drawRoutes(app);
   writeRoutes(app);
+  readerRoutes(app);
   readRoutes(app);
 
   app.get("/me", async (c) => {
@@ -99,20 +99,9 @@ export async function warmUp(raw: unknown): Promise<void> {
 }
 await warmUp(startupEnv);
 
-/** Reader pages go to the old app; everything else under /api to this Worker (pages are static files). */
+/** Everything under /api comes here; the pages are static files served before the Worker runs. */
 export function handle(request: Request, env: RawEnv, ctx: ExecutionContext): Response | Promise<Response> {
-  if (isLegacy(new URL(request.url).pathname)) return env.LEGACY ? forward(request, env) : new Response("Not found", { status: 404 });
   return app.fetch(request, env, ctx);
-}
-
-/** A successful change there (giving up or taking on the reader role) may change what the pass says, so drop it. */
-async function forward(request: Request, env: RawEnv): Promise<Response> {
-  const res = await env.LEGACY!.fetch(request);
-  if (request.method !== "POST" || !res.ok) return res;
-  const out = new Response(res.body, res);
-  const secure = typeof env.APP_URL === "string" && env.APP_URL.startsWith("https://");
-  out.headers.append("set-cookie", `${PASS_COOKIE}=; Max-Age=0; Path=/api; HttpOnly${secure ? "; Secure" : ""}; SameSite=Lax`);
-  return out;
 }
 
 export default { fetch: handle } satisfies ExportedHandler<RawEnv>;

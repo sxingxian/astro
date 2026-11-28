@@ -6,8 +6,9 @@ import { formValue } from "@/lib/log-form";
 import { listEntries, type Entry } from "@/lib/reader-log";
 import { AppShell } from "../AppShell";
 import { LogForm } from "./LogForm";
+import { formatDate } from "@astro/copy/dates";
 
-const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const day = (iso: string) => formatDate(iso);
 const pick = (t: T, c: { id: string; reversed: boolean }) => `${getCard(c.id).name}${c.reversed ? ` (${t("app.log.reversed")})` : ""}`;
 
 /**

@@ -14,7 +14,6 @@ cp apps/app/.dev.vars.example apps/app/.dev.vars     # development values only (
 DATABASE_URL_MIGRATOR=postgres://migrator:migrator@127.0.0.1:5432/astro_dev pnpm db:migrate
 pnpm --filter @astro/app preview                     # OpenNext build + wrangler dev on http://127.0.0.1:8790
 
-pnpm --filter @astro/app build                       # once, for the reader pages behind the new Worker
 DATABASE_URL_TEST=postgres://migrator:migrator@127.0.0.1:5432/astro_test pnpm --filter @astro/api stack
                                                      # the app as deployed (free plan): http://127.0.0.1:8792
 pnpm --filter @astro/web dev                         # the pages alone, with hot reload (no API)
@@ -50,7 +49,7 @@ To add one: change `packages/db/src/schema.ts`, run `pnpm --filter @astro/db gen
 ## The free-plan app (`apps/web` + `apps/api`)
 
 - `apps/web` is the app's pages, pre-built with Vite (React, react-router). It reuses `apps/app`'s components through the `@/` alias and shims `next/navigation`. No inline scripts: the CSP in `apps/web/public/_headers` has no nonce.
-- `apps/api` (`astro-api`) serves those files, the API under `/api` (Hono, Neon's HTTPS driver; the WebSocket driver only for the draw start's lock) and passes the reader pages (`src/legacy.ts`) to `astro-app` through the `LEGACY` service binding. The app's browser tests (`apps/app/e2e`) run against this stack.
+- `apps/api` (`astro-api`) serves those files, the API under `/api` (Hono, Neon's HTTPS driver; the WebSocket driver only for the draw start's lock) including the reader pages (Desk, My log, invitations, role offers) since Stage 2. The app's browser tests (`apps/app/e2e`) run against this stack. `apps/app` still holds the shared screen components and the browser tests; its own Worker (`astro-app`) only runs the database migrations until Stage 2 retires it.
 - The CPU check counts only time running code, not waiting for the database. Neon signs the WebSocket driver in with a plain password over TLS; to measure the draw start the same way locally, let `astro_web` use `password` (not `scram-sha-256`) for `astro_test` from 127.0.0.1 in `pg_hba.conf`. With SCRAM it reads about 15 ms higher.
 
 ## Notes

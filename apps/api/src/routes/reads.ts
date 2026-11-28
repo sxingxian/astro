@@ -161,7 +161,7 @@ export function readRoutes(app: App) {
 
   app.get("/legal/:kind", async (c) => {
     const kind = c.req.param("kind");
-    if (kind !== "terms" && kind !== "privacy") return fail(c, 404, "not_found");
+    if (kind !== "terms" && kind !== "privacy" && kind !== "guidelines") return fail(c, 404, "not_found"); // guidelines: public, for invitees
     return c.json(await loadLegalPage(c.get("db")(), kind, previewOf(c)));
   });
 }

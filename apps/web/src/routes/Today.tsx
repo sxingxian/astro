@@ -8,6 +8,7 @@ import { localGreeting } from "@/lib/greeting";
 import type { JournalItem } from "@/lib/journal";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle, type T } from "../session";
+import { formatDate, weekdayOf } from "@astro/copy/dates";
 
 interface TodayData {
   signedIn: boolean;
@@ -18,7 +19,6 @@ interface TodayData {
 }
 
 // Ported from apps/app/app/today/page.tsx (same markup); data from GET /api/today.
-const shortDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 /** Small card backs: one for Today's card, three for Three pairs (mockups D1 and phone Today). */
 function SpreadArt({ count }: { count: 1 | 3 }) {
@@ -42,7 +42,7 @@ function SpreadCard({ t, count, title, sub, today, start, locked }: { t: T; coun
     const next = nextLocalMidnight(new Date(), today.timeZone);
     note = t("app.today.drawn_note", {
       time: next.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: today.timeZone }),
-      day: next.toLocaleDateString("en-GB", { weekday: "long", timeZone: today.timeZone })
+      day: weekdayOf(next, today.timeZone)
     });
     action = <a className="btn-ghost" href={`/reading/${today.sessionId}`}>{t("app.today.see_reading")}</a>;
   }
@@ -142,7 +142,7 @@ export default function TodayPage() {
                     <a key={d.sessionId} href={`/check-in/${d.sessionId}`} className="flex min-h-14 items-center justify-between gap-3 border-b border-gold/10 py-2 text-moon no-underline last:border-0">
                       <span className="text-sm">
                         {t("app.today.check_in_one")}
-                        <span className="block text-xs text-muted">{t("app.today.check_in_item", { date: d.completedAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: zone ?? "UTC" }) })}</span>
+                        <span className="block text-xs text-muted">{t("app.today.check_in_item", { date: formatDate(d.completedAt, zone ?? "UTC") })}</span>
                       </span>
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="#D8B46A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </a>
@@ -157,7 +157,7 @@ export default function TodayPage() {
                   recent.map((r) => (
                     <a key={r.id} href={`/reading/${r.id}`} className="flex flex-col gap-0.5 border-b border-gold/10 py-3 text-moon no-underline">
                       <span className="text-sm">{r.cardNames.join(" · ")}</span>
-                      <span className="text-xs text-muted">{shortDay(r.localDay)} · {r.spread === "one" ? t("app.today.one_title") : t("app.today.three_title")}</span>
+                      <span className="text-xs text-muted">{formatDate(r.localDay)} · {r.spread === "one" ? t("app.today.one_title") : t("app.today.three_title")}</span>
                     </a>
                   ))
                 ) : (

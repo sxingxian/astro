@@ -10,12 +10,13 @@ import { go } from "../nav";
 import { pairText } from "@astro/meanings";
 import { useMeaning } from "../meaning";
 import { useSession, useTitle } from "../session";
+import { formatDate } from "@astro/copy/dates";
 
 // Ported from apps/app/app/reading/[id]/page.tsx (same markup); data from GET /api/reading/:id.
 const POSITIONS = ["past", "present", "future"] as const;
 const LABEL = { past: "app.draw.past", present: "app.draw.present", future: "app.draw.future" } as const;
 
-const dayLabel = (r: Reading) => new Date(`${r.localDay}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const dayLabel = (r: Reading) => formatDate(r.localDay);
 
 export default function ReadingPage() {
   const { id = "" } = useParams();

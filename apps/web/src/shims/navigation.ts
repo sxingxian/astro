@@ -1,13 +1,14 @@
 // next/navigation for the pre-built pages. Screens this app draws open in place (see ../nav.ts); anything else is a
-// normal page load. refresh() reloads, because it is only used after a step that changes what the server shows.
+// normal page load. refresh() reads the open screen's data again in place, as router.refresh() did in Next.js.
 import { useLocation, useSearchParams as useRouterSearchParams } from "react-router";
+import { refreshData } from "../data";
 import { go } from "../nav";
 
 export function useRouter() {
   return {
     push: (href: string) => go(href),
     replace: (href: string) => go(href, { replace: true }),
-    refresh: () => window.location.reload(),
+    refresh: refreshData,
     back: () => window.history.back()
   };
 }
