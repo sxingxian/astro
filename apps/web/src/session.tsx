@@ -25,6 +25,8 @@ export type { T };
 
 interface Session extends SessionData {
   t: T;
+  /** Reads the session again, e.g. after a role change, without reloading the page. */
+  reload: () => Promise<void>;
 }
 
 const Ctx = createContext<Session | null>(null);
@@ -48,7 +50,7 @@ export function SessionProvider({ children, fallback, failed }: { children: Reac
   const value = useMemo<Session | null>(() => {
     if (!data) return null;
     const strings = appStrings(data.wording.app);
-    return { ...data, t: (key, values) => fill(strings[key] ?? key, values) };
+    return { ...data, t: (key, values) => fill(strings[key] ?? key, values), reload: () => api<SessionData>("/api/session").then(setData, () => undefined) };
   }, [data]);
   if (error) return <>{failed}</>;
   if (!value) return <>{fallback}</>;

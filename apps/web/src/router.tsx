@@ -22,6 +22,11 @@ const Patterns = lazy(() => import("./routes/Patterns"));
 const Reading = lazy(() => import("./routes/Reading"));
 const Today = lazy(() => import("./routes/Today"));
 const Verify = lazy(() => import("./routes/Verify"));
+const Desk = lazy(() => import("./routes/Desk"));
+const Log = lazy(() => import("./routes/Log"));
+const LogEntry = lazy(() => import("./routes/LogEntry"));
+const Invite = lazy(() => import("./routes/Invite"));
+const Offer = lazy(() => import("./routes/Offer"));
 const SignInPage = lazy(() => import("./routes/Auth").then((m) => ({ default: m.SignInPage })));
 const SignUpPage = lazy(() => import("./routes/Auth").then((m) => ({ default: m.SignUpPage })));
 const ForgotPage = lazy(() => import("./routes/Auth").then((m) => ({ default: m.ForgotPage })));
@@ -141,6 +146,13 @@ export const router = createBrowserRouter([
           { path: "/check-in/:id", element: <CheckIn />, handle: { tab: "today", back: () => "/today", title: "app.check_in.meta" } satisfies Screen },
           { path: "/terms", element: <Legal page="terms" />, handle: { back: () => "/today", title: "app.legal.terms_meta" } satisfies Screen },
           { path: "/privacy", element: <Legal page="privacy" />, handle: { back: () => "/today", title: "app.legal.privacy_meta" } satisfies Screen },
+          { path: "/reader-guidelines", element: <Legal page="guidelines" />, handle: { back: () => "/today", title: "app.legal.guidelines_meta" } satisfies Screen },
+          { path: "/desk", element: <Desk />, handle: { tab: "desk" } satisfies Screen },
+          { path: "/desk/log", element: <Log />, handle: { tab: "desk", back: () => "/desk", title: "app.log.meta" } satisfies Screen },
+          { path: "/desk/log/new", element: <LogEntry />, handle: { tab: "desk", back: () => "/desk/log", title: "app.log.new_title" } satisfies Screen },
+          { path: "/desk/log/:id", element: <LogEntry />, handle: { tab: "desk", back: () => "/desk/log", title: "app.log.edit_title" } satisfies Screen },
+          { path: "/invite", element: <Invite /> },
+          { path: "/offer", element: <Offer /> },
           { path: "*", element: <Failed error={new ApiError(404, "not_found")} /> }
         ]
       },

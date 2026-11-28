@@ -48,11 +48,11 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
   await page.getByRole("button", { name: "Save to my log" }).click();
 
   await expect(page).toHaveURL(/\/desk\/log$/);
-  const entry = page.getByRole("link", { name: /Hannah/ });
-  await expect(entry).toContainText("The Hermit (reversed)");
-  await expect(entry).toContainText("The Fool + Two of Cups"); // pairs shown as in mockup D4
+  const row = page.getByRole("row", { name: /Hannah/ }); // desktop: a table, as in mockup D4
+  await expect(row).toContainText("The Hermit (reversed)");
+  await expect(row).toContainText("The Fool + Two of Cups");
 
-  await entry.click();
+  await row.getByRole("link", { name: "Hannah" }).click();
   await expect(page.getByRole("heading", { name: "Edit reading" })).toBeVisible();
   await expect(page.getByLabel("Goes with")).toHaveValue("1");
   await page.getByLabel("Your notes").fill("She already knows.");
@@ -73,8 +73,10 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
 
 test("someone without the reader role gets 404 for the log and its API", async ({ page }) => {
   await signUpVerified(page, uniqueEmail("notreader"));
-  const res = await page.goto("/desk/log");
-  expect(res?.status()).toBe(404);
+  // The pages are static files now, so the screen says it isn't there; the API refuses outright.
+  await page.goto("/desk/log");
+  await expect(page.getByRole("heading", { name: "Nothing here" })).toBeVisible();
+  await expect(page.getByRole("row")).toHaveCount(0);
   const api = await page.request.get("/api/reader/log/export");
   expect(api.status()).toBe(403);
 });

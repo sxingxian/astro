@@ -7,7 +7,6 @@ export interface RawEnv extends Record<string, unknown> {
   NEON_FETCH_ENDPOINT?: string;
   NEON_WS_PROXY?: string;
   GUEST_DRAWS?: RateLimit;
-  LEGACY?: Fetcher;
   ASSETS?: Fetcher;
 }
 
@@ -21,7 +20,6 @@ export interface Env extends AppVars {
   NEON_FETCH_ENDPOINT?: string;
   NEON_WS_PROXY?: string;
   GUEST_DRAWS?: RateLimit;
-  LEGACY?: Fetcher;
 }
 
 const LOCAL = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
@@ -44,8 +42,7 @@ export function checkEnv(raw: RawEnv | undefined): Env | null {
         PASS_SECRET: PASS_SECRET!,
         NEON_FETCH_ENDPOINT: local ? raw.NEON_FETCH_ENDPOINT : undefined,
         NEON_WS_PROXY: local ? raw.NEON_WS_PROXY : undefined,
-        GUEST_DRAWS: raw.GUEST_DRAWS,
-        LEGACY: raw.LEGACY
+        GUEST_DRAWS: raw.GUEST_DRAWS
       };
     }
   } catch {

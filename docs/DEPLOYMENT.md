@@ -581,6 +581,21 @@ Two clicks, nothing to rebuild. Everyone stays signed in, because both Workers u
 
 `astro-app` still has every page, so the app works as before. Then tell Claude.
 
+## 19. Free-plan Stage 2: the reader pages move to `astro-api`
+
+> **Why:** Desk, My log, invitations, role offers and the reader guidelines were the last pages still served by the old app (`astro-app`) through `astro-api`. They are now pre-built pages with their data from `astro-api`, so the old app no longer serves any page. Nothing changes in the database.
+
+**Nothing to do in Cloudflare.** Say **"merge"**; `astro-api` rebuilds as usual (2–4 minutes). `astro-app` keeps building, because its deploy still runs the database migrations; the last Stage 2 change moves those to `astro-api` and retires it.
+
+**Check afterwards** (as a reader, in a normal browser window):
+
+1. Open **Desk**, then **My log**. Record a reading, open it again, change it, then delete it.
+2. Tap **Download CSV**: a file downloads.
+3. Open **Account**: the reader section is there. (Don't give the role up unless you mean to.)
+4. Tell Claude. Claude checks **astro-api → Observability** for errors and processing time on the new reader requests.
+
+**Going back:** tell Claude, who reverts this change (a new PR). Until Stage 2 finishes, the §18 way back (putting the address back on `astro-app`) still works too, because `astro-app` still has every page.
+
 ## Release safety
 
 - GitHub holds no deploy or database passwords. Its only job is running tests on pull requests.

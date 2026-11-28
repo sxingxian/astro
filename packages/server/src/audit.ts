@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lt, schema, sql, type Db } from "@astro/db";
+import { and, desc, eq, gte, inArray, lt, schema, sql, type AnyDb, type Db } from "@astro/db";
 
 /**
  * Every action the audit log records, with the only summary keys it may carry. Anything else is refused,
@@ -55,7 +55,16 @@ async function hashIp(ip: string, secret: string): Promise<string> {
 }
 
 /** Appends one entry. `secret` keys the IP hash (BETTER_AUTH_SECRET), so the log can link visits without storing IPs. */
-export async function audit(db: Db, entry: AuditEntry, secret: string): Promise<void> {
+export async function audit(db: AnyDb, entry: AuditEntry, secret: string): Promise<void> {
+  await (await auditInsert(db, entry, secret)).query;
+}
+
+/**
+ * The checked insert for one entry, not yet run: hand it to `runInOrder` to save it in the same HTTPS transaction as
+ * the change it records. Refuses unknown actions and summary keys exactly as `audit` does. Wrapped in an object, because
+ * an async function would run a returned query builder (it is thenable).
+ */
+export async function auditInsert(db: AnyDb, entry: AuditEntry, secret: string) {
   const allowed: readonly string[] = AUDIT_ACTIONS[entry.action];
   if (!allowed) throw new AuditSummaryError(`unknown action ${entry.action}`);
   const summary: Record<string, SummaryValue> = {};
@@ -65,15 +74,17 @@ export async function audit(db: Db, entry: AuditEntry, secret: string): Promise<
     // Long text is shortened, never refused: a long input must not be a way to skip the log.
     summary[k] = typeof v === "string" && v.length > MAX_VALUE ? `${v.slice(0, MAX_VALUE - 1)}…` : v;
   }
-  await db.insert(schema.auditLog).values({
+  const ipHash = entry.ip ? await hashIp(entry.ip, secret) : null;
+  const query = db.insert(schema.auditLog).values({
     actorId: entry.actorId,
     actorRole: entry.actorRole,
     action: entry.action,
     entity: entry.entity,
     entityId: entry.entityId?.slice(0, MAX_VALUE),
     summary,
-    ipHash: entry.ip ? await hashIp(entry.ip, secret) : null
+    ipHash
   });
+  return { query };
 }
 
 /**

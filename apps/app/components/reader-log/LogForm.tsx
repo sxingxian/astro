@@ -6,6 +6,7 @@ import { FormError } from "../AuthShell";
 import { useT } from "../CopyProvider";
 import { CardChooser, type CardPick } from "./CardChooser";
 import { postJson } from "@/lib/client";
+import { go } from "@/lib/go";
 
 type Pick = CardPick | null;
 interface Position { label: string; card: Pick; clarifier: Pick }
@@ -100,7 +101,7 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
     };
     const res = v.id ? await postJson(`/api/reader/log/${v.id}`, body, {}, "PUT") : await postJson("/api/reader/log", body);
     setBusy(false);
-    if (res.ok) return window.location.assign("/desk/log");
+    if (res.ok) return go("/desk/log", { replace: true });
     setError(t(res.status === 400 ? "app.log.invalid" : "app.common.went_wrong"));
   }
 
@@ -108,21 +109,21 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
     setBusy(true);
     const res = await postJson(`/api/reader/log/${v.id}`, {}, {}, "DELETE");
     setBusy(false);
-    if (res.ok) return window.location.assign("/desk/log");
+    if (res.ok) return go("/desk/log", { replace: true });
     setError(t("app.common.went_wrong"));
   }
 
   return (
     <form onSubmit={save} className="flex flex-col gap-[18px]" noValidate>
-      <div className="flex flex-col gap-[18px] lg:grid lg:grid-cols-3 lg:gap-4">
+      <div className="flex flex-col gap-[18px] lg:grid lg:grid-cols-3 lg:items-start lg:gap-4">
       <div className="field">
         <label htmlFor="log-name">{t("app.log.name")}</label>
         <input id="log-name" className="input" value={v.name} maxLength={60} required autoComplete="off" onChange={(e) => set({ name: e.target.value })} aria-describedby="log-name-hint" />
         <span id="log-name-hint" className="text-xs text-muted">{t("app.log.name_hint")}</span>
       </div>
-      <div className="flex gap-3 lg:contents">
-        <div className="field flex-1"><label htmlFor="log-date">{t("app.log.date")}</label><input id="log-date" className="input" type="date" required value={v.readOn} onChange={(e) => set({ readOn: e.target.value })} /></div>
-        <div className="field flex-1">
+      <div className="flex flex-col gap-[18px] min-[420px]:flex-row min-[420px]:gap-3 lg:contents">
+        <div className="field min-w-0 flex-1"><label htmlFor="log-date">{t("app.log.date")}</label><input id="log-date" className="input" type="date" required value={v.readOn} onChange={(e) => set({ readOn: e.target.value })} /></div>
+        <div className="field min-w-0 flex-1">
           <label htmlFor="log-where">{t("app.log.where")}</label>
           <select id="log-where" className="input" value={v.place} onChange={(e) => set({ place: e.target.value as LogFormValue["place"] })}>
             {PLACES.map((p) => <option key={p} value={p}>{t(`app.log.place_${p}`)}</option>)}
@@ -159,14 +160,14 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
       ) : null}
       </div>
 
-      <fieldset className="m-0 flex flex-col gap-2.5 border-0 p-0">
+      <fieldset className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0">
         <legend className="mb-2.5 p-0 text-sm text-haze">{t("app.log.cards")}</legend>
         <div className={`flex flex-col gap-2.5 ${three ? "lg:grid lg:grid-cols-3" : ""}`}>
         {v.positions.map((p, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-gold/15 p-3">
             <label className="flex items-center gap-2 text-xs text-muted">
               {t("app.log.position_name")}
-              <input className="input min-h-9 flex-1 px-2.5 text-sm" value={p.label} maxLength={30} onChange={(e) => set({ positions: v.positions.map((q, j) => (j === i ? { ...q, label: e.target.value } : q)) })} />
+              <input className="input min-h-9 min-w-0 flex-1 px-2.5 text-sm" value={p.label} maxLength={30} onChange={(e) => set({ positions: v.positions.map((q, j) => (j === i ? { ...q, label: e.target.value } : q)) })} />
             </label>
             <div className="flex gap-2">
               {slot({ kind: "card", index: i }, pairs ? t("app.log.slot_major") : t("app.log.slot_card"))}

@@ -1,5 +1,5 @@
 import { allCards, getCard } from "@astro/cards";
-import { sql, type Db } from "@astro/db";
+import { rowsOf, sql, type AnyDb } from "@astro/db";
 import { HttpError } from "@astro/server";
 import { z } from "zod";
 import { readerStatus } from "./readers";
@@ -62,18 +62,19 @@ export interface Entry {
   updatedAt: Date;
 }
 
-type Row = { id: string; read_on: string; place: Entry["place"]; name: string; question: string | null; notes: string | null; consent: boolean; spread: Entry["spread"]; cards: LogCards; created_at: string; updated_at: string };
-const toEntry = (r: Row): Entry => ({ id: r.id, readOn: String(r.read_on).slice(0, 10), place: r.place, name: r.name, question: r.question, notes: r.notes, consent: r.consent, spread: r.spread, cards: r.cards, createdAt: new Date(r.created_at), updatedAt: new Date(r.updated_at) });
+type Row = { id: string; read_on: string; place: Entry["place"]; name: string; question: string | null; notes: string | null; consent: boolean; spread: Entry["spread"]; cards: LogCards | string; created_at: string; updated_at: string };
+// Neon's HTTPS client returns a raw query's jsonb as text; postgres.js returns it parsed.
+const toEntry = (r: Row): Entry => ({ id: r.id, readOn: String(r.read_on).slice(0, 10), place: r.place, name: r.name, question: r.question, notes: r.notes, consent: r.consent, spread: r.spread, cards: typeof r.cards === "string" ? (JSON.parse(r.cards) as LogCards) : r.cards, createdAt: new Date(r.created_at), updatedAt: new Date(r.updated_at) });
 const COLUMNS = sql`id, to_char(read_on, 'YYYY-MM-DD') as read_on, place, name, question, notes, consent, spread, cards, created_at, updated_at`;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Every log function starts here: only someone holding the reader role now may touch their log. */
-async function mustBeReader(db: Db, readerId: string): Promise<void> {
+async function mustBeReader(db: AnyDb, readerId: string): Promise<void> {
   if (!(await readerStatus(db, readerId)).reader) throw new HttpError(403, "not_reader");
 }
 
 /** Newest first, 30 at a time. The cursor is opaque to the page: date, time and id of the last entry shown. */
-export async function listEntries(db: Db, readerId: string, { cursor }: { cursor?: string | null }): Promise<{ items: Entry[]; nextCursor: string | null }> {
+export async function listEntries(db: AnyDb, readerId: string, { cursor }: { cursor?: string | null }): Promise<{ items: Entry[]; nextCursor: string | null }> {
   await mustBeReader(db, readerId);
   let after = sql``;
   if (cursor) {
@@ -81,46 +82,46 @@ export async function listEntries(db: Db, readerId: string, { cursor }: { cursor
     if (!readOn || !/^\d{4}-\d{2}-\d{2}$/.test(readOn) || !createdAt || Number.isNaN(Date.parse(createdAt)) || !id || !UUID.test(id)) throw new HttpError(400, "invalid_input");
     after = sql`and (read_on, created_at, id) < (${readOn}::date, ${createdAt}::timestamptz, ${id}::uuid)`;
   }
-  const rows = await db.execute<Row>(sql`select ${COLUMNS} from reader_log_entry where reader_id = ${readerId} ${after} order by read_on desc, created_at desc, id desc limit ${PageSize + 1}`);
+  const rows = rowsOf<Row>(await db.execute(sql`select ${COLUMNS} from reader_log_entry where reader_id = ${readerId} ${after} order by read_on desc, created_at desc, id desc limit ${PageSize + 1}`));
   const items = rows.slice(0, PageSize).map(toEntry);
   const last = items.at(-1);
   return { items, nextCursor: rows.length > PageSize && last ? Buffer.from(`${last.readOn}|${last.createdAt.toISOString()}|${last.id}`).toString("base64url") : null };
 }
 
 /** One of the reader's own entries. Someone else's entry is "not found", so ids reveal nothing. */
-export async function getEntry(db: Db, readerId: string, id: string): Promise<Entry> {
+export async function getEntry(db: AnyDb, readerId: string, id: string): Promise<Entry> {
   await mustBeReader(db, readerId);
   if (!UUID.test(id)) throw new HttpError(404, "not_found");
-  const [row] = await db.execute<Row>(sql`select ${COLUMNS} from reader_log_entry where id = ${id}::uuid and reader_id = ${readerId}`);
+  const [row] = rowsOf<Row>(await db.execute(sql`select ${COLUMNS} from reader_log_entry where id = ${id}::uuid and reader_id = ${readerId}`));
   if (!row) throw new HttpError(404, "not_found");
   return toEntry(row);
 }
 
 /** Creates an entry, or updates one of the reader's own when `id` is given. Returns its id. */
-export async function saveEntry(db: Db, readerId: string, input: unknown, id?: string): Promise<string> {
+export async function saveEntry(db: AnyDb, readerId: string, input: unknown, id?: string): Promise<string> {
   await mustBeReader(db, readerId);
   const parsed = LogInput.safeParse(input);
   if (!parsed.success) throw new HttpError(400, "invalid_input");
   const v = parsed.data;
   if (id !== undefined) {
     if (!UUID.test(id)) throw new HttpError(404, "not_found");
-    const [row] = await db.execute<{ id: string }>(sql`
+    const [row] = rowsOf<{ id: string }>(await db.execute(sql`
       update reader_log_entry set read_on = ${v.readOn}, place = ${v.place}, name = ${v.name}, question = ${v.question}, notes = ${v.notes},
         consent = ${v.consent}, spread = ${v.spread}, cards = ${JSON.stringify(v.cards)}::jsonb, updated_at = now()
-      where id = ${id}::uuid and reader_id = ${readerId} returning id`);
+      where id = ${id}::uuid and reader_id = ${readerId} returning id`));
     if (!row) throw new HttpError(404, "not_found");
     return row.id;
   }
-  const [row] = await db.execute<{ id: string }>(sql`
+  const [row] = rowsOf<{ id: string }>(await db.execute(sql`
     insert into reader_log_entry (reader_id, read_on, place, name, question, notes, consent, spread, cards)
-    values (${readerId}, ${v.readOn}, ${v.place}, ${v.name}, ${v.question}, ${v.notes}, ${v.consent}, ${v.spread}, ${JSON.stringify(v.cards)}::jsonb) returning id`);
+    values (${readerId}, ${v.readOn}, ${v.place}, ${v.name}, ${v.question}, ${v.notes}, ${v.consent}, ${v.spread}, ${JSON.stringify(v.cards)}::jsonb) returning id`));
   return row!.id;
 }
 
-export async function deleteEntry(db: Db, readerId: string, id: string): Promise<void> {
+export async function deleteEntry(db: AnyDb, readerId: string, id: string): Promise<void> {
   await mustBeReader(db, readerId);
   if (!UUID.test(id)) throw new HttpError(404, "not_found");
-  const rows = await db.execute<{ id: string }>(sql`delete from reader_log_entry where id = ${id}::uuid and reader_id = ${readerId} returning id`);
+  const rows = rowsOf<{ id: string }>(await db.execute(sql`delete from reader_log_entry where id = ${id}::uuid and reader_id = ${readerId} returning id`));
   if (rows.length === 0) throw new HttpError(404, "not_found");
 }
 
@@ -138,9 +139,9 @@ const SPREAD = { one: "One card", three_any: "Three cards", three_pairs: "Major,
 const pick = (c: { id: string; reversed: boolean }) => `${getCard(c.id).name}${c.reversed ? " (reversed)" : ""}`;
 
 /** Every entry of the reader's log as CSV, newest first. */
-export async function exportCsv(db: Db, readerId: string): Promise<string> {
+export async function exportCsv(db: AnyDb, readerId: string): Promise<string> {
   await mustBeReader(db, readerId);
-  const rows = (await db.execute<Row>(sql`select ${COLUMNS} from reader_log_entry where reader_id = ${readerId} order by read_on desc, created_at desc`)).map(toEntry);
+  const rows = rowsOf<Row>(await db.execute(sql`select ${COLUMNS} from reader_log_entry where reader_id = ${readerId} order by read_on desc, created_at desc`)).map(toEntry);
   const lines = [["Date", "Where", "Name", "Question", "Spread", "Cards", "Accompanying cards", "Notes", "Consent"]];
   for (const e of rows) {
     const cards = e.cards.positions.map((p) => `${p.label}: ${pick(p.card)}${p.clarifier ? ` + ${pick(p.clarifier)}` : ""}`).join("; ");

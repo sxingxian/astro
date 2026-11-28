@@ -5,12 +5,25 @@ import { useSession } from "./session";
 
 type State<T> = { data: T; error: null } | { data: null; error: ApiError | null };
 
+const REFRESH = "astro:refresh";
+/**
+ * Reads the open screen's data again in place, keeping what is on screen (a message, a ticked box) meanwhile: what
+ * router.refresh() did in the Next.js app, e.g. after the reader guidelines change mid-accept.
+ */
+export const refreshData = () => window.dispatchEvent(new Event(REFRESH));
+
 /**
  * A screen's data from the data Worker. While a new path loads, what was there stays on screen (a filter change
  * doesn't blank the list). Signed out → sign-in; paused → the maintenance notice.
  */
 export function useData<T>(path: string | null): State<T> {
   const [state, setState] = useState<State<T>>({ data: null, error: null });
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    const again = () => setRound((n) => n + 1);
+    window.addEventListener(REFRESH, again);
+    return () => window.removeEventListener(REFRESH, again);
+  }, []);
   useEffect(() => {
     if (!path) return;
     let live = true;
@@ -27,7 +40,7 @@ export function useData<T>(path: string | null): State<T> {
     return () => {
       live = false;
     };
-  }, [path]);
+  }, [path, round]);
   return state;
 }
 

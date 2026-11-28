@@ -73,7 +73,7 @@ function startNeon(): Promise<{ server: Server; end: () => Promise<void> }> {
 const PASSWORD = "cpu budget correct horse";
 
 /** A signed-in test person with a password; returns their sign-in cookie and email. */
-async function testPerson(): Promise<{ cookie: string; email: string }> {
+async function testPerson({ reader = false } = {}): Promise<{ cookie: string; email: string }> {
   const sql = postgres(url!, { max: 1, onnotice: () => {} });
   const uid = randomUUID();
   const email = `cpu-${uid}@example.com`;
@@ -82,6 +82,10 @@ async function testPerson(): Promise<{ cookie: string; email: string }> {
   await sql`insert into "user" (id, email, name, email_verified, time_zone) values (${uid}, ${email}, '', true, 'Asia/Singapore')`;
   await sql`insert into account (id, account_id, provider_id, user_id, password) values (${randomUUID()}, ${uid}, 'credential', ${uid}, 'bcrypt-sha256$' || crypt(${prehash}, gen_salt('bf', 12)))`;
   await sql`insert into session (id, token, user_id, expires_at, surface) values (${randomUUID()}, ${token}, ${uid}, ${new Date(Date.now() + 3_600_000)}, 'app')`;
+  if (reader) {
+    await sql`insert into reader_role (user_id, granted_by) values (${uid}, ${uid})`;
+    await sql`insert into guideline_acceptance (user_id, version) select ${uid}, coalesce(max(id), 0) from text_version where kind = 'guidelines'`;
+  }
   await sql.end();
   return { cookie: `astro.session_token=${encodeURIComponent(`${token}.${createHmac("sha256", AUTH_SECRET).update(token).digest("base64")}`)}`, email };
 }
@@ -264,6 +268,13 @@ try {
     const first = await call({ path: "/api/me", cookie });
     const withPass = `${cookie}; astro.pass=${/astro\.pass=([^;]*)/.exec(first.headers.get("set-cookie") ?? "")?.[1]}`;
     await check("/api/legal/terms (public)", { path: "/api/legal/terms" }, (r) => r.status === 200, budget);
+    // Reader pages (Stage 2): each checks the role in Neon itself, so these read the database every time.
+    const reader = await testPerson({ reader: true });
+    const entry = { readOn: "2026-11-20", place: "online", name: "Hannah", question: "", notes: "", consent: true, spread: "one", cards: { positions: [{ label: "Card", card: { id: "the-star", reversed: false } }], extras: [] } };
+    await check("/api/desk (reader)", { path: "/api/desk", cookie: reader.cookie }, (r) => r.status === 200, budget);
+    await check("POST /api/reader/log (reader)", { method: "POST", path: "/api/reader/log", cookie: reader.cookie, body: () => entry }, (r) => r.status === 200, budget);
+    await check("/api/reader/log (reader)", { path: "/api/reader/log", cookie: reader.cookie }, (r) => r.status === 200, budget);
+    await check("/api/offer (no offer)", { path: "/api/offer", cookie }, (r) => r.status === 200, budget);
     await check("POST /api/reading/:id/note (with pass)", { method: "POST", path: `/api/reading/${sessionId}/note`, cookie: withPass, body: () => ({ body: `Note ${Math.random()}` }) }, (r) => r.status === 200, budget);
     // Returns today's three-card reading in progress after the first call (start_draw takes the lock each time).
     await check("POST /api/draw/start (today's reading again)", { method: "POST", path: "/api/draw/start", cookie: withPass, body: () => ({ spread: "three" }) }, (r) => r.status === 200, budget * 2);

@@ -53,7 +53,7 @@ test("an offered account accepts the reader role with the current guidelines, ge
   await page.getByRole("link", { name: "Open Desk" }).click();
   await expect(page.getByRole("heading", { name: "Your Desk" })).toBeVisible();
   await expect(page.getByText("Private to you. Astro staff can't see it in the app or portal.")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main menu" }).getByRole("link", { name: "My log" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main menu" }).getByRole("link", { name: "Desk" })).toBeVisible();
   const [logged] = await sql<{ summary: { reader: boolean } }[]>`select summary from audit_log where actor_id = ${u!.id} and action = 'reader.accept'`;
   expect(logged?.summary.reader).toBe(true);
 
