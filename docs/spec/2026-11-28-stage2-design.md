@@ -1,6 +1,6 @@
 # Free-plan Stage 2: the reader pages, the old app retired, and a polish pass
 
-Date: 28 Nov 2026. Status: waiting for the owner's approval.
+Date: 28 Nov 2026. Status: approved 28 Nov 2026.
 Mockups: "Astro — Screen Mockups" canvas, page **Stage 2 polish (28 Nov)** (13 screens, plus the layout, button,
 loading and wording rules and the audit list).
 
@@ -61,7 +61,7 @@ restyled.
   label at the same width, and the form pauses; errors sit in the form next to what to fix. Reduced motion: no
   shimmer or sliding.
 - **Wording.** British spelling, sentence case, one name per thing (`Create a free account`, `Sign in`,
-  `2-step sign-in`, `Desk` with `My log` inside), dates `28 Nov 2026` / `Sat 28 Nov`, 24-hour times, finished
+  `2-step sign-in`, `Desk` with `My log` inside), every date as `01 Jan 2016` (owner, 28 Nov: one format to read; built by `formatDate` in `@astro/copy`, never by the browser, and picked with day, month and year dropdowns), 24-hour times, finished
   sentences, numbers that agree with their nouns.
 
 ## The work, in order (one PR each, merge only on "merge")

@@ -3,6 +3,7 @@
 import { getCard } from "@astro/cards";
 import { useState } from "react";
 import { FormError } from "../AuthShell";
+import { DateField } from "../DateField";
 import { useT } from "../CopyProvider";
 import { CardChooser, type CardPick } from "./CardChooser";
 import { postJson } from "@/lib/client";
@@ -122,7 +123,9 @@ export function LogForm({ initial }: { initial: LogFormValue }) {
         <span id="log-name-hint" className="text-xs text-muted">{t("app.log.name_hint")}</span>
       </div>
       <div className="flex flex-col gap-[18px] min-[420px]:flex-row min-[420px]:gap-3 lg:contents">
-        <div className="field min-w-0 flex-1"><label htmlFor="log-date">{t("app.log.date")}</label><input id="log-date" className="input" type="date" required value={v.readOn} onChange={(e) => set({ readOn: e.target.value })} /></div>
+        <div className="min-w-0 flex-1">
+          <DateField id="log-date" label={t("app.log.date")} value={v.readOn} onChange={(readOn) => set({ readOn })} names={{ day: t("app.log.date_day"), month: t("app.log.date_month"), year: t("app.log.date_year") }} />
+        </div>
         <div className="field min-w-0 flex-1">
           <label htmlFor="log-where">{t("app.log.where")}</label>
           <select id="log-where" className="input" value={v.place} onChange={(e) => set({ place: e.target.value as LogFormValue["place"] })}>

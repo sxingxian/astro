@@ -1,5 +1,6 @@
 import { catalogue, fill, type EmailKey } from "@astro/copy";
 import type { Mail } from "./mail";
+import { formatDate } from "@astro/copy/dates";
 
 /** Email wording lookup. The app passes its published wording; without one, the catalogue defaults are used. */
 export type EmailT = (key: EmailKey, values?: Readonly<Record<string, string>>) => string;
@@ -32,7 +33,7 @@ const ROLE_WORDS: Record<string, EmailKey> = {
   reader: "email.invite.role_reader"
 };
 
-const formatDay = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const formatDay = (d: Date) => formatDate(d); // "01 Jan 2016", the one date format
 
 /** An invitation to join Astro's team. The link opens the app, where the person signs in and sets up 2-step sign-in. */
 export function inviteEmail(to: string, role: string, url: string, expiresAt: Date, t: EmailT = defaultEmailT): Mail {

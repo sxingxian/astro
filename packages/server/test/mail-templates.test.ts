@@ -9,8 +9,8 @@ describe("email templates", () => {
     expect(m.html).toContain("You&#39;re receiving this because of activity on your Astro account.");
     const inv = inviteEmail("a@example.com", "moderator", "https://x.test/i", new Date("2026-12-01T00:00:00Z"));
     expect(inv.text).toContain("You're invited to join Astro as a moderator");
-    expect(inv.text).toContain("This invitation expires on 1 Dec 2026.");
-    expect(aiKeyChangedEmail("o@example.com", { service: "OpenAI", last4: "abcd", by: "b@example.com", at: new Date("2026-12-01T00:00:00Z") }).text).toContain("The key for OpenAI was replaced by b@example.com on 1 Dec 2026. It now ends in abcd.");
+    expect(inv.text).toContain("This invitation expires on 01 Dec 2026.");
+    expect(aiKeyChangedEmail("o@example.com", { service: "OpenAI", last4: "abcd", by: "b@example.com", at: new Date("2026-12-01T00:00:00Z") }).text).toContain("The key for OpenAI was replaced by b@example.com on 01 Dec 2026. It now ends in abcd.");
   });
 
   it("use published wording, filled and escaped", () => {

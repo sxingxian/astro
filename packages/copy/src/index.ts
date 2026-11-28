@@ -33,3 +33,4 @@ export const entriesFor = (surface: Surface): CopyEntry[] => Object.values(catal
 export type { CopyEntry, Surface } from "./types.ts";
 export { fill, placeholdersIn, resolve, validateOverride } from "./validate.ts";
 export { DOC_LIMITS, parseDoc, safeHref, type Block, type Doc, type Inline } from "./doc.ts";
+export { formatDate, MONTHS, weekdayOf } from "./dates.ts";

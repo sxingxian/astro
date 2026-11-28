@@ -3,6 +3,7 @@ import type { JournalFilter, JournalItem } from "@/lib/journal";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";
 import { JournalSwitch } from "../shell/JournalSwitch";
+import { formatDate } from "@astro/copy/dates";
 
 // Ported from apps/app/app/journal/page.tsx (same markup); data from GET /api/journal.
 const FILTERS = [
@@ -40,7 +41,7 @@ export default function JournalPage() {
             <li key={it.id}>
               <a href={`/reading/${it.id}`} className="panel flex items-center gap-3.5 p-3.5 text-moon no-underline">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-xs text-muted">{new Date(`${it.localDay}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })} · {it.spread === "one" ? t("app.journal.one") : t("app.journal.three")}{it.private ? t("app.journal.private_suffix") : ""}</span>
+                  <span className="text-xs text-muted">{formatDate(it.localDay)} · {it.spread === "one" ? t("app.journal.one") : t("app.journal.three")}{it.private ? t("app.journal.private_suffix") : ""}</span>
                   <span className="truncate font-display text-xl leading-tight">{it.cardNames.join(" · ")}</span>
                   {it.note ? <span className="truncate text-xs text-haze">{t("app.journal.note_prefix", { note: it.note })}</span> : null}
                 </div>

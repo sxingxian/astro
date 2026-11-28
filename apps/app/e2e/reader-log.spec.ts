@@ -29,6 +29,11 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
   await page.getByRole("link", { name: "Record a reading" }).click();
 
   await page.getByLabel("Who you read for").fill("Hannah");
+  // The date is three dropdowns, shown as "05 Jan 2026" whatever the browser's language.
+  const year = String(new Date().getFullYear());
+  await page.getByRole("combobox", { name: "Month" }).selectOption({ label: "Jan" });
+  await page.getByRole("combobox", { name: "Day" }).selectOption({ label: "05" });
+  await page.getByRole("combobox", { name: "Year" }).selectOption({ label: year });
   await page.getByLabel("Their question (optional)").fill("Should I go back to school?");
   await page.getByRole("radio", { name: "Three cards" }).click();
   await page.getByRole("radio", { name: /Major, then Minor/ }).click();
@@ -49,6 +54,7 @@ test("a reader records a three-pair reading, edits it, downloads the log and del
 
   await expect(page).toHaveURL(/\/desk\/log$/);
   const row = page.getByRole("row", { name: /Hannah/ }); // desktop: a table, as in mockup D4
+  await expect(row).toContainText(`05 Jan ${year}`);
   await expect(row).toContainText("The Hermit (reversed)");
   await expect(row).toContainText("The Fool + Two of Cups");
 

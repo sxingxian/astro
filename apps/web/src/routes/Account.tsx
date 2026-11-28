@@ -3,6 +3,7 @@ import { ChangePassword, CheckInsToggle, DeleteAccount, GiveUpReader, RevokeSess
 import { TwoStepSetup } from "@/components/account/TwoStepSetup";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle, type T } from "../session";
+import { formatDate } from "@astro/copy/dates";
 
 interface AccountData {
   user: { id: string; sessionId: string; email: string; name: string; timeZone: string; timeZoneChangedAt: string | null; checkInsEnabled: boolean; twoFactorEnabled: boolean };
@@ -55,7 +56,7 @@ export default function AccountPage() {
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {sessions.map((s) => (
             <li key={s.id} className="flex min-h-11 items-center justify-between gap-3">
-              <span>{deviceName(s.userAgent, t)}<span className="block text-sm text-muted">{s.id === user.sessionId ? t("app.account.this_device") : t("app.account.since", { date: new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })}</span></span>
+              <span>{deviceName(s.userAgent, t)}<span className="block text-sm text-muted">{s.id === user.sessionId ? t("app.account.this_device") : t("app.account.since", { date: formatDate(s.createdAt, user.timeZone) })}</span></span>
               {s.id === user.sessionId ? null : <RevokeSession sessionId={s.id} device={deviceName(s.userAgent, t)} />}
             </li>
           ))}

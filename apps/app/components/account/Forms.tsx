@@ -4,7 +4,8 @@ import { useState } from "react";
 import { FormError } from "../AuthShell";
 import { useT } from "../CopyProvider";
 import { useNewPassword } from "../NewPassword";
-import { postJson } from "@/lib/client";
+import { localTimeZone, postJson } from "@/lib/client";
+import { formatDate } from "@astro/copy/dates";
 
 function useAction() {
   const t = useT();
@@ -94,7 +95,7 @@ export function TimeZoneForm({ current, zones }: { current: string; zones: strin
       const timeZone = String(new FormData(e.currentTarget).get("tz"));
       void run(async () => {
         const res = await postJson<{ nextChange?: string }>("/api/account/time-zone", { timeZone });
-        if (res.status === 429) throw new Error(t("app.account.tz_next", { date: new Date(res.data.nextChange ?? "").toLocaleDateString() }));
+        if (res.status === 429) throw new Error(t("app.account.tz_next", { date: formatDate(res.data.nextChange ?? "", localTimeZone()) }));
         if (!res.ok) throw new Error(t("app.account.tz_failed"));
         return t("app.account.saved");
       });

@@ -5,6 +5,7 @@ import { OfferAccept } from "@/components/OfferAccept";
 import { RememberOffer } from "@/components/RememberOffer";
 import { Failed, Loading, useData } from "../data";
 import { useSession, useTitle } from "../session";
+import { formatDate } from "@astro/copy/dates";
 
 type OfferData =
   | { state: "signed_out" }
@@ -60,7 +61,7 @@ export default function OfferPage() {
         portalRole={offer.portalRole}
         title={t(offer.portalRole ? "app.offer.title_staff" : "app.offer.title_reader")}
         text={[t("app.offer.text", { email: data.email, roles: roles.join(` ${t("app.offer.and")} `) }), offer.reader ? t("app.offer.text_reader") : null].filter(Boolean).join(" ")}
-        expires={t("app.offer.expires", { date: new Date(offer.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: data.timeZone || "UTC" }) })}
+        expires={t("app.offer.expires", { date: formatDate(offer.expiresAt, data.timeZone || "UTC") })}
         twoFactorEnabled={data.twoFactor}
         guidelinesVersion={data.guidelinesVersion}
         adminUrl={data.adminUrl}
